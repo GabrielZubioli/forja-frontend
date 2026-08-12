@@ -1,0 +1,44 @@
+{
+  "name": "@forja/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "typecheck": "tsc --noEmit",
+    "doctor": "npx expo-doctor"
+  },
+  "dependencies": {
+    "@forja/domain": "*",
+    "@forja/db": "file:../../../forja-backend/packages/db",
+    "@powersync/react-native": "^2.0.0",
+    "@journeyapps/react-native-quick-sqlite": "*",
+    "@supabase/supabase-js": "^2.110.8",
+    "expo": "~57.0.0",
+    "expo-camera": "*",
+    "expo-constants": "*",
+    "expo-linking": "*",
+    "expo-notifications": "*",
+    "expo-router": "~57.0.0",
+    "expo-secure-store": "*",
+    "expo-status-bar": "*",
+    "nativewind": "^4.2.6",
+    "react": "^19.2.3",
+    "react-native": "0.86.0",
+    "react-native-gesture-handler": "*",
+    "react-native-reanimated": "*",
+    "react-native-safe-area-context": "*",
+    "react-native-screens": "*",
+    "react-native-svg": "*",
+    "react-native-url-polyfill": "*",
+    "tailwindcss": "^3.4.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.0",
+    "typescript": "^5.8.3"
+  },
+  "//": "IMPORTANTE: rode `cd apps/mobile && npx expo install --fix` para fixar as versões exatas alinhadas ao Expo SDK 57 (os '*' acima são resolvidos pelo expo install)."
+}

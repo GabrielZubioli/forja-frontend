@@ -1,0 +1,19 @@
+# Expo / React Native
+.expo/
+dist/
+web-build/
+*.orig.*
+
+# Native
+ios/
+android/
+
+# Metro
+.metro-health-check*
+
+# Env
+.env
+.env.local
+
+# Debug
+npm-debug.*

@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Design tokens do Forja (acento laranja/âmbar).
+ * Tema segue o sistema; o override manual troca a classe `dark` na raiz.
+ * Valores em HSL para casar com `hsl(var(--token))` no tailwind.config.
+ */
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 24 10% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 24 10% 10%;
+    --muted: 30 8% 95%;
+    --muted-foreground: 24 6% 45%;
+    --primary: 24 94% 50%; /* laranja/âmbar */
+    --primary-foreground: 0 0% 100%;
+    --accent: 30 90% 96%;
+    --accent-foreground: 24 60% 30%;
+    --border: 24 10% 90%;
+    --input: 24 10% 90%;
+    --ring: 24 94% 50%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 71% 40%;
+  }
+
+  .dark {
+    --background: 24 10% 7%;
+    --foreground: 30 12% 95%;
+    --card: 24 10% 10%;
+    --card-foreground: 30 12% 95%;
+    --muted: 24 8% 16%;
+    --muted-foreground: 30 8% 62%;
+    --primary: 28 96% 54%;
+    --primary-foreground: 24 20% 8%;
+    --accent: 24 30% 18%;
+    --accent-foreground: 30 90% 85%;
+    --border: 24 8% 20%;
+    --input: 24 8% 22%;
+    --ring: 28 96% 54%;
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 60% 48%;
+  }
+}

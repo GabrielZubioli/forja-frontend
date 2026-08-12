@@ -1,0 +1,40 @@
+{
+  "name": "@forja/frontend",
+  "private": true,
+  "type": "module",
+  "description": "Apps do Forja (web + mobile) e a lógica de negócio pura.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @forja/web",
+    "build": "npm run build --workspace @forja/web",
+    "preview": "npm run preview --workspace @forja/web",
+    "mobile": "npm run start --workspace @forja/mobile",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspace @forja/web",
+    "test:domain": "npm run test --workspace @forja/domain",
+    "test:all": "npm run test:domain && npm run test",
+    "catalog:body-map": "node scripts/build-body-map.mjs",
+    "verify": "npm run typecheck && npm run lint && npm run test:all && npm run build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.32.0",
+    "eslint": "^9.32.0",
+    "eslint-config-prettier": "^10.1.1",
+    "eslint-plugin-prettier": "^5.2.6",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.20",
+    "globals": "^15.15.0",
+    "prettier": "^3.7.3",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.56.1"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

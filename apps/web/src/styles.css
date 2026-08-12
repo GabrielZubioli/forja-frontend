@@ -1,0 +1,611 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * ============================================================================
+ * FORJA — DESIGN SYSTEM
+ * ============================================================================
+ *
+ * Toda a identidade visual do produto está neste arquivo. Nenhum componente
+ * deve escrever uma cor literal: se um valor não existe aqui como token, ele
+ * não deveria estar na tela.
+ *
+ * ## A identidade: Jade
+ *
+ * O verde da marca é um **jade** em `hue 162` — deliberadamente deslocado do
+ * verde-grama de `hue 145` que quase todo app fitness usa (e que fica a poucos
+ * graus do verde do Spotify). O jade puxa para o azul-esverdeado: lê como
+ * saúde e tecnologia, não como "esporte genérico".
+ *
+ * Duas regras foram seguidas sem exceção ao escolher cada valor:
+ *
+ * 1. **Dentro do gamut sRGB.** O croma máximo em oklch varia com a luminância
+ *    e o matiz; passar do limite faz o navegador *clipar* a cor, e o resultado
+ *    é um tom fluorescente chapado que muda de tela para tela. A paleta
+ *    anterior fazia isso (`oklch(0.72 0.24 145)` clipava para `#00c829`) — é a
+ *    causa técnica do aspecto "neon" que queríamos eliminar.
+ *
+ * 2. **Contraste verificado.** Texto sobre superfície ≥ 4.5:1; objetos
+ *    gráficos e bordas de foco ≥ 3:1. Cada valor abaixo traz o número medido.
+ *
+ * ## Escadas de superfície
+ *
+ * A hierarquia não vem de sombra pesada, vem de superfícies empilhadas:
+ *
+ *     background → surface → card → elevated → popover
+ *
+ * No tema escuro cada degrau é mais **claro** que o anterior (é assim que a luz
+ * funciona: o que está mais perto recebe mais luz). No tema claro os degraus são
+ * quase iguais em cor e a elevação é expressa por sombra — invertir isso no
+ * claro produziria cinza sujo, não profundidade.
+ *
+ * ## Como adicionar um token
+ *
+ * 1. Defina o valor em `:root` (claro) **e** em `.dark` (escuro).
+ * 2. Registre em `@theme inline` como `--color-<nome>: var(--<nome>)`.
+ * 3. Só então ele existe como utilitário (`bg-<nome>`, `text-<nome>`).
+ */
+
+@theme inline {
+  /* ——— Raio ——— */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+
+  /* ——— Superfícies ——— */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-elevated: var(--elevated);
+  --color-elevated-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  /* ——— Marca ——— */
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-active: var(--primary-active);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-foreground: var(--primary-soft-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  /* ——— Neutros ——— */
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle-foreground: var(--subtle-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-divider: var(--divider);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+
+  /* ——— Semânticos ———
+     Verde é progresso/conclusão, âmbar é atenção, vermelho é erro, azul é
+     informação. O verde semântico é um token separado do verde da marca de
+     propósito: "concluído" e "ação principal" precisam poder divergir. */
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-soft: var(--warning-soft);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-soft: var(--info-soft);
+
+  /* ——— Gráficos ——— */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* ——— Navegação ——— */
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* ——— Elevação ———
+     Precisa passar por aqui, e não só por `:root`, porque o Tailwind resolve
+     `shadow-md` para um valor fixo em tempo de build: uma variável definida
+     apenas na cascata seria ignorada pelo utilitário. Mapeando no tema, as
+     sombras passam a trocar junto com o modo claro/escuro. */
+  --shadow-xs: var(--elevation-xs);
+  --shadow-sm: var(--elevation-sm);
+  --shadow-md: var(--elevation-md);
+  --shadow-lg: var(--elevation-lg);
+  --shadow-card: var(--elevation-sm);
+  --shadow-soft: var(--elevation-md);
+  --shadow-primary: var(--elevation-primary);
+
+  /* ——— Curvas de movimento ———
+     Declaradas com o valor literal (não como `var(...)`, que seria circular).
+     O Tailwind emite cada uma como variável em `:root` **e** gera o utilitário
+     correspondente — `ease-out-soft` passa a existir ao lado de `ease-out`. */
+  --ease-out-soft: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-spring: cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+/* ==========================================================================
+   TEMA CLARO
+   ========================================================================== */
+
+:root {
+  --radius: 0.75rem;
+
+  /* ——— Escada de superfície ———
+     Os neutros carregam um traço mínimo do matiz da marca (hue 168, croma
+     ≤ 0.009). Cinza puro ao lado de um jade saturado parece sujo; um cinza
+     levemente esverdeado parece intencional. É sutil de propósito: nenhum
+     desses valores deve ser reconhecível como "verde". */
+  --background: oklch(0.982 0.004 168); /* #f6faf8 */
+  --surface: oklch(0.962 0.006 168); /* #eef3f1 — painéis recuados */
+  --card: oklch(1 0 0); /* #ffffff */
+  --elevated: oklch(1 0 0); /* branco + sombra: no claro a elevação é sombra */
+  --popover: oklch(1 0 0);
+
+  --foreground: oklch(0.205 0.016 168); /* 17.8:1 sobre card */
+  --card-foreground: oklch(0.205 0.016 168);
+  --popover-foreground: oklch(0.205 0.016 168);
+
+  /* Três níveis de texto, não dois. `muted-foreground` é o rótulo legível
+     (4.5:1 em qualquer superfície); `subtle-foreground` é o texto de apoio
+     grande — nunca usar em corpo de texto pequeno. */
+  --muted-foreground: oklch(0.536 0.013 168); /* 5.1:1 card · 4.6:1 surface */
+  --subtle-foreground: oklch(0.445 0.014 168); /* 7.5:1 — legendas de destaque */
+
+  --muted: oklch(0.962 0.006 168);
+  --accent: oklch(0.955 0.033 162); /* tinta jade quase branca */
+  --accent-foreground: oklch(0.42 0.09 162);
+
+  --border: oklch(0.898 0.009 168);
+  --divider: oklch(0.932 0.007 168); /* mais leve que border: separa, não delimita */
+  --input: oklch(0.898 0.009 168);
+
+  /* ——— Marca: Jade ———
+     `--primary` é escuro o bastante para carregar texto branco (4.57:1). O
+     jade vivo mora em `--primary-vivid`, usado onde não há texto por cima:
+     ícones, indicadores, traço de gráfico, anel de foco. */
+  --primary: oklch(0.538 0.115 162); /* #0c8259 — branco 4.81:1, fundo 4.58:1 */
+  --primary-foreground: oklch(1 0 0);
+  --primary-hover: oklch(0.502 0.107 162); /* #0b7651 */
+  --primary-active: oklch(0.452 0.097 162); /* #066645 */
+  --primary-vivid: oklch(0.636 0.136 162); /* #12a471 — sem texto por cima */
+  --primary-soft: oklch(0.955 0.033 162); /* #def8e9 — fundo de badge/tinta */
+  --primary-soft-foreground: oklch(0.52 0.111 162); /* 5.2:1 sobre primary-soft */
+  --primary-dark: oklch(0.38 0.082 162);
+  --primary-glow: oklch(0.648 0.138 162);
+
+  --secondary: oklch(0.962 0.006 168);
+  --secondary-foreground: oklch(0.28 0.016 168);
+
+  --ring: oklch(0.636 0.136 162); /* 3.2:1 sobre o fundo — foco visível */
+  /* Halo de seleção. Precisa ser um token próprio porque `box-shadow` não
+     aceita opacidade separada da cor: `var(--primary)/0.2` não é CSS válido. */
+  --primary-ring: oklch(0.636 0.136 162 / 0.22);
+
+  /* ——— Semânticos ———
+     Todos resolvidos para 4.5:1+ com branco por cima (versão sólida) e com
+     uma variante `soft` para fundos de aviso/estado. */
+  --success: oklch(0.522 0.134 152); /* #0b7e40 */
+  --success-foreground: oklch(1 0 0);
+  --success-soft: oklch(0.955 0.038 152);
+  --warning: oklch(
+    0.546 0.114 72
+  ); /* #996409 — âmbar escuro: âmbar claro
+                                       nunca alcança 4.5:1 sobre branco */
+  --warning-foreground: oklch(1 0 0);
+  --warning-soft: oklch(0.965 0.032 82);
+  --destructive: oklch(0.56 0.21 27); /* #d42325 */
+  --destructive-foreground: oklch(1 0 0);
+  --destructive-soft: oklch(0.958 0.02 27);
+  --info: oklch(0.536 0.156 252); /* #0b6ec4 */
+  --info-foreground: oklch(1 0 0);
+  --info-soft: oklch(0.958 0.02 252);
+
+  /* ——— Gráficos ———
+     Série categórica ancorada no jade e espaçada em matiz (162 → 215 → 272 →
+     66 → 340) para permanecer distinguível também em visão de cores atípica,
+     onde a diferença de luminância e de matiz importa mais que a de croma.
+     Antes eram as cores padrão do shadcn (laranja/azul/roxo), sem nenhuma
+     relação com a identidade. */
+  --chart-1: oklch(0.6 0.128 162); /* jade — sempre a série principal */
+  --chart-2: oklch(0.6 0.105 215); /* ciano */
+  --chart-3: oklch(0.6 0.155 272); /* índigo */
+  --chart-4: oklch(0.62 0.135 66); /* âmbar */
+  --chart-5: oklch(0.62 0.165 340); /* magenta */
+
+  /* ——— Navegação ——— */
+  --sidebar: oklch(0.972 0.005 168);
+  --sidebar-foreground: oklch(0.33 0.014 168);
+  --sidebar-primary: oklch(0.538 0.115 162);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.94 0.028 162);
+  --sidebar-accent-foreground: oklch(0.42 0.09 162);
+  --sidebar-border: oklch(0.905 0.008 168);
+  --sidebar-ring: oklch(0.636 0.136 162);
+
+  /* ——— Sombras ———
+     Duas camadas cada: um contato curto e opaco (a borda do objeto no plano)
+     e uma difusa e larga (a distância até o plano). Uma sombra só, larga, lê
+     como borrão; as duas juntas leem como altura. */
+  --elevation-xs: 0 1px 2px oklch(0.205 0.016 168 / 0.05);
+  --elevation-sm:
+    0 1px 2px oklch(0.205 0.016 168 / 0.06), 0 2px 6px -2px oklch(0.205 0.016 168 / 0.06);
+  --elevation-md:
+    0 1px 3px oklch(0.205 0.016 168 / 0.07), 0 8px 20px -6px oklch(0.205 0.016 168 / 0.1);
+  --elevation-lg:
+    0 2px 6px oklch(0.205 0.016 168 / 0.08), 0 18px 40px -12px oklch(0.205 0.016 168 / 0.14);
+  --elevation-primary: 0 6px 20px -8px oklch(0.538 0.115 162 / 0.45);
+
+  --gradient-primary: linear-gradient(135deg, var(--primary-vivid), var(--primary));
+
+  /*
+   * Mapa muscular. Dois tons próximos, não um só.
+   *
+   * `--body-fill` é a silhueta (cabeça, mãos, pés); `--body-relief`, os
+   * músculos não destacados. A pequena diferença entre eles é o que faz o
+   * boneco parecer um corpo com musculatura em vez de uma sombra chapada — e
+   * precisa ser token, porque a relação se inverte entre os temas: no claro o
+   * relevo é mais **escuro** que a silhueta; no escuro, mais claro.
+   */
+  --body-fill: oklch(0.9 0.012 168);
+  --body-relief: oklch(0.83 0.016 168);
+
+  /* ——— Movimento ———
+     Uma escala curta e opinativa. `fast` é confirmação de toque, `base` é a
+     maioria das transições de estado, `slow` é entrada de camada (modal,
+     folha). Nada acima de 320 ms: passa disso e a interface parece lenta.
+     `ease-out-soft` desacelera forte no fim — é o que faz um movimento
+     parecer que "assenta" em vez de parar. `ease-spring` ultrapassa poucos
+     por cento, reservado para confirmações (marcar série, concluir refeição). */
+  --duration-instant: 90ms;
+  --duration-fast: 130ms;
+  --duration-base: 190ms;
+  --duration-slow: 280ms;
+
+  /* Varredura dos skeletons. A intensidade tem de inverter entre os temas: um
+     brilho branco sobre cinza-claro é invisível se usar a mesma opacidade que
+     funciona sobre o fundo escuro. */
+  --shimmer-highlight: oklch(1 0 0 / 0.75);
+}
+
+/* ==========================================================================
+   TEMA ESCURO
+   ==========================================================================
+
+   Não é o tema claro invertido. Três diferenças deliberadas:
+
+   - O fundo **não é preto**. `oklch(0.152 …)` é um quase-preto esverdeado;
+     preto absoluto sob OLED cria halo em volta do texto claro e faz cada
+     borda virar um corte.
+   - O texto **não é branco puro**. `oklch(0.965)` sobre `oklch(0.218)` dá
+     15.7:1 — muito acima do exigido, e sem o brilho agressivo do branco.
+   - O jade **ganha luminância** (0.78 contra 0.55) porque cor saturada escura
+     desaparece sobre fundo escuro. Mesmo matiz, mesma identidade.
+   ========================================================================== */
+
+.dark {
+  --background: oklch(0.152 0.012 168); /* #070d0b */
+  --surface: oklch(0.192 0.014 168); /* #0e1613 */
+  --card: oklch(0.218 0.015 168); /* #131c19 */
+  --elevated: oklch(0.258 0.016 168); /* #1c2622 — mais claro = mais perto */
+  --popover: oklch(0.258 0.016 168);
+
+  --foreground: oklch(0.965 0.006 168); /* 15.7:1 sobre card */
+  --card-foreground: oklch(0.965 0.006 168);
+  --popover-foreground: oklch(0.965 0.006 168);
+  --muted-foreground: oklch(0.66 0.014 168); /* 5.6:1 card · 5.0:1 elevated */
+  --subtle-foreground: oklch(0.782 0.014 168); /* 8.8:1 */
+
+  --muted: oklch(0.235 0.015 168);
+  --accent: oklch(0.305 0.058 162);
+  --accent-foreground: oklch(0.93 0.05 162);
+
+  --border: oklch(0.315 0.017 168);
+  --divider: oklch(0.275 0.015 168);
+  --input: oklch(0.325 0.018 168);
+
+  /* Jade claro. O texto por cima é o quase-preto da marca, não branco:
+     10:1 contra 1.6:1 — a diferença entre legível e decorativo. */
+  --primary: oklch(0.78 0.155 162); /* #3ad598 */
+  --primary-foreground: oklch(0.18 0.035 162); /* 9.95:1 */
+  --primary-hover: oklch(0.835 0.14 162);
+  --primary-active: oklch(0.715 0.15 162);
+  --primary-vivid: oklch(0.78 0.155 162);
+  --primary-soft: oklch(0.305 0.058 162); /* 7.0:1 com o jade por cima */
+  --primary-soft-foreground: oklch(0.85 0.13 162);
+  --primary-dark: oklch(0.44 0.094 162);
+  --primary-glow: oklch(0.86 0.13 162);
+
+  --secondary: oklch(0.258 0.016 168);
+  --secondary-foreground: oklch(0.94 0.008 168);
+
+  --ring: oklch(0.78 0.155 162); /* 10.4:1 sobre o fundo */
+  --primary-ring: oklch(0.78 0.155 162 / 0.26);
+
+  --success: oklch(0.775 0.15 152); /* 9.0:1 */
+  --success-foreground: oklch(0.18 0.035 152);
+  --success-soft: oklch(0.3 0.055 152);
+  --warning: oklch(0.8 0.16 72); /* 9.0:1 */
+  --warning-foreground: oklch(0.2 0.04 72);
+  --warning-soft: oklch(0.32 0.055 72);
+  --destructive: oklch(0.705 0.17 27); /* 6.1:1 */
+  --destructive-foreground: oklch(0.16 0.03 27);
+  --destructive-soft: oklch(0.3 0.07 27);
+  --info: oklch(0.735 0.13 252); /* 7.4:1 */
+  --info-foreground: oklch(0.16 0.03 252);
+  --info-soft: oklch(0.3 0.06 252);
+
+  --chart-1: oklch(0.78 0.155 162);
+  --chart-2: oklch(0.745 0.105 215);
+  --chart-3: oklch(0.705 0.14 272);
+  --chart-4: oklch(0.8 0.146 66);
+  --chart-5: oklch(0.745 0.155 340);
+
+  --sidebar: oklch(0.178 0.013 168);
+  --sidebar-foreground: oklch(0.86 0.01 168);
+  --sidebar-primary: oklch(0.78 0.155 162);
+  --sidebar-primary-foreground: oklch(0.18 0.035 162);
+  --sidebar-accent: oklch(0.288 0.05 162);
+  --sidebar-accent-foreground: oklch(0.93 0.05 162);
+  --sidebar-border: oklch(0.29 0.016 168);
+  --sidebar-ring: oklch(0.78 0.155 162);
+
+  /* No escuro a sombra sozinha não separa nada — não há luz para bloquear.
+     A separação vem da escada de superfícies; a sombra só ancora a camada. */
+  --elevation-xs: 0 1px 2px oklch(0 0 0 / 0.3);
+  --elevation-sm: 0 1px 2px oklch(0 0 0 / 0.4), 0 2px 6px -2px oklch(0 0 0 / 0.35);
+  --elevation-md: 0 1px 3px oklch(0 0 0 / 0.45), 0 8px 20px -6px oklch(0 0 0 / 0.5);
+  --elevation-lg: 0 2px 6px oklch(0 0 0 / 0.5), 0 18px 40px -12px oklch(0 0 0 / 0.6);
+  --elevation-primary: 0 6px 22px -8px oklch(0.78 0.155 162 / 0.4);
+
+  /* No escuro a relação se inverte: o relevo é mais claro que a silhueta. */
+  --body-fill: oklch(0.26 0.016 168);
+  --body-relief: oklch(0.33 0.018 168);
+
+  --shimmer-highlight: oklch(1 0 0 / 0.05);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    /* Evita o "pulo" horizontal quando uma tela com rolagem dá lugar a outra
+       sem — visível a cada troca de aba no desktop. */
+    scrollbar-gutter: stable;
+    /* Sem isso o texto fica com o peso levemente inflado no macOS, e o mesmo
+       `font-medium` parece bold ali e regular no Windows. */
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /*
+   * Anel de foco visível em qualquer fundo.
+   *
+   * O anel padrão do navegador desaparece sobre superfícies escuras, e o tema
+   * escuro do app é o mais usado. O deslocamento (`offset`) separa o anel da
+   * borda do elemento, o que o mantém legível mesmo em botões preenchidos.
+   *
+   * Fica só neste lugar: os componentes usam `focus-visible:outline-none` e
+   * anéis próprios em vários pontos, o que produzia dois sistemas de foco
+   * concorrentes. Um só, aqui, aplicado a tudo.
+   */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Números em colunas: sem isso, um contador mudando de 9 para 10 desloca
+     tudo em volta. Aplicado onde o valor muda com frequência. */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /*
+   * Troca de tema sem corte seco.
+   *
+   * A classe é adicionada pelo `ThemeProvider` só durante a troca e removida
+   * logo depois. Aplicar a transição permanentemente faria cada navegação
+   * arrastar a cor de fundo — o efeito precisa existir no momento da troca e
+   * em nenhum outro.
+   *
+   * `!important` porque precisa vencer as transições próprias dos
+   * componentes; `background-image` está na lista por causa dos gradientes.
+   */
+  .theme-transition,
+  .theme-transition *,
+  .theme-transition *::before,
+  .theme-transition *::after {
+    transition:
+      background-color var(--duration-slow) var(--ease-out-soft),
+      background-image var(--duration-slow) var(--ease-out-soft),
+      border-color var(--duration-slow) var(--ease-out-soft),
+      color var(--duration-slow) var(--ease-out-soft),
+      fill var(--duration-slow) var(--ease-out-soft),
+      stroke var(--duration-slow) var(--ease-out-soft),
+      box-shadow var(--duration-slow) var(--ease-out-soft) !important;
+    transition-delay: 0s !important;
+  }
+
+  /*
+   * Respeita quem pediu menos movimento no sistema.
+   *
+   * Não é preferência estética: para parte das pessoas, animação de entrada e
+   * transição de opacidade provocam enjoo e desconforto real. A regra global
+   * cobre também as animações de bibliotecas, que não passariam por nenhuma
+   * verificação nossa.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Imagens nunca estouram o container — a fonte das demonstrações é externa
+     e não garante proporção. */
+  img,
+  svg,
+  video {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+@layer components {
+  /*
+   * Superfície de cartão — o gesto visual mais repetido do app.
+   *
+   * Existe como classe, e não só como conjunto de utilitários, porque estava
+   * sendo reescrito com pequenas variações em cada tela: ora `bg-card`, ora
+   * `bg-card shadow-sm`, ora com borda, ora sem. Um nome só elimina a deriva.
+   */
+  .surface-card {
+    background-color: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .surface-elevated {
+    background-color: var(--elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+  }
+
+  /*
+   * Resposta ao toque.
+   *
+   * O elemento afunda 1% ao ser pressionado e volta com desaceleração. É a
+   * microinteração mais barata que existe e a que mais muda a percepção de
+   * qualidade: sem ela, um toque em tela sensível fica sem resposta nenhuma
+   * até a próxima renderização, e o app parece travado mesmo quando não está.
+   *
+   * `will-change` não entra aqui de propósito: promover centenas de botões a
+   * camadas próprias custa mais memória do que economiza em pintura.
+   */
+  .press-feedback {
+    transition:
+      transform var(--duration-fast) var(--ease-out-soft),
+      background-color var(--duration-fast) var(--ease-out-soft),
+      border-color var(--duration-fast) var(--ease-out-soft),
+      box-shadow var(--duration-fast) var(--ease-out-soft),
+      opacity var(--duration-fast) var(--ease-out-soft);
+  }
+
+  .press-feedback:active:not(:disabled):not([aria-disabled="true"]) {
+    transform: scale(0.97);
+  }
+
+  /* Alvo de toque mínimo de 44px sem inflar o desenho do botão: a área
+     sensível cresce por pseudo-elemento, o retângulo visível fica igual. */
+  .touch-target {
+    position: relative;
+  }
+
+  .touch-target::after {
+    content: "";
+    position: absolute;
+    inset: 50% 50%;
+    width: 100%;
+    height: 100%;
+    min-width: 44px;
+    min-height: 44px;
+    transform: translate(-50%, -50%);
+  }
+}
+
+@layer utilities {
+  /* Entrada de conteúdo já carregado. Curta e com deslocamento pequeno: o
+     objetivo é indicar que algo chegou, não encenar uma abertura. */
+  @keyframes forja-rise {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .animate-rise {
+    animation: forja-rise var(--duration-base) var(--ease-out-soft) both;
+  }
+
+  /* Confirmação de uma ação concluída (série marcada, refeição registrada).
+     Ultrapassa e volta — o exagero mínimo é o que o olho lê como "deu certo". */
+  @keyframes forja-pop {
+    0% {
+      transform: scale(0.85);
+      opacity: 0;
+    }
+    60% {
+      transform: scale(1.04);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  .animate-pop {
+    animation: forja-pop var(--duration-slow) var(--ease-spring) both;
+  }
+
+  /* Brilho de carregamento dos skeletons. Varredura lenta e de baixa
+     amplitude: um pulso forte chama mais atenção que o conteúdo real. */
+  @keyframes forja-shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  .shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background-image: linear-gradient(90deg, transparent, var(--shimmer-highlight), transparent);
+    animation: forja-shimmer 1.8s infinite;
+  }
+}

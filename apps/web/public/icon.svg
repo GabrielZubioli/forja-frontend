@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Forja">
+  <defs>
+    <!--
+      Jade da marca. Valores literais porque um ícone de PWA é lido pelo
+      sistema operacional, fora de qualquer folha de estilo: aqui nenhuma
+      variável CSS existe. Correspondem aos tokens "primary-vivid" e "primary"
+      do tema claro em src/styles.css; se a paleta mudar, este arquivo muda
+      junto. (Sem hífen duplo no texto: comentário XML não aceita.)
+    -->
+    <linearGradient id="forjaGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#12a471" />
+      <stop offset="100%" stop-color="#0c8259" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#forjaGradient)" />
+  <g
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="30"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    transform="translate(256 256) rotate(-45) translate(-256 -256)"
+  >
+    <!-- Halter: anilhas externas, internas e a barra. -->
+    <path d="M118 196v120" />
+    <path d="M394 196v120" />
+    <path d="M170 166v180" />
+    <path d="M342 166v180" />
+    <path d="M170 256h172" />
+  </g>
+</svg>

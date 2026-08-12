@@ -1,0 +1,11 @@
+# A área logada não deve ser rastreada: exige sessão e não tem conteúdo público.
+User-agent: *
+Allow: /$
+Allow: /auth
+Disallow: /dashboard
+Disallow: /workouts
+Disallow: /diet
+Disallow: /recipes
+Disallow: /body
+Disallow: /profile
+Disallow: /exercises
