@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Typecheck, lint, testes e build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          # `@forja/db` vem do GitHub Packages; o resto, do registry público.
+          registry-url: https://npm.pkg.github.com
+          scope: "@forja"
+
+      - name: Instalar dependências
+        run: npm ci
+        env:
+          # O GITHUB_TOKEN desta execução não enxerga pacotes de outro
+          # repositório. Use um PAT com `read:packages` no secret abaixo e dê a
+          # ele acesso ao pacote em Settings → Packages → @forja/db.
+          NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN }}
+
+      # Domínio, web e mobile.
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Testes do domínio
+        run: npm run test:domain
+
+      - name: Testes do app web
+        run: npm run test
+
+      - name: Build do web
+        run: npm run build
+        env:
+          # Chaves publishable são seguras no cliente — quem protege os dados é
+          # o RLS. O build só precisa delas para passar na validação de ambiente.
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+
+      # O build regenera o routeTree; se o arquivo commitado estiver velho, o
+      # diff aparece aqui em vez de virar uma rota fantasma em produção.
+      - name: Verificar routeTree gerado
+        run: |
+          if ! git diff --quiet -- apps/web/src/routeTree.gen.ts; then
+            echo "::error::apps/web/src/routeTree.gen.ts está desatualizado. Rode 'npm run build' e commite."
+            git diff -- apps/web/src/routeTree.gen.ts
+            exit 1
+          fi
+
+      - name: Formatação
+        run: npm run format:check

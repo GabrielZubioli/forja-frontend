@@ -63,10 +63,32 @@ Importe de `@forja/db/types`, não de `@forja/db`: o barrel também exporta o
 `AppSchema` do PowerSync, que traria `@powersync/common` para o bundle web sem
 necessidade.
 
-> **Enquanto o registry não está de pé** (Fase 3), a dependência aponta para
-> `file:../../../forja-backend/packages/db` — ou seja, assume `forja-backend`
-> clonado ao lado deste repo e com `npm run db:build` já rodado. Isso vira
-> `"@forja/db": "^x.y.z"` quando a publicação estiver configurada.
+### Autenticação no registry
+
+`@forja/db` é privado, no GitHub Packages. Antes do primeiro `npm install`:
+
+```bash
+npm config set //npm.pkg.github.com/:_authToken <PAT com read:packages>
+```
+
+O `.npmrc` versionado mapeia o escopo mas **não** contém a linha do token — com
+`${NODE_AUTH_TOKEN}` lá dentro, o npm aborta em qualquer máquina onde a variável
+não exista, mesmo num install que nem consulta o registry.
+
+### Mexendo no contrato e no app ao mesmo tempo
+
+Esperar publicar uma versão a cada tentativa é insuportável. Para trabalhar nos
+dois repos de uma vez, use um link local e desfaça no fim:
+
+```bash
+cd ../forja-backend/packages/db && npm run build && npm link
+cd ../../../forja-frontend && npm link @forja/db
+# ao terminar:
+npm unlink @forja/db && npm install
+```
+
+O link é local e não aparece no `package.json` — o que entra no commit continua
+sendo a versão publicada.
 
 ## Variáveis de ambiente
 

@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@forja/domain": "*",
-    "@forja/db": "file:../../../forja-backend/packages/db",
+    "@forja/db": "^0.1.0",
     "@powersync/react-native": "^2.0.0",
     "@journeyapps/react-native-quick-sqlite": "*",
     "@supabase/supabase-js": "^2.110.8",
