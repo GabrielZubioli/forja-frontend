@@ -11,7 +11,7 @@ apps/mobile/       @forja/mobile — app Expo / React Native
 
 O schema do banco, as migrations, o RLS e as Edge Functions vivem no repositório
 **[forja-backend](../forja-backend)**. A única coisa que atravessa a fronteira é
-o contrato de dados, consumido como o pacote `@forja/db`.
+o contrato de dados, consumido como o pacote `@gabrielzubioli/db`.
 
 ## Setup
 
@@ -46,26 +46,26 @@ números que este pacote produziu; ela não os inventa.
 
 Toda regra aqui tem teste (`npm run test:domain`, 206 hoje).
 
-## O contrato: `@forja/db`
+## O contrato: `@gabrielzubioli/db`
 
 Os tipos do Postgres vêm de fora, gerados no backend a partir do schema real.
 
 ```
-apps/web/src/integrations/supabase/types.ts   ← shim, reexporta de @forja/db/types
-apps/mobile                                    ← importa @forja/db direto
+apps/web/src/integrations/supabase/types.ts   ← shim, reexporta de @gabrielzubioli/db/types
+apps/mobile                                    ← importa @gabrielzubioli/db direto
 ```
 
 O shim existe porque `client.ts`, `client.server.ts` e `auth-middleware.ts` são
 **gerados** e importam `./types`. Editá-los seria desfeito na próxima
 regeneração; o shim sobrevive.
 
-Importe de `@forja/db/types`, não de `@forja/db`: o barrel também exporta o
+Importe de `@gabrielzubioli/db/types`, não de `@gabrielzubioli/db`: o barrel também exporta o
 `AppSchema` do PowerSync, que traria `@powersync/common` para o bundle web sem
 necessidade.
 
 ### Autenticação no registry
 
-`@forja/db` é privado, no GitHub Packages. Antes do primeiro `npm install`:
+`@gabrielzubioli/db` é privado, no GitHub Packages. Antes do primeiro `npm install`:
 
 ```bash
 npm config set //npm.pkg.github.com/:_authToken <PAT com read:packages>
@@ -82,9 +82,9 @@ dois repos de uma vez, use um link local e desfaça no fim:
 
 ```bash
 cd ../forja-backend/packages/db && npm run build && npm link
-cd ../../../forja-frontend && npm link @forja/db
+cd ../../../forja-frontend && npm link @gabrielzubioli/db
 # ao terminar:
-npm unlink @forja/db && npm install
+npm unlink @gabrielzubioli/db && npm install
 ```
 
 O link é local e não aparece no `package.json` — o que entra no commit continua

@@ -23,16 +23,16 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          # `@forja/db` vem do GitHub Packages; o resto, do registry público.
+          # `@gabrielzubioli/db` vem do GitHub Packages; o resto, do registry público.
           registry-url: https://npm.pkg.github.com
-          scope: "@forja"
+          scope: "@gabrielzubioli"
 
       - name: Instalar dependências
         run: npm ci
         env:
           # O GITHUB_TOKEN desta execução não enxerga pacotes de outro
           # repositório. Use um PAT com `read:packages` no secret abaixo e dê a
-          # ele acesso ao pacote em Settings → Packages → @forja/db.
+          # ele acesso ao pacote em Settings → Packages → @gabrielzubioli/db.
           NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN }}
 
       # Domínio, web e mobile.

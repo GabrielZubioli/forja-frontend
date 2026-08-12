@@ -2,7 +2,7 @@
  * Ponte para o contrato de dados. **Não é mais um arquivo gerado.**
  *
  * Antes este arquivo era a saída de `supabase gen types` (1823 linhas) copiada
- * para dentro do app. Agora os tipos moram em `@forja/db`, gerados e versionados
+ * para dentro do app. Agora os tipos moram em `@gabrielzubioli/db`, gerados e versionados
  * no repositório do backend — que é onde o schema existe de verdade. Duas cópias
  * do mesmo contrato divergem em silêncio: o backend aplica uma migration, o app
  * continua compilando contra a forma antiga e o erro só aparece em runtime.
@@ -13,12 +13,12 @@
  * `./types`. Reescrevê-los seria desfeito na próxima regeneração; este shim
  * sobrevive a ela.
  *
- * Importa de `@forja/db/types` e não de `@forja/db` de propósito: o barrel
+ * Importa de `@gabrielzubioli/db/types` e não de `@gabrielzubioli/db` de propósito: o barrel
  * reexporta também o `AppSchema` do PowerSync, que arrastaria
  * `@powersync/common` para o bundle do web sem que o web use PowerSync.
  *
  * Para atualizar os tipos: regenere no backend (`npm run db:types`), publique a
- * nova versão do `@forja/db` e suba a dependência aqui. Não edite este arquivo.
+ * nova versão do `@gabrielzubioli/db` e suba a dependência aqui. Não edite este arquivo.
  */
 
 export type {
@@ -29,6 +29,6 @@ export type {
   TablesUpdate,
   Enums,
   CompositeTypes,
-} from "@forja/db/types";
+} from "@gabrielzubioli/db/types";
 
-export { Constants } from "@forja/db/types";
+export { Constants } from "@gabrielzubioli/db/types";
