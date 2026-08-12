@@ -24,38 +24,119 @@ export class CoachUnavailableError extends Error {
 }
 
 /**
- * Envia a conversa e devolve a resposta.
+ * Envia a conversa e devolve a resposta, entregando o texto conforme chega.
  *
  * O histórico vai inteiro a cada chamada — a API é sem estado. A função corta
  * as mensagens mais antigas do lado do servidor, onde o limite pertence.
+ *
+ * `supabase.functions.invoke` não serve aqui: ele lê o corpo inteiro antes de
+ * devolver, o que anula o streaming da Edge Function. Daí o `fetch` direto,
+ * montando à mão o que o `invoke` faria — a URL da função e o JWT do usuário.
+ *
+ * `onDelta` é opcional. Sem ele o comportamento é o de antes: a promise resolve
+ * com a resposta completa.
  */
-export async function sendToCoach(messages: readonly ChatMessage[]): Promise<string> {
-  const { data, error } = await supabase.functions.invoke<{
-    content?: string;
-    error?: string;
-    message?: string;
-  }>("coach", {
-    body: { messages: messages.map((m) => ({ role: m.role, content: m.content })) },
-  });
+export async function sendToCoach(
+  messages: readonly ChatMessage[],
+  onDelta?: (trecho: string) => void,
+): Promise<string> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData.session?.access_token;
+  if (!token) throw new Error("Sessão expirada. Entre novamente.");
 
-  if (error) {
-    // 503 é o caso "chave não configurada": tem tratamento próprio na UI,
-    // porque não é uma falha — é uma funcionalidade não instalada.
-    const status = (error as { context?: { status?: number } }).context?.status;
-    if (status === 503) {
-      throw new CoachUnavailableError(
-        "O treinador com IA ainda não foi configurado neste projeto.",
-      );
+  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/coach`;
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      }),
+    });
+  } catch {
+    throw new Error("Não foi possível falar com o treinador.");
+  }
+
+  // 503 é o caso "chave não configurada": tem tratamento próprio na UI, porque
+  // não é uma falha — é uma funcionalidade não instalada.
+  if (res.status === 503) {
+    const corpo = (await res.json().catch(() => null)) as { message?: string } | null;
+    throw new CoachUnavailableError(
+      corpo?.message ?? "O treinador com IA ainda não foi configurado neste projeto.",
+    );
+  }
+
+  if (!res.ok || !res.body) {
+    const corpo = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(corpo?.error ?? "Não foi possível falar com o treinador.");
+  }
+
+  return await lerSse(res.body, onDelta);
+}
+
+/**
+ * Lê o SSE da Anthropic repassado pela Edge Function e concatena o texto.
+ *
+ * Só `content_block_delta` de tipo `text_delta` interessa. Os outros eventos
+ * (início e fim de bloco, uso de tokens, blocos de raciocínio) são ignorados de
+ * propósito: o chat mostra a resposta, não o processo.
+ */
+async function lerSse(
+  body: ReadableStream<Uint8Array>,
+  onDelta?: (trecho: string) => void,
+): Promise<string> {
+  // `TextDecoder` com `stream: true` em vez de `pipeThrough(TextDecoderStream)`:
+  // além de evitar um incompatibilidade de tipos entre os ReadableStream do lib
+  // DOM, ele guarda sozinho um caractere multibyte partido entre dois chunks —
+  // um "ã" cortado no meio viraria lixo se cada chunk fosse decodificado à parte.
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let texto = "";
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      // Um chunk da rede não respeita a fronteira das linhas: a última pode
+      // estar pela metade, então ela volta para o buffer em vez de ser parseada.
+      const linhas = buffer.split("\n");
+      buffer = linhas.pop() ?? "";
+
+      for (const linha of linhas) {
+        if (!linha.startsWith("data:")) continue;
+        const payload = linha.slice(5).trim();
+        if (!payload || payload === "[DONE]") continue;
+
+        try {
+          const evento = JSON.parse(payload) as {
+            type?: string;
+            delta?: { type?: string; text?: string };
+          };
+          if (evento.type === "content_block_delta" && evento.delta?.type === "text_delta") {
+            const trecho = evento.delta.text ?? "";
+            texto += trecho;
+            onDelta?.(trecho);
+          }
+        } catch {
+          // Linha truncada ou evento desconhecido: ignorar é melhor que
+          // derrubar uma resposta que está chegando bem.
+        }
+      }
     }
-    throw new Error(error.message || "Não foi possível falar com o treinador.");
+  } finally {
+    reader.releaseLock();
   }
 
-  if (data?.error === "unavailable") {
-    throw new CoachUnavailableError(data.message ?? "Treinador indisponível.");
-  }
-  if (!data?.content) throw new Error(data?.error ?? "Resposta vazia do treinador.");
-
-  return data.content;
+  if (!texto) throw new Error("Resposta vazia do treinador.");
+  return texto;
 }
 
 // ------------------------------------------------------------ persistência

@@ -65,6 +65,14 @@ function CoachPage() {
   const fimDaLista = useRef<HTMLDivElement>(null);
 
   /**
+   * Id da pergunta do turno em andamento.
+   *
+   * Guardado num ref, não no state: só o `onError` o lê, e mudá-lo não deve
+   * causar renderização.
+   */
+  const perguntaPendente = useRef<string | null>(null);
+
+  /**
    * Rola até a última mensagem.
    *
    * Antes isto chamava `scrollTo` no contêiner da lista — que **nunca rolava**,
@@ -91,8 +99,31 @@ function CoachPage() {
       // exibir o que o próprio usuário escreveu é latência sem motivo.
       const historico = [...messages, pergunta];
       setMessages(historico);
+      perguntaPendente.current = pergunta.id;
 
-      const resposta = await sendToCoach(historico);
+      // A bolha da resposta entra vazia e cresce conforme o texto chega. Sem
+      // isto o streaming da Edge Function não mudaria nada para o usuário: a
+      // tela ficaria parada até a última palavra, exatamente como antes.
+      const respostaId = crypto.randomUUID();
+      let primeiroTrecho = true;
+
+      const resposta = await sendToCoach(historico, (trecho) => {
+        setMessages((prev) => {
+          if (primeiroTrecho) {
+            primeiroTrecho = false;
+            return [
+              ...prev,
+              {
+                id: respostaId,
+                role: "assistant",
+                content: trecho,
+                createdAt: new Date().toISOString(),
+              },
+            ];
+          }
+          return prev.map((m) => (m.id === respostaId ? { ...m, content: m.content + trecho } : m));
+        });
+      });
 
       // A persistência acontece depois da resposta, e não é crítica: uma falha
       // ao gravar não pode apagar da tela uma conversa que já aconteceu.
@@ -107,27 +138,25 @@ function CoachPage() {
 
       return resposta;
     },
-    onSuccess: (resposta) => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: resposta,
-          createdAt: new Date().toISOString(),
-        },
-      ]);
-    },
+    // Sem `onSuccess`: a resposta já entrou na lista trecho a trecho enquanto
+    // chegava. Acrescentá-la de novo aqui a duplicaria na tela.
     onError: (error) => {
+      // Descarta a pergunta sem resposta e o pedaço de resposta que chegou
+      // antes do erro. Cortar só o último item não basta: se o stream falhou no
+      // meio, o último item é a resposta parcial e a pergunta ficaria pendurada
+      // como se ainda estivesse sendo respondida.
+      const descartar = (prev: ChatMessage[]) => {
+        const corte = prev.findIndex((m) => m.id === perguntaPendente.current);
+        return corte === -1 ? prev : prev.slice(0, corte);
+      };
+
       if (error instanceof CoachUnavailableError) {
         setUnavailable(error.message);
-        // Remove a pergunta que não vai ser respondida: deixá-la pendurada
-        // sugeriria que a resposta ainda está a caminho.
-        setMessages((prev) => prev.slice(0, -1));
+        setMessages(descartar);
         return;
       }
       toast.error(error.message);
-      setMessages((prev) => prev.slice(0, -1));
+      setMessages(descartar);
     },
   });
 
