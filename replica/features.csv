@@ -1,0 +1,48 @@
+feature,area,priority,original,clone,notes
+Login com Google e e-mail,onboarding,must,yes,yes,Supabase Auth já no Forja
+Quiz de onboarding (objetivo experiência local equipamento foco dias),onboarding,must,yes,yes,components/onboarding + preparando.tsx
+Plano A/B/C gerado a partir do quiz,plano,must,yes,yes,@forja/domain plan-generator + data/routines.ts
+Home com treino do dia em destaque,home,must,yes,yes,today-workout-card.tsx
+Sequência de dias (Dia 1 Dia 2) independente do calendário,plano,must,yes,yes,current_index avança por treino concluído (confirmado no teste F01)
+Iniciar treino do plano já com os exercícios,sessão,must,yes,yes,startSessionFromTemplate copia os exercícios (doc antigo estava desatualizado)
+Registrar peso e reps por série rapidamente,sessão,must,yes,yes,workouts_.session.$id.tsx
+Timer de descanso automático editável,sessão,must,yes,yes,RestTimerBar sobre o hook use-rest-timer existente (persiste no reload; notificação do sistema)
+Substituir exercício por outro do mesmo músculo,sessão,must,yes,yes,substitution em data + picker
+Aviso de recorde pessoal ao registrar,sessão,must,yes,yes,recorde em workout-session.ts
+Resumo pós-treino (volume duração calorias PRs),sessão,must,yes,yes,overlay com tempo volume gasto estimado (MET 3.5) e recordes
+Biblioteca de exercícios com busca por músculo equipamento palavra,biblioteca,must,yes,yes,exercises.tsx
+Detalhe do exercício com execução e histórico,biblioteca,must,yes,yes,exercises_.$id.tsx
+Recuperação muscular por músculo,progresso,must,yes,yes,RecoveryCard em Treinos: mapa de fadiga + tempo restante por músculo
+Gráficos de progresso por grupo muscular e força,progresso,must,yes,yes,séries por parte do corpo (8 semanas) + gráfico de força por exercício no detalhe
+Histórico de sessões,progresso,must,yes,yes,workouts_.calendar.tsx
+Ofensiva diária (1 por dia),engajamento,should,yes,yes,feito em semanas na meta (weeklyStreak) — descanso não quebra
+Meta semanal de treinos (conta >1 por dia),engajamento,should,yes,yes,X de days_per_week na home e em Treinos
+Editar treino do plano sem iniciar sessão,plano,should,yes,yes,workouts.tsx edita a ficha no lugar (o Befit não deixa)
+Treino rápido por grupo muscular,treinos,should,yes,partial,existe treino em branco; falta escolher músculo e gerar
+Rotinas próprias criar salvar editar,treinos,should,yes,yes,workouts_.routines.new + templates
+Biblioteca de programas prontos por objetivo,treinos,should,yes,yes,TRAINING_PROGRAMS (7) + assistente com ?programa=
+Painel de PRs,progresso,should,yes,yes,seção Recordes em Treinos
+Ranking de exercícios favoritos,progresso,should,yes,no,changelog Befit
+Sons do descanso liga/desliga,ajustes,should,yes,yes,botão no timer; preferência do aparelho
+Trocar academia/casa sem recriar plano,ajustes,should,yes,partial,equipment no perfil; regenerar com outro perfil a conferir
+Funciona offline durante a sessão,sessão,should,yes,no,Befit: precisa de rede para gerar plano; treino carregado roda offline
+Paywall e assinatura premium,monetização,should,yes,partial,backend pronto (subscriptions + webhook RevenueCat); falta tela de paywall e conta RevenueCat
+Registro de cardio,treinos,could,yes,partial,cardio existe no domínio/db
+Lembretes de treino (push),engajamento,could,yes,no,TechTudo: Befit insiste demais — fazer com frequência configurável
+Sessão na tela bloqueada,sessão,could,yes,no,exige notificação persistente no mobile
+Progressão de carga automática semana a semana,plano,could,yes,partial,progression.ts existe
+Identificar equipamento por foto com IA,biblioteca,could,yes,no,
+Adicionar cardio com IA,treinos,could,yes,no,
+Restaurar compras,monetização,could,yes,no,depende do paywall
+Vídeos de exercício do Befit,biblioteca,must,yes,skip,conteúdo próprio do Befit; usar mídia própria
+App Apple Watch e widgets,plataforma,could,yes,skip,nativo fora do Expo atual
+Integração Apple Health e Strava,integrações,could,yes,skip,projeto à parte via APIs oficiais
+Base de usuários e avaliações,marca,could,yes,skip,não é produto
+Excluir conta que funciona (dados e fotos),conta,must,no,yes,fix entrepreneur: Edge Function delete-account + FKs deferrable; testado ponta a ponta
+Criar exercício próprio (aparelho que falta),biblioteca,should,no,yes,fix entrepreneur: CreateExerciseDialog na biblioteca
+Registro de treino grátis e ilimitado,monetização,must,no,yes,decisão de produto (launch): diário nunca atrás do paywall
+Importar histórico de outro app (CSV Strong/Hevy/FitNotes),dados,should,no,yes,inspirado no openGym; casa nomes com o catálogo e não duplica
+Editar treino concluído e mudar a data,treinos,should,no,yes,inspirado no openGym e pedido no Befit
+Tela acesa durante o treino,sessão,could,no,yes,inspirado no openGym (Wake Lock)
+Anilhas por lado,sessão,could,no,yes,inspirado no openGym
+Mapa de calor anual de treinos,progresso,could,no,yes,inspirado no openGym

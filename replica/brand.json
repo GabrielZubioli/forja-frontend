@@ -1,0 +1,7 @@
+{
+  "name": "Forja",
+  "avoid": ["Befit", "Be Fit", "appbefit", "3APPS", "openGym", "Gym visual", "gymvisual"],
+  "domains": ["appbefit.com", "opengym.ch", "gymvisual.com"],
+  "colors": [],
+  "notes": "Cores do Befit não medidas (clean room, sem screenshots). gymvisual aparece em scripts de catálogo pré-existentes do backend — ver brand.md."
+}
