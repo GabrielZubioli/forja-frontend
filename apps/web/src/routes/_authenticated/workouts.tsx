@@ -12,6 +12,7 @@ import {
   Repeat,
   Timer,
   Trash2,
+  Trophy,
 } from "lucide-react";
 import { queryKeys } from "@/data/query-keys";
 import { errorMessage } from "@/data/supabase-helpers";
@@ -26,6 +27,7 @@ import {
   type WeekSplit,
 } from "@/data/workout-week";
 import { ensureActiveRoutine, fetchCompletedWorkouts } from "@/data/routines";
+import { fetchPersonalRecords } from "@/data/workouts";
 import { openWorkoutForTemplate } from "@/data/workout-session";
 import { useCurrentUserId } from "@/hooks/use-current-user";
 import { PageBody, PageHeader } from "@/components/page-header";
@@ -45,15 +47,23 @@ import { ConfirmButton } from "@/components/confirm-button";
 import { EmptyState, ErrorState } from "@/components/query-boundary";
 import { BodyMap, aggregateMuscleIntensities } from "@/components/body-map/body-map";
 import { ExerciseDetailSheet } from "@/components/workouts/exercise-detail-sheet";
+import { BodyPartProgressCard, RecoveryCard } from "@/components/workouts/progress-cards";
+import { ActivityHeatmap } from "@/components/workouts/activity-heatmap";
 import { ExerciseDemo } from "@/components/workouts/exercise-demo-images";
 import { exerciseImages } from "@/data/exercise-media";
 import { ExercisePicker } from "@/components/pickers/exercise-picker";
 import { NoRoutineCard } from "@/components/home/today-workout-card";
 import { EQUIPMENT_LABELS, label } from "@/lib/labels";
-import { formatDuration, toISODate, todayISO } from "@/lib/date";
+import { formatDate, formatDuration, toISODate, todayISO } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import { addDays, endOfMonth, startOfMonth, startOfWeek } from "date-fns";
-import { WEEKDAY_INITIALS, WEEKDAY_LABELS, projectSchedule, type Weekday } from "@forja/domain";
+import {
+  TRAINING_PROGRAMS,
+  WEEKDAY_INITIALS,
+  WEEKDAY_LABELS,
+  projectSchedule,
+  type Weekday,
+} from "@forja/domain";
 
 /**
  * O módulo de musculação.
@@ -152,6 +162,11 @@ function WorkoutsPage() {
           .limit(10),
       );
     },
+  });
+
+  const records = useQuery({
+    queryKey: queryKeys.workouts.personalRecords(),
+    queryFn: () => fetchPersonalRecords(),
   });
 
   /**
@@ -385,7 +400,120 @@ function WorkoutsPage() {
           </div>
         </section>
 
-        {/* 5 — Histórico recente */}
+        <section className="mt-8" aria-labelledby="constancia-titulo">
+          <h3
+            id="constancia-titulo"
+            className="mb-3 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+          >
+            Constância
+          </h3>
+          <ActivityHeatmap />
+        </section>
+
+        <section className="mt-8" aria-labelledby="partes-titulo">
+          <h3
+            id="partes-titulo"
+            className="mb-3 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+          >
+            Por parte do corpo
+          </h3>
+          <BodyPartProgressCard />
+        </section>
+
+        <section className="mt-8" aria-labelledby="recuperacao-titulo">
+          <h3
+            id="recuperacao-titulo"
+            className="mb-3 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+          >
+            Recuperação muscular
+          </h3>
+          <RecoveryCard />
+        </section>
+
+        {/* Programas prontos — trocar de plano sem responder tudo de novo */}
+        <section className="mt-8" aria-labelledby="programas-titulo">
+          <h3
+            id="programas-titulo"
+            className="mb-3 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+          >
+            Programas prontos
+          </h3>
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {TRAINING_PROGRAMS.map((p) => (
+              <li key={p.slug}>
+                <Card className="h-full">
+                  <CardContent className="flex h-full flex-col gap-2 p-4">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold leading-tight">{p.name}</p>
+                      <p className="mt-1 text-pretty text-sm text-muted-foreground">
+                        {p.description}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {p.input.daysPerWeek}× por semana · {p.weeks} semanas
+                      </span>
+                      <Button asChild size="sm" variant="outline">
+                        <Link to="/workouts/routines/new" search={{ programa: p.slug }}>
+                          Começar
+                        </Link>
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        {/* 5 — Recordes pessoais */}
+        <section className="mt-8" aria-labelledby="recordes-titulo">
+          <h3
+            id="recordes-titulo"
+            className="mb-3 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+          >
+            Recordes
+          </h3>
+          {records.isPending ? (
+            <Skeleton className="h-24 w-full rounded-xl" />
+          ) : records.isError ? (
+            <ErrorState message={errorMessage(records.error)} onRetry={records.refetch} compact />
+          ) : (records.data ?? []).length === 0 ? (
+            <p className="px-1 text-sm text-muted-foreground">
+              Ao bater uma marca nova, ela fica guardada aqui.
+            </p>
+          ) : (
+            <Card>
+              <CardContent className="p-0">
+                <ul className="divide-y divide-border">
+                  {(records.data ?? []).map((r) => (
+                    <li key={r.exerciseId}>
+                      <Link
+                        to="/exercises/$id"
+                        params={{ id: r.exerciseId }}
+                        className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/50"
+                      >
+                        <Trophy className="size-4 shrink-0 text-primary" aria-hidden />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">{r.exerciseName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatDate(r.date, "d 'de' MMM")} · 1RM estimado {Math.round(r.e1rm)}{" "}
+                            kg
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-sm font-semibold tabular-nums">
+                          {r.weightKg.toLocaleString("pt-BR")} kg × {r.reps}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+        </section>
+
+        {/* 6 — Histórico recente */}
         <section className="mt-8">
           <h3 className="mb-3 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Últimos treinos
@@ -527,6 +655,7 @@ function ExerciseRow({
                 images={exerciseImages(exercise.name, exercise.imageUrls)}
                 name={exercise.name}
                 autoPlay={false}
+                interactive={false}
                 className="w-20 sm:w-24"
               />
             </button>

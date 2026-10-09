@@ -26,7 +26,7 @@ import {
 import { CoachTips } from "@/components/coach/coach-tips";
 import { formatLongDate, toISODate, todayISO } from "@/lib/date";
 import { addDays, startOfWeek } from "date-fns";
-import { ema, nutritionTotals } from "@forja/domain";
+import { ema, nutritionTotals, weekStart, weeklyStreak } from "@forja/domain";
 
 /**
  * A tela inicial responde a uma pergunta: **o que eu faço agora?**
@@ -84,13 +84,27 @@ function Home() {
     queryFn: fetchActiveRoutine,
   });
 
-  const completedThisWeek = useQuery({
-    queryKey: [...queryKeys.workouts.all, "completed-week"],
+  // Uma janela de 26 semanas serve às duas leituras da home: a semana atual
+  // (dias concluídos) e a sequência de semanas batendo a meta.
+  const recentWorkouts = useQuery({
+    queryKey: [...queryKeys.workouts.all, "completed-recent"],
     queryFn: () => {
       const inicio = startOfWeek(new Date(), { weekStartsOn: 1 });
-      return fetchCompletedWorkouts(toISODate(inicio), toISODate(addDays(inicio, 6)));
+      return fetchCompletedWorkouts(
+        toISODate(addDays(inicio, -7 * 25)),
+        toISODate(addDays(inicio, 6)),
+      );
     },
   });
+  const inicioDaSemana = weekStart(today);
+  const completedThisWeek = (recentWorkouts.data ?? []).filter((w) => w.date >= inicioDaSemana);
+  const streak = routine.data
+    ? weeklyStreak(
+        (recentWorkouts.data ?? []).map((w) => w.date),
+        routine.data.daysPerWeek,
+        today,
+      )
+    : 0;
 
   /**
    * O diário de hoje, materializado do plano se for a primeira abertura.
@@ -218,7 +232,8 @@ function Home() {
           <TodayWorkoutCard
             data={{
               routine: routine.data,
-              completedThisWeek: completedThisWeek.data ?? [],
+              completedThisWeek,
+              streak,
               muscles: todaySplit.data?.muscles ?? [],
               exerciseNames: (todaySplit.data?.names ?? []).filter(Boolean),
             }}

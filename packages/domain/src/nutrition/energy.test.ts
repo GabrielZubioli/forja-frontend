@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bmrMifflin, goalCalories, macroTargets, tdee } from "./energy";
+import { bmrMifflin, goalCalories, macroTargets, strengthTrainingKcal, tdee } from "./energy";
 
 describe("bmrMifflin", () => {
   it("aplica o offset por sexo", () => {
@@ -36,5 +36,17 @@ describe("macroTargets", () => {
     expect(m.fiber_g).toBe(28); // 2000/1000*14
     // carbo = (2000 - 160*4 - 56*9)/4 = (2000-640-504)/4 = 214
     expect(m.carbs_g).toBe(214);
+  });
+});
+
+describe("strengthTrainingKcal", () => {
+  it("MET 3,5 × peso × horas", () => {
+    expect(strengthTrainingKcal(80, 3600)).toBe(280);
+    expect(strengthTrainingKcal(60, 1800)).toBe(105);
+  });
+
+  it("zero sem peso ou sem duração", () => {
+    expect(strengthTrainingKcal(0, 3600)).toBe(0);
+    expect(strengthTrainingKcal(80, 0)).toBe(0);
   });
 });

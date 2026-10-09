@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { queryKeys } from "@/data/query-keys";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { PageBody, PageHeader } from "@/components/page-header";
+import { CreateExerciseDialog } from "@/components/create-exercise-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -141,6 +142,7 @@ function ExerciseLibrary() {
         wide
         title="Biblioteca de exercícios"
         description="Busque por nome, músculo ou equipamento."
+        action={<CreateExerciseDialog />}
       />
       <PageBody wide>
         <div className="mb-4 space-y-3">

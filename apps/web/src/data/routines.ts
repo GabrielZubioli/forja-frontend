@@ -12,7 +12,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { assertOk, num, unwrap, unwrapList, unwrapMaybe } from "@/data/supabase-helpers";
 import { loadPlanningInputs, trainingPlanInput } from "@/data/planning-profile";
-import { toISODate } from "@/lib/date";
+import { localDayRange, toISODate } from "@/lib/date";
 import {
   generatePlan,
   type ExerciseSlot,
@@ -522,6 +522,7 @@ export async function fetchCompletedWorkouts(
   fromDate: string,
   toDate: string,
 ): Promise<CompletedWorkoutDay[]> {
+  const intervalo = localDayRange(fromDate, toDate);
   const rows = unwrapList(
     "carregar treinos do período",
     await supabase
@@ -529,8 +530,8 @@ export async function fetchCompletedWorkouts(
       .select("id, name, started_at, ended_at, total_volume_kg, duration_seconds, template_id")
       .is("deleted_at", null)
       .not("ended_at", "is", null)
-      .gte("started_at", `${fromDate}T00:00:00`)
-      .lte("started_at", `${toDate}T23:59:59`)
+      .gte("started_at", intervalo.start)
+      .lt("started_at", intervalo.endExclusive)
       .order("started_at"),
   );
 

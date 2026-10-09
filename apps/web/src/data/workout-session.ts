@@ -3,7 +3,14 @@ import { assertOk, num, unwrap, unwrapList, unwrapMaybe } from "@/data/supabase-
 import { advanceRoutineForTemplate } from "@/data/routines";
 import { startSessionFromTemplate } from "@/data/workouts";
 import { exerciseImages } from "@/data/exercise-media";
-import { epley1RM, sessionVolume } from "@forja/domain";
+import {
+  compareWithLastSession,
+  epley1RM,
+  sessionVolume,
+  strengthTrainingKcal,
+  type ExerciseComparison,
+  type SimpleSet,
+} from "@forja/domain";
 
 /**
  * A sessão de treino como o usuário a executa.
@@ -340,6 +347,10 @@ export interface FinishResult {
   durationSeconds: number;
   volumeKg: number;
   personalRecords: string[];
+  /** Estimativa pelo último peso registrado; `null` sem peso. */
+  kcal: number | null;
+  /** Hoje × última vez, por exercício. */
+  comparisons: ExerciseComparison[];
 }
 
 /**
@@ -356,6 +367,8 @@ export async function finishWorkout(sessionId: string): Promise<FinishResult> {
       durationSeconds: board.durationSeconds,
       volumeKg: board.totalVolumeKg,
       personalRecords: [],
+      kcal: null,
+      comparisons: [],
     };
   }
 
@@ -400,7 +413,13 @@ export async function finishWorkout(sessionId: string): Promise<FinishResult> {
     }
   }
 
-  return { durationSeconds: duration, volumeKg: volume, personalRecords };
+  return {
+    durationSeconds: duration,
+    volumeKg: volume,
+    personalRecords,
+    kcal: await estimarCalorias(duration),
+    comparisons: await compararComAnterior(board),
+  };
 }
 
 /** Compara o melhor 1RM estimado do treino com o histórico e marca os recordes. */
@@ -462,4 +481,118 @@ export async function discardWorkout(sessionId: string): Promise<void> {
     "descartar treino",
     await supabase.from("workout_sessions").delete().eq("id", sessionId),
   );
+}
+
+/** Gasto estimado do treino; secundário, então falha vira "sem estimativa". */
+async function estimarCalorias(durationSeconds: number): Promise<number | null> {
+  try {
+    const row = unwrapMaybe(
+      "buscar último peso",
+      await supabase
+        .from("body_weights")
+        .select("weight_kg")
+        .order("log_date", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    );
+    return row ? strengthTrainingKcal(num(row.weight_kg), durationSeconds) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Depois de editar um treino já salvo: refaz o volume e os recordes a partir
+ * das séries corrigidas. Os recordes da sessão são zerados e recalculados — uma
+ * carga digitada errado não pode continuar contando como PR.
+ */
+export async function saveFinishedWorkoutEdits(sessionId: string): Promise<void> {
+  const board = await fetchWorkoutBoard(sessionId);
+  const volume = sessionVolume(
+    board.exercises.flatMap((e) =>
+      e.sets.map((s) => ({
+        weightKg: s.weightKg,
+        reps: s.reps,
+        setType: "working" as const,
+        completed: s.completed,
+      })),
+    ),
+  );
+  assertOk(
+    "zerar recordes do treino",
+    await supabase.from("workout_sets").update({ is_pr: false }).eq("session_id", sessionId),
+  );
+  await marcarRecordes(board);
+  assertOk(
+    "salvar volume do treino",
+    await supabase.from("workout_sessions").update({ total_volume_kg: volume }).eq("id", sessionId),
+  );
+}
+
+/** Move um treino para outro dia, mantendo o horário e a duração. */
+export async function moveWorkoutDate(
+  sessionId: string,
+  startedAt: string,
+  endedAt: string | null,
+  newDay: string,
+): Promise<void> {
+  const inicio = new Date(startedAt);
+  const [ano, mes, dia] = newDay.split("-").map(Number);
+  const novoInicio = new Date(inicio);
+  novoInicio.setFullYear(ano!, mes! - 1, dia!);
+  const delta = novoInicio.getTime() - inicio.getTime();
+  assertOk(
+    "mudar a data do treino",
+    await supabase
+      .from("workout_sessions")
+      .update({
+        started_at: novoInicio.toISOString(),
+        ended_at: endedAt ? new Date(new Date(endedAt).getTime() + delta).toISOString() : null,
+      })
+      .eq("id", sessionId),
+  );
+}
+
+/** Melhor série de cada exercício hoje × na sessão anterior em que ele apareceu. */
+async function compararComAnterior(board: WorkoutBoard): Promise<ExerciseComparison[]> {
+  const ids = board.exercises.map((e) => e.exerciseId);
+  if (ids.length === 0) return [];
+  try {
+    const rows = unwrapList(
+      "carregar a última vez de cada exercício",
+      await supabase
+        .from("workout_sets")
+        .select(
+          "exercise_id, session_id, weight_kg, reps, workout_sessions!inner(ended_at, deleted_at)",
+        )
+        .in("exercise_id", ids)
+        .neq("session_id", board.sessionId)
+        .eq("completed", true)
+        .not("workout_sessions.ended_at", "is", null)
+        .is("workout_sessions.deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(ids.length * 40),
+    );
+    // A primeira linha de cada exercício aponta a sessão mais recente dele.
+    const sessaoDe = new Map<string, string>();
+    const anterior = new Map<string, SimpleSet[]>();
+    for (const r of rows) {
+      if (!sessaoDe.has(r.exercise_id)) sessaoDe.set(r.exercise_id, r.session_id);
+      if (sessaoDe.get(r.exercise_id) !== r.session_id) continue;
+      const lista = anterior.get(r.exercise_id) ?? [];
+      lista.push({ weightKg: r.weight_kg === null ? null : num(r.weight_kg), reps: r.reps });
+      anterior.set(r.exercise_id, lista);
+    }
+    return compareWithLastSession(
+      board.exercises.map((e) => ({
+        exerciseId: e.exerciseId,
+        name: e.name,
+        sets: e.sets.filter((x) => x.completed),
+      })),
+      anterior,
+    );
+  } catch {
+    // Comparação é enfeite do resumo: falhar aqui não pode falhar o treino.
+    return [];
+  }
 }

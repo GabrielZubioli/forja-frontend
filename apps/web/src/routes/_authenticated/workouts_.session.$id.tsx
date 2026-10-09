@@ -3,7 +3,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
+  ArrowDown,
   ArrowLeft,
+  ArrowUp,
+  Equal,
+  Sparkles,
   Check,
   ChevronDown,
   Info,
@@ -18,6 +22,8 @@ import {
   discardWorkout,
   fetchWorkoutBoard,
   finishWorkout,
+  moveWorkoutDate,
+  saveFinishedWorkoutEdits,
   setExerciseDone,
   substituteSessionExercise,
   updateSet,
@@ -37,8 +43,12 @@ import { ConfirmButton } from "@/components/confirm-button";
 import { ErrorState } from "@/components/query-boundary";
 import { ExerciseDemo } from "@/components/workouts/exercise-demo-images";
 import { ExerciseDetailSheet } from "@/components/workouts/exercise-detail-sheet";
+import { RestTimerBar, playRestFinishedSound } from "@/components/workouts/rest-timer";
+import { useRestTimer } from "@/hooks/use-rest-timer";
+import { useWakeLock } from "@/hooks/use-wake-lock";
 import { EQUIPMENT_LABELS, MUSCLE_LABELS, label } from "@/lib/labels";
-import { formatDuration } from "@/lib/date";
+import { formatDuration, toISODate, todayISO } from "@/lib/date";
+import { platesFor, type ExerciseComparison } from "@forja/domain";
 import { cn } from "@/lib/utils";
 
 /**
@@ -83,6 +93,9 @@ function SessionPage() {
   const [detalhe, setDetalhe] = useState<string | null>(null);
   const [celebrando, setCelebrando] = useState(false);
   const [recordes, setRecordes] = useState<string[]>([]);
+  const descanso = useRestTimer({ onFinish: playRestFinishedSound });
+  // Treino concluído é só leitura até a pessoa pedir para corrigir.
+  const [editando, setEditando] = useState(false);
 
   const board = useQuery({
     queryKey: queryKeys.workouts.session(id),
@@ -91,10 +104,32 @@ function SessionPage() {
 
   const invalidate = () => qc.invalidateQueries({ queryKey: queryKeys.workouts.session(id) });
 
+  const salvarEdicao = useMutation({
+    mutationFn: () => saveFinishedWorkoutEdits(id),
+    onSuccess: () => {
+      setEditando(false);
+      toast.success("Treino corrigido", { description: "Volume e recordes recalculados." });
+      void qc.invalidateQueries({ queryKey: queryKeys.workouts.all });
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+
+  const mudarData = useMutation({
+    mutationFn: (dia: string) =>
+      moveWorkoutDate(id, board.data!.startedAt, board.data!.endedAt, dia),
+    onSuccess: () => {
+      toast.success("Data do treino alterada");
+      void qc.invalidateQueries({ queryKey: queryKeys.workouts.all });
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+
   const finalizar = useMutation({
     mutationFn: () => finishWorkout(id),
     onSuccess: (resultado) => {
       setRecordes(resultado.personalRecords);
+      // Treino acabou: um descanso pendente bipando depois não faz sentido.
+      descanso.stop();
       setCelebrando(true);
       // Progresso semanal, mensal, histórico e estatísticas leem de
       // `workout_sessions`: invalidar a raiz atualiza as quatro coisas de uma
@@ -150,6 +185,7 @@ function SessionPage() {
 
   const dados = board.data;
   const terminado = Boolean(dados?.endedAt);
+  useWakeLock(Boolean(dados) && !terminado);
   const tudoFeito = Boolean(
     dados && dados.exercises.length > 0 && dados.exercises.every((e) => e.done),
   );
@@ -193,6 +229,42 @@ function SessionPage() {
       />
 
       <div className="mx-auto w-full max-w-3xl px-4 md:px-8">
+        {terminado && (
+          <div className="mb-5 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-3">
+            <label className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">Data</span>
+              <Input
+                type="date"
+                className="h-9 w-auto"
+                max={todayISO()}
+                value={toISODate(new Date(dados.startedAt))}
+                disabled={mudarData.isPending}
+                onChange={(e) => e.target.value && mudarData.mutate(e.target.value)}
+              />
+            </label>
+            {editando ? (
+              <Button
+                size="sm"
+                className="ml-auto"
+                onClick={() => salvarEdicao.mutate()}
+                disabled={salvarEdicao.isPending}
+              >
+                <Check className="mr-1.5 size-4" />
+                {salvarEdicao.isPending ? "Salvando…" : "Concluir edição"}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                className="ml-auto"
+                onClick={() => setEditando(true)}
+              >
+                Corrigir cargas e séries
+              </Button>
+            )}
+          </div>
+        )}
+
         <div className="mb-5">
           <div className="mb-1.5 flex items-baseline justify-between text-sm">
             <span className="font-medium">
@@ -225,13 +297,14 @@ function SessionPage() {
                 key={exercise.exerciseId}
                 exercise={exercise}
                 index={i}
-                readOnly={terminado}
+                readOnly={terminado && !editando}
                 onToggle={(done) => marcar.mutate({ exercise, done })}
                 onOpenDetail={() => setDetalhe(exercise.exerciseId)}
                 onSubstitute={(novoId) =>
                   trocar.mutateAsync({ de: exercise.exerciseId, para: novoId })
                 }
                 onChanged={invalidate}
+                onRest={() => descanso.start(exercise.restSeconds)}
               />
             ))}
           </ul>
@@ -269,10 +342,14 @@ function SessionPage() {
         )}
       </div>
 
+      {!terminado && <RestTimerBar timer={descanso} />}
+
       {celebrando && (
         <CompletionOverlay
           durationSeconds={finalizar.data?.durationSeconds ?? dados.durationSeconds}
           volumeKg={finalizar.data?.volumeKg ?? dados.totalVolumeKg}
+          kcal={finalizar.data?.kcal ?? null}
+          comparisons={finalizar.data?.comparisons ?? []}
           records={recordes}
           onClose={() => void navigate({ to: "/workouts" })}
         />
@@ -402,6 +479,7 @@ function ExerciseCard({
   onOpenDetail,
   onSubstitute,
   onChanged,
+  onRest,
 }: {
   exercise: BoardExercise;
   index: number;
@@ -410,6 +488,7 @@ function ExerciseCard({
   onOpenDetail: () => void;
   onSubstitute: (exerciseId: string) => Promise<unknown>;
   onChanged: () => void | Promise<unknown>;
+  onRest: () => void;
 }) {
   const [aberto, setAberto] = useState(false);
 
@@ -431,7 +510,12 @@ function ExerciseCard({
               className="w-24 shrink-0 sm:w-28"
               aria-label={`Ver execução de ${exercise.name}`}
             >
-              <ExerciseDemo images={exercise.images} name={exercise.name} autoPlay={false} />
+              <ExerciseDemo
+                images={exercise.images}
+                name={exercise.name}
+                autoPlay={false}
+                interactive={false}
+              />
             </button>
 
             <div className="min-w-0 flex-1">
@@ -482,9 +566,21 @@ function ExerciseCard({
                     Carga sugerida {exercise.suggestedWeightKg} kg
                   </Badge>
                 )}
-                <Badge variant="outline" className="tabular-nums font-normal">
-                  {exercise.restSeconds}s descanso
-                </Badge>
+                {readOnly ? (
+                  <Badge variant="outline" className="tabular-nums font-normal">
+                    {exercise.restSeconds}s descanso
+                  </Badge>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 rounded-full px-2.5 text-xs font-normal tabular-nums"
+                    onClick={onRest}
+                  >
+                    <Timer className="mr-1 size-3" aria-hidden />
+                    Descansar {exercise.restSeconds}s
+                  </Button>
+                )}
                 {!exercise.done && seriesFeitas > 0 && (
                   <Badge variant="outline" className="font-normal">
                     {seriesFeitas} de {exercise.sets.length} séries
@@ -547,7 +643,14 @@ function ExerciseCard({
             </div>
           </div>
 
-          {aberto && <SetList exercise={exercise} readOnly={readOnly} onChanged={onChanged} />}
+          {aberto && (
+            <SetList
+              exercise={exercise}
+              readOnly={readOnly}
+              onChanged={onChanged}
+              onRest={onRest}
+            />
+          )}
         </CardContent>
       </Card>
     </li>
@@ -565,10 +668,12 @@ function SetList({
   exercise,
   readOnly,
   onChanged,
+  onRest,
 }: {
   exercise: BoardExercise;
   readOnly: boolean;
   onChanged: () => void | Promise<unknown>;
+  onRest: () => void;
 }) {
   const salvar = useMutation({
     mutationFn: ({ setId, patch }: { setId: string; patch: Parameters<typeof updateSet>[1] }) =>
@@ -581,7 +686,7 @@ function SetList({
     <div className="mt-3 border-t border-border pt-3">
       <ul className="space-y-2">
         {exercise.sets.map((set) => (
-          <li key={set.id} className="flex items-center gap-2">
+          <li key={set.id} className="flex flex-wrap items-center gap-2">
             <span className="w-10 shrink-0 text-xs font-medium text-muted-foreground">
               {set.setIndex}ª
             </span>
@@ -604,12 +709,17 @@ function SetList({
             <Checkbox
               checked={set.completed}
               disabled={readOnly}
-              onCheckedChange={(v) =>
-                salvar.mutate({ setId: set.id, patch: { completed: v === true } })
-              }
+              onCheckedChange={(v) => {
+                salvar.mutate({ setId: set.id, patch: { completed: v === true } });
+                // Concluir a série é o gatilho natural do descanso.
+                if (v === true) onRest();
+              }}
               aria-label={`Concluir a ${set.setIndex}ª série`}
               className="ml-auto size-5 shrink-0"
             />
+            {exercise.equipment === "barbell" && (
+              <PlateHint kg={set.weightKg ?? exercise.suggestedWeightKg} />
+            )}
           </li>
         ))}
       </ul>
@@ -674,17 +784,21 @@ function NumberField({
 function CompletionOverlay({
   durationSeconds,
   volumeKg,
+  kcal,
+  comparisons,
   records,
   onClose,
 }: {
   durationSeconds: number;
   volumeKg: number;
+  kcal: number | null;
+  comparisons: ExerciseComparison[];
   records: string[];
   onClose: () => void;
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-background/90 p-6 backdrop-blur-sm"
+      className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-background/90 p-6 backdrop-blur-sm"
       role="alertdialog"
       aria-labelledby="treino-concluido"
     >
@@ -712,7 +826,17 @@ function CompletionOverlay({
               {Math.round(volumeKg).toLocaleString("pt-BR")} kg
             </p>
           </div>
+          {kcal !== null && (
+            <div className="col-span-2 rounded-2xl bg-muted/60 p-4">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                Gasto estimado
+              </p>
+              <p className="mt-1 text-xl font-bold tabular-nums">~{kcal} kcal</p>
+            </div>
+          )}
         </div>
+
+        <ComparisonList comparisons={comparisons} />
 
         {records.length > 0 && (
           <div className="mt-4 rounded-2xl border border-primary/30 bg-primary/5 p-4 text-left">
@@ -746,6 +870,59 @@ function BoardSkeleton() {
           <Skeleton key={i} className="h-32 w-full rounded-xl" />
         ))}
       </div>
+    </div>
+  );
+}
+
+/** "Por lado: 20 + 2,5" — para não fazer conta de anilha com a barra no ombro. */
+function PlateHint({ kg }: { kg: number | null }) {
+  if (kg === null || kg <= 20) return null;
+  const { perSide, missingKg } = platesFor(kg);
+  return (
+    <p className="basis-full pl-12 text-[11px] text-muted-foreground">
+      Por lado (barra de 20 kg): {perSide.map((p) => p.toLocaleString("pt-BR")).join(" + ")}
+      {missingKg > 0 && ` · faltam ${missingKg.toLocaleString("pt-BR")} kg`}
+    </p>
+  );
+}
+
+const TREND = {
+  up: { icon: ArrowUp, text: "subiu", className: "text-success" },
+  same: { icon: Equal, text: "igual", className: "text-muted-foreground" },
+  down: { icon: ArrowDown, text: "caiu", className: "text-muted-foreground" },
+  new: { icon: Sparkles, text: "primeira vez", className: "text-primary" },
+} as const;
+
+/** Hoje × última vez, por exercício. Queda não é vermelha: dia ruim faz parte. */
+function ComparisonList({ comparisons }: { comparisons: ExerciseComparison[] }) {
+  const comMelhor = comparisons.filter((c) => c.best);
+  if (comMelhor.length === 0) return null;
+  const serie = (s: ExerciseComparison["best"]) =>
+    s
+      ? s.weightKg
+        ? `${s.weightKg.toLocaleString("pt-BR")} kg × ${s.reps}`
+        : `${s.reps} reps`
+      : "—";
+  return (
+    <div className="mt-4 rounded-2xl bg-muted/60 p-4 text-left">
+      <p className="text-xs uppercase tracking-wider text-muted-foreground">
+        Comparado à última vez
+      </p>
+      <ul className="mt-2 space-y-1.5">
+        {comMelhor.map((c) => {
+          const t = TREND[c.trend];
+          return (
+            <li key={c.exerciseId} className="flex items-center gap-2 text-sm">
+              <t.icon className={cn("size-4 shrink-0", t.className)} aria-hidden />
+              <span className="min-w-0 flex-1 truncate">{c.name}</span>
+              <span className="shrink-0 tabular-nums text-muted-foreground">
+                {serie(c.best)}
+                <span className="sr-only"> — {t.text}</span>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

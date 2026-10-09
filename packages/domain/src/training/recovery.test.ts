@@ -45,8 +45,7 @@ describe("computeMuscleRecovery", () => {
     expect(r[0]!.hoursNeeded).toBeLessThanOrEqual(96);
   });
 
-  it("usa apenas o estímulo mais recente de cada músculo", () => {
-    // Um treino antigo e pesado não pode mascarar um recente e leve.
+  it("o último treino define hoursSince e lastSets; um treino antigo quase não pesa", () => {
     const r = computeMuscleRecovery(
       [
         { muscle: "chest", at: horasAtras(150), sets: 20 },
@@ -54,9 +53,43 @@ describe("computeMuscleRecovery", () => {
       ],
       AGORA,
     );
+    const so = computeMuscleRecovery([{ muscle: "chest", at: horasAtras(3), sets: 4 }], AGORA);
     expect(r).toHaveLength(1);
     expect(r[0]!.lastSets).toBe(4);
     expect(r[0]!.hoursSince).toBe(3);
+    expect(r[0]!.hoursNeeded - so[0]!.hoursNeeded).toBeLessThanOrEqual(6);
+  });
+
+  it("treinos recentes se somam: dois dias seguidos cansam mais que um", () => {
+    const um = computeMuscleRecovery([{ muscle: "quads", at: horasAtras(1), sets: 6 }], AGORA);
+    const dois = computeMuscleRecovery(
+      [
+        { muscle: "quads", at: horasAtras(25), sets: 6 },
+        { muscle: "quads", at: horasAtras(1), sets: 6 },
+      ],
+      AGORA,
+    );
+    expect(dois[0]!.hoursNeeded).toBeGreaterThan(um[0]!.hoursNeeded);
+  });
+
+  it("calibração: 8 séries de perna ~3,5 dias; 5 de peito ~1,5 dia; 1 série não pede descanso", () => {
+    const r = computeMuscleRecovery(
+      [
+        { muscle: "quads", at: horasAtras(0), sets: 8 },
+        { muscle: "biceps", at: horasAtras(0), sets: 8 },
+        { muscle: "chest", at: horasAtras(0), sets: 5 },
+        { muscle: "triceps", at: horasAtras(0), sets: 1 },
+      ],
+      AGORA,
+    );
+    const de = (m: string) => r.find((x) => x.muscle === m)!;
+    expect(de("quads").hoursNeeded).toBeGreaterThan(72);
+    expect(de("quads").hoursNeeded).toBeLessThan(96);
+    // Mesmo volume, metade da meia-vida: braço fica pronto na metade do tempo.
+    expect(de("biceps").hoursNeeded).toBe(Math.round(de("quads").hoursNeeded / 2));
+    expect(de("chest").hoursNeeded).toBeGreaterThan(24);
+    expect(de("chest").hoursNeeded).toBeLessThan(48);
+    expect(de("triceps").hoursNeeded).toBe(0);
   });
 
   it("acumula séries do mesmo instante (uma sessão, vários exercícios)", () => {
@@ -116,7 +149,8 @@ describe("computeMuscleRecovery", () => {
   it("trata séries negativas como zero", () => {
     const r = computeMuscleRecovery([{ muscle: "chest", at: horasAtras(30), sets: -5 }], AGORA);
     expect(r[0]!.lastSets).toBe(0);
-    expect(r[0]!.hoursNeeded).toBe(24);
+    expect(r[0]!.hoursNeeded).toBe(0);
+    expect(r[0]!.status).toBe("recovered");
   });
 });
 

@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { CheckCircle2, ChevronRight, Dumbbell, Moon, Play } from "lucide-react";
+import { CheckCircle2, ChevronRight, Dumbbell, Flame, Moon, Play } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +30,8 @@ import { todaysWorkout } from "@forja/domain";
 export interface TodayWorkoutData {
   routine: ActiveRoutine;
   completedThisWeek: readonly CompletedWorkout[];
+  /** Semanas seguidas batendo a meta (`weeklyStreak`). */
+  streak: number;
   /** Músculos do treino de hoje, para a prévia. */
   muscles: string[];
   exerciseNames: string[];
@@ -46,7 +48,7 @@ export function TodayWorkoutCard({
   onStart: (templateId: string) => void;
   isStarting: boolean;
 }) {
-  const { routine, completedThisWeek, muscles, exerciseNames } = data;
+  const { routine, completedThisWeek, streak, muscles, exerciseNames } = data;
 
   const { splitIndex, isPlannedDay, alreadyDone } = todaysWorkout(today, {
     weekdays: routine.trainingWeekdays,
@@ -68,6 +70,7 @@ export function TodayWorkoutCard({
             <p className="mt-0.5 text-sm text-muted-foreground">
               Descanse bem — a recuperação é onde o músculo cresce.
             </p>
+            <StreakLine streak={streak} className="mt-1 text-primary" />
           </div>
           <Button asChild variant="ghost" size="icon" className="shrink-0" aria-label="Ver treinos">
             <Link to="/workouts">
@@ -202,8 +205,26 @@ export function TodayWorkoutCard({
             {completedThisWeek.length} de {routine.daysPerWeek} treinos desta semana concluídos.
           </p>
         )}
+        <StreakLine
+          streak={streak}
+          className={cn(
+            "mt-1",
+            isPlannedDay ? "text-primary-foreground/90" : "text-muted-foreground",
+          )}
+        />
       </CardContent>
     </Card>
+  );
+}
+
+/** "N semanas seguidas na meta" — some quando a sequência é zero: não cobra. */
+function StreakLine({ streak, className }: { streak: number; className?: string }) {
+  if (streak < 1) return null;
+  return (
+    <p className={cn("flex items-center gap-1 text-xs font-medium", className)}>
+      <Flame className="size-3.5 shrink-0" aria-hidden />
+      {streak === 1 ? "1 semana na meta" : `${streak} semanas seguidas na meta`}
+    </p>
   );
 }
 
