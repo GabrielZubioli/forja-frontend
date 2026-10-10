@@ -31,6 +31,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { queryKeys } from "@/data/query-keys";
 import { errorMessage, num, unwrapMaybe } from "@/data/supabase-helpers";
 import { hasCompletedOnboarding } from "@/data/onboarding";
+import { isComplete } from "@/lib/onboarding/schema";
+import { loadDraft } from "@/lib/onboarding/storage";
 import { fetchActiveRoutine, fetchCompletedWorkouts, scheduleInputOf } from "@/data/routines";
 import { openWorkoutForTemplate } from "@/data/workout-session";
 import { ensureDayMaterialized, fetchDayEntries } from "@/data/diet-day";
@@ -63,8 +65,11 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
     ],
   }),
   // Quem chega sem ter passado pela geração vai montá-la.
+  // Sem plano: com as respostas no aparelho, vai montá-lo; sem elas (primeiro
+  // login com Google, por exemplo), direto para o questionário.
   beforeLoad: async () => {
-    if (!(await hasCompletedOnboarding())) throw redirect({ to: "/preparando" });
+    if (await hasCompletedOnboarding()) return;
+    throw redirect({ to: isComplete(loadDraft()) ? "/preparando" : "/" });
   },
   component: Home,
 });

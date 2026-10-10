@@ -44,7 +44,7 @@ const STAGE_LABELS: Record<GenerationStage, string> = {
   done: "Finalizando",
 };
 
-type Status = "checking" | "generating" | "done" | "error" | "no-draft";
+type Status = "checking" | "generating" | "done" | "error";
 
 function PreparingPage() {
   const navigate = useNavigate();
@@ -76,11 +76,10 @@ function PreparingPage() {
         return void navigate({ to: "/dashboard", replace: true });
       }
 
+      // Sem respostas (primeiro login com Google, outro aparelho, dados
+      // limpos): o questionário é o que falta, então vai direto para ele.
       const answers = loadDraft();
-      if (!isComplete(answers)) {
-        setStatus("no-draft");
-        return;
-      }
+      if (!isComplete(answers)) return void navigate({ to: "/", replace: true });
 
       setStatus("generating");
       try {
@@ -121,8 +120,6 @@ function PreparingPage() {
               window.location.reload();
             }}
           />
-        ) : status === "no-draft" ? (
-          <NoDraftState onRestart={() => void navigate({ to: "/", replace: true })} />
         ) : (
           <Building
             stage={stage}
@@ -249,21 +246,6 @@ function ErrorState({ message, onRetry }: { message: string | null; onRetry: () 
       </p>
       <Button className="mt-6 h-12 w-full rounded-xl" onClick={onRetry}>
         Tentar de novo
-      </Button>
-    </div>
-  );
-}
-
-function NoDraftState({ onRestart }: { onRestart: () => void }) {
-  return (
-    <div className="text-center">
-      <h1 className="text-xl font-bold tracking-tight">Não encontramos suas respostas</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        O questionário fica salvo no navegador. Se você trocou de aparelho ou limpou os dados,
-        precisamos refazê-lo — leva cerca de dois minutos.
-      </p>
-      <Button className="mt-6 h-12 w-full rounded-xl" onClick={onRestart}>
-        Responder o questionário
       </Button>
     </div>
   );

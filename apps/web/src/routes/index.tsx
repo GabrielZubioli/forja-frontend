@@ -47,6 +47,7 @@ import {
 } from "@/lib/onboarding/options";
 import { WEEKDAY_LABELS, type Weekday } from "@forja/domain";
 import { BrandSymbol } from "@/components/brand-logo";
+import { hasCompletedOnboarding } from "@/data/onboarding";
 
 /**
  * A raiz do app **é** o questionário.
@@ -93,6 +94,8 @@ function OnboardingQuiz() {
   const [answers, setAnswers] = useState<Answers>(() => answersSchema.parse({}));
   const [stepIndex, setStepIndex] = useState(0);
   const [hydrated, setHydrated] = useState(false);
+  /** Logado sem plano (ex.: primeiro login com Google): responde aqui mesmo. */
+  const [logado, setLogado] = useState(false);
 
   useEffect(() => {
     setAnswers(loadDraft());
@@ -100,11 +103,15 @@ function OnboardingQuiz() {
     setHydrated(true);
   }, []);
 
-  // Quem já tem conta não refaz o questionário.
+  // Quem já montou o plano não refaz o questionário. Quem entrou (pelo
+  // Google, por exemplo) mas ainda não montou, fica: é exatamente o que falta.
   useEffect(() => {
-    void supabase.auth.getSession().then(({ data }) => {
-      if (data.session) void navigate({ to: "/dashboard", replace: true });
-    });
+    void (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) return;
+      if (await hasCompletedOnboarding()) return void navigate({ to: "/dashboard", replace: true });
+      setLogado(true);
+    })();
   }, [navigate]);
 
   const steps = useMemo(() => visibleSteps(answers), [answers]);
@@ -191,7 +198,7 @@ function OnboardingQuiz() {
         </header>
 
         <main className="flex flex-1 flex-col">
-          {step.id === "welcome" && <Welcome onStart={next} />}
+          {step.id === "welcome" && <Welcome onStart={next} logado={logado} />}
 
           {step.id === "objective" && (
             <Question
@@ -610,14 +617,16 @@ function OnboardingQuiz() {
             </Question>
           )}
 
-          {step.id === "review" && <Review answers={answers} onEdit={goTo} steps={steps} />}
+          {step.id === "review" && (
+            <Review answers={answers} onEdit={goTo} steps={steps} logado={logado} />
+          )}
         </main>
       </div>
     </div>
   );
 }
 
-function Welcome({ onStart }: { onStart: () => void }) {
+function Welcome({ onStart, logado }: { onStart: () => void; logado: boolean }) {
   return (
     <div className="flex flex-1 flex-col justify-center text-center">
       <BrandSymbol className="mx-auto w-24 animate-in zoom-in-50 duration-500" />
@@ -651,12 +660,14 @@ function Welcome({ onStart }: { onStart: () => void }) {
 
       <NextButton onClick={onStart} label="Começar" />
 
-      <p className="pb-2 text-center text-sm text-muted-foreground">
-        Já tem conta?{" "}
-        <Link to="/auth" className="font-medium text-primary underline-offset-4 hover:underline">
-          Entrar
-        </Link>
-      </p>
+      {!logado && (
+        <p className="pb-2 text-center text-sm text-muted-foreground">
+          Já tem conta?{" "}
+          <Link to="/auth" className="font-medium text-primary underline-offset-4 hover:underline">
+            Entrar
+          </Link>
+        </p>
+      )}
     </div>
   );
 }
@@ -751,10 +762,13 @@ function Review({
   answers,
   onEdit,
   steps,
+  logado,
 }: {
   answers: Answers;
   onEdit: (index: number) => void;
   steps: { id: string }[];
+  /** Já tem conta: pula o cadastro e vai montar o plano. */
+  logado: boolean;
 }) {
   const navigate = useNavigate();
   const objective = derivedObjective(answers);
@@ -846,7 +860,10 @@ function Review({
         água.
       </Feedback>
 
-      <NextButton onClick={() => void navigate({ to: "/criar-conta" })} label="Montar meu plano" />
+      <NextButton
+        onClick={() => void navigate({ to: logado ? "/preparando" : "/criar-conta" })}
+        label="Montar meu plano"
+      />
     </Question>
   );
 }
