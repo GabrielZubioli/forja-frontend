@@ -591,6 +591,48 @@
     animation: forja-pop var(--duration-slow) var(--ease-spring) both;
   }
 
+  /* Montagem do plano: o símbolo flutua, o brilho atrás respira e um ponto
+     orbita o anel de progresso. Movimento contínuo e lento — é uma espera
+     curta, e o que precisa chamar atenção é a etapa escrita embaixo. */
+  @keyframes hf-float {
+    50% {
+      transform: translateY(-6px);
+    }
+  }
+
+  @keyframes hf-breathe {
+    50% {
+      transform: scale(1.15);
+      opacity: 0.55;
+    }
+  }
+
+  @keyframes hf-orbit {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .animate-float {
+    animation: hf-float 2.6s ease-in-out infinite;
+  }
+
+  .animate-breathe {
+    animation: hf-breathe 2.6s ease-in-out infinite;
+  }
+
+  .animate-orbit {
+    animation: hf-orbit 3.2s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-float,
+    .animate-breathe,
+    .animate-orbit {
+      animation: none;
+    }
+  }
+
   /* Brilho de carregamento dos skeletons. Varredura lenta e de baixa
      amplitude: um pulso forte chama mais atenção que o conteúdo real. */
   @keyframes forja-shimmer {
