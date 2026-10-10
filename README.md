@@ -1,4 +1,4 @@
-# forja-frontend
+# habitual-fit-frontend
 
 Os apps do Forja — web (TanStack Start) e mobile (Expo) — e a lógica de negócio
 pura que os dois compartilham.
@@ -10,7 +10,7 @@ apps/mobile/       @forja/mobile — app Expo / React Native
 ```
 
 O schema do banco, as migrations, o RLS e as Edge Functions vivem no repositório
-**[forja-backend](../forja-backend)**. A única coisa que atravessa a fronteira é
+**[habitual-fit-backend](https://github.com/GabrielZubioli/habitual-fit-backend)**. A única coisa que atravessa a fronteira é
 o contrato de dados, consumido como o pacote `@gabrielzubioli/db`.
 
 ## Setup
