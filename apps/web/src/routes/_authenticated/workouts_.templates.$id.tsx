@@ -231,7 +231,7 @@ function TemplateEditor() {
         action={
           <>
             <Button variant="outline" asChild>
-              <Link to="/workouts">Voltar</Link>
+              <Link to="/plan">Voltar</Link>
             </Button>
             {isNew ? (
               <Button onClick={() => createTemplate.mutate()} disabled={createTemplate.isPending}>

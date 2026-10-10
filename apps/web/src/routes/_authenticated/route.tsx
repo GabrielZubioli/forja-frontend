@@ -8,15 +8,21 @@ import {
 } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  Dumbbell,
-  LayoutDashboard,
-  Utensils,
-  HeartPulse,
-  User,
-  LogOut,
+  BarChart3,
   BookOpen,
   Bot,
+  CalendarDays,
+  Dumbbell,
+  HeartPulse,
+  Home,
+  List,
+  LogOut,
+  User,
+  Utensils,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/data/query-keys";
+import { fetchOpenSessionId } from "@/data/workout-session";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CommandPalette, CommandPaletteTrigger } from "@/components/command-palette";
@@ -42,23 +48,23 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 /**
- * Navegação principal.
- *
- * Cinco itens, não sete. Receitas saiu da barra (continua acessível pelo perfil
- * e pela busca ⌘K) e o treinador entrou: numa barra inferior de celular, cada
- * item a mais estreita todos os alvos de toque, e "Receitas" era o menos usado
- * dos sete.
+ * Navegação principal, no formato das apps de academia que funcionam bem com
+ * uma mão: quatro destinos e, no centro, o botão de treinar — a ação que a
+ * pessoa abre o app para fazer. Durante um treino ele fica laranja e leva de
+ * volta à sessão.
  */
 const NAV_ITEMS = [
-  { to: "/dashboard", label: "Hoje", icon: LayoutDashboard },
-  { to: "/workouts", label: "Treino", icon: Dumbbell },
-  { to: "/diet", label: "Dieta", icon: Utensils },
-  { to: "/coach", label: "Treinador", icon: Bot },
-  { to: "/body", label: "Progresso", icon: HeartPulse },
+  { to: "/dashboard", label: "Início", icon: Home },
+  { to: "/plan", label: "Plano", icon: CalendarDays },
+  { to: "/stats", label: "Estatísticas", icon: BarChart3 },
+  { to: "/exercises", label: "Exercícios", icon: List },
 ] as const;
 
-/** Itens fora da barra, presentes no menu lateral do desktop. */
+/** Itens fora da barra, presentes no menu lateral do desktop e nos cards da Início. */
 const SECONDARY_NAV = [
+  { to: "/diet", label: "Dieta", icon: Utensils },
+  { to: "/coach", label: "Treinador", icon: Bot },
+  { to: "/body", label: "Corpo", icon: HeartPulse },
   { to: "/recipes", label: "Receitas", icon: BookOpen },
   { to: "/profile", label: "Perfil", icon: User },
 ] as const;
@@ -86,6 +92,11 @@ function AuthLayout() {
   };
 
   const isActive = (to: string) => pathname === to || pathname.startsWith(`${to}/`);
+  const sessaoAberta = useQuery({
+    queryKey: [...queryKeys.workouts.all, "open-session"],
+    queryFn: fetchOpenSessionId,
+  });
+  const emTreino = Boolean(sessaoAberta.data) || pathname.startsWith("/workouts/session/");
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -118,6 +129,18 @@ function AuthLayout() {
         </div>
 
         <nav className="flex-1 space-y-1 px-3" aria-label="Navegação principal">
+          <Link
+            to="/train"
+            className={cn(
+              "mb-2 flex items-center justify-center gap-2 rounded-full px-3 py-2.5 text-sm font-bold transition-colors",
+              emTreino
+                ? "bg-warning text-warning-foreground"
+                : "bg-primary text-primary-foreground",
+            )}
+          >
+            <Dumbbell className="size-4" aria-hidden />
+            {emTreino ? "Voltar ao treino" : "Treinar"}
+          </Link>
           {NAV_ITEMS.map((item) => {
             const active = isActive(item.to);
             return (
@@ -169,57 +192,55 @@ function AuthLayout() {
         </div>
       </aside>
 
-      {/* Cabeçalho mobile — dá acesso ao tema e a sair, antes só disponíveis no desktop. */}
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-background/95 px-4 py-3 backdrop-blur md:hidden">
-        <Link to="/dashboard" className="flex items-center gap-2">
-          <span
-            className="grid size-8 place-items-center rounded-lg"
-            style={{ background: "var(--gradient-primary)" }}
-            aria-hidden
-          >
-            <Dumbbell className="size-4 text-primary-foreground" />
-          </span>
-          <span className="font-semibold tracking-tight">Forja</span>
-        </Link>
-        <div className="flex items-center gap-1">
-          <ThemeToggle />
-          {/* Perfil saiu da barra inferior para dar espaço aos alvos de toque;
-              precisa continuar alcançável em um gesto no celular. */}
-          <Button variant="ghost" size="icon" asChild aria-label="Abrir perfil">
-            <Link to="/profile">
-              <User className="size-4" />
-            </Link>
-          </Button>
-          <Button variant="ghost" size="icon" onClick={signOut} aria-label="Sair da conta">
-            <LogOut className="size-4" />
-          </Button>
-        </div>
-      </header>
-
-      {/*
-        Navegação inferior (mobile). Antes era `grid-cols-6` com rótulo de 12px:
-        em telas de 320px os alvos ficavam apertados e o texto truncava. Agora
-        rola horizontalmente com largura mínima por item e respeita a área
-        segura do iOS.
-      */}
+      {/* Barra inferior (celular): quatro destinos e o botão central de treinar. */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card pb-[env(safe-area-inset-bottom)] md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
         aria-label="Navegação principal"
       >
-        <ul className="flex overflow-x-auto">
-          {NAV_ITEMS.map((item) => {
+        <ul className="grid grid-cols-5 items-end">
+          {[NAV_ITEMS[0], NAV_ITEMS[1], null, NAV_ITEMS[2], NAV_ITEMS[3]].map((item) => {
+            if (!item) {
+              return (
+                <li key="treinar" className="flex justify-center">
+                  <Link
+                    to="/train"
+                    aria-label={emTreino ? "Voltar ao treino" : "Treinar"}
+                    className="-mt-7 flex flex-col items-center gap-1 pb-2"
+                  >
+                    <span
+                      className={cn(
+                        "grid size-16 place-items-center rounded-full shadow-lg transition-colors",
+                        emTreino
+                          ? "bg-warning text-warning-foreground shadow-warning/30"
+                          : "bg-primary text-primary-foreground shadow-primary/30",
+                      )}
+                    >
+                      <Dumbbell className="size-7" aria-hidden />
+                    </span>
+                    <span
+                      className={cn(
+                        "text-[12px] font-bold",
+                        emTreino ? "text-warning" : "text-primary",
+                      )}
+                    >
+                      {emTreino ? "Treino" : "Treinar"}
+                    </span>
+                  </Link>
+                </li>
+              );
+            }
             const active = isActive(item.to);
             return (
-              <li key={item.to} className="min-w-[4rem] flex-1">
+              <li key={item.to}>
                 <Link
                   to={item.to}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex min-h-[3.25rem] flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] transition-colors",
-                    active ? "font-medium text-primary" : "text-muted-foreground",
+                    "flex min-h-[3.75rem] flex-col items-center justify-center gap-1 px-1 py-2 text-[12px] transition-colors",
+                    active ? "font-semibold text-primary" : "text-muted-foreground",
                   )}
                 >
-                  <item.icon className="size-5" aria-hidden />
+                  <item.icon className="size-6" aria-hidden />
                   <span className="truncate">{item.label}</span>
                 </Link>
               </li>
@@ -228,7 +249,7 @@ function AuthLayout() {
         </ul>
       </nav>
 
-      <main id="conteudo" className="min-h-screen pb-24 md:pb-0 md:pl-60">
+      <main id="conteudo" className="min-h-screen pb-28 md:pb-0 md:pl-60">
         <Outlet />
       </main>
 

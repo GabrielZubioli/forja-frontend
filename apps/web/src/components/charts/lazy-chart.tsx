@@ -13,7 +13,11 @@ import type { MeasurementPoint } from "./measurement-sparkline";
 const WeightChartImpl = lazy(() => import("./weight-chart"));
 const MeasurementSparklineImpl = lazy(() => import("./measurement-sparkline"));
 
-export function LazyWeightChart(props: { data: readonly WeightPoint[]; showDots?: boolean }) {
+export function LazyWeightChart(props: {
+  data: readonly WeightPoint[];
+  showDots?: boolean;
+  goal?: number | null;
+}) {
   return (
     <Suspense fallback={<ChartSkeleton />}>
       <WeightChartImpl {...props} />

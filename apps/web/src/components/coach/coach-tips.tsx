@@ -21,7 +21,7 @@ import { fetchCoachInsights, type CoachInsight } from "@/data/coach";
  * auxílio, não conteúdo essencial. Poluir a Home com "não foi possível
  * carregar as dicas" seria dar a um extra o peso de uma falha real.
  */
-export function CoachTips() {
+export function CoachTips({ limit }: { limit?: number } = {}) {
   const insights = useQuery({
     queryKey: queryKeys.coach.recommendations(),
     queryFn: fetchCoachInsights,
@@ -31,7 +31,7 @@ export function CoachTips() {
   });
 
   if (insights.isPending || insights.isError) return null;
-  const lista = insights.data ?? [];
+  const lista = (insights.data ?? []).slice(0, limit);
   if (lista.length === 0) return null;
 
   return (

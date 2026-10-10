@@ -20,8 +20,11 @@ import { Route as AuthenticatedCoachRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDietRouteImport } from './routes/_authenticated/diet'
 import { Route as AuthenticatedExercisesRouteImport } from './routes/_authenticated/exercises'
+import { Route as AuthenticatedPlanRouteImport } from './routes/_authenticated/plan'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedRecipesRouteImport } from './routes/_authenticated/recipes'
+import { Route as AuthenticatedStatsRouteImport } from './routes/_authenticated/stats'
+import { Route as AuthenticatedTrainRouteImport } from './routes/_authenticated/train'
 import { Route as AuthenticatedWorkoutsRouteImport } from './routes/_authenticated/workouts'
 import { Route as AuthenticatedExercisesIdRouteImport } from './routes/_authenticated/exercises_.$id'
 import { Route as AuthenticatedRecipesIdRouteImport } from './routes/_authenticated/recipes_.$id'
@@ -84,6 +87,11 @@ const AuthenticatedExercisesRoute = AuthenticatedExercisesRouteImport.update({
   path: '/exercises',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPlanRoute = AuthenticatedPlanRouteImport.update({
+  id: '/plan',
+  path: '/plan',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -92,6 +100,16 @@ const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
 const AuthenticatedRecipesRoute = AuthenticatedRecipesRouteImport.update({
   id: '/recipes',
   path: '/recipes',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedStatsRoute = AuthenticatedStatsRouteImport.update({
+  id: '/stats',
+  path: '/stats',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedTrainRoute = AuthenticatedTrainRouteImport.update({
+  id: '/train',
+  path: '/train',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedWorkoutsRoute = AuthenticatedWorkoutsRouteImport.update({
@@ -146,8 +164,11 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/diet': typeof AuthenticatedDietRoute
   '/exercises': typeof AuthenticatedExercisesRoute
+  '/plan': typeof AuthenticatedPlanRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/recipes': typeof AuthenticatedRecipesRoute
+  '/stats': typeof AuthenticatedStatsRoute
+  '/train': typeof AuthenticatedTrainRoute
   '/workouts': typeof AuthenticatedWorkoutsRoute
   '/exercises/$id': typeof AuthenticatedExercisesIdRoute
   '/recipes/$id': typeof AuthenticatedRecipesIdRoute
@@ -167,8 +188,11 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/diet': typeof AuthenticatedDietRoute
   '/exercises': typeof AuthenticatedExercisesRoute
+  '/plan': typeof AuthenticatedPlanRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/recipes': typeof AuthenticatedRecipesRoute
+  '/stats': typeof AuthenticatedStatsRoute
+  '/train': typeof AuthenticatedTrainRoute
   '/workouts': typeof AuthenticatedWorkoutsRoute
   '/exercises/$id': typeof AuthenticatedExercisesIdRoute
   '/recipes/$id': typeof AuthenticatedRecipesIdRoute
@@ -190,8 +214,11 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/diet': typeof AuthenticatedDietRoute
   '/_authenticated/exercises': typeof AuthenticatedExercisesRoute
+  '/_authenticated/plan': typeof AuthenticatedPlanRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/recipes': typeof AuthenticatedRecipesRoute
+  '/_authenticated/stats': typeof AuthenticatedStatsRoute
+  '/_authenticated/train': typeof AuthenticatedTrainRoute
   '/_authenticated/workouts': typeof AuthenticatedWorkoutsRoute
   '/_authenticated/exercises_/$id': typeof AuthenticatedExercisesIdRoute
   '/_authenticated/recipes_/$id': typeof AuthenticatedRecipesIdRoute
@@ -213,8 +240,11 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/diet'
     | '/exercises'
+    | '/plan'
     | '/profile'
     | '/recipes'
+    | '/stats'
+    | '/train'
     | '/workouts'
     | '/exercises/$id'
     | '/recipes/$id'
@@ -234,8 +264,11 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/diet'
     | '/exercises'
+    | '/plan'
     | '/profile'
     | '/recipes'
+    | '/stats'
+    | '/train'
     | '/workouts'
     | '/exercises/$id'
     | '/recipes/$id'
@@ -256,8 +289,11 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/diet'
     | '/_authenticated/exercises'
+    | '/_authenticated/plan'
     | '/_authenticated/profile'
     | '/_authenticated/recipes'
+    | '/_authenticated/stats'
+    | '/_authenticated/train'
     | '/_authenticated/workouts'
     | '/_authenticated/exercises_/$id'
     | '/_authenticated/recipes_/$id'
@@ -355,6 +391,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedExercisesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/plan': {
+      id: '/_authenticated/plan'
+      path: '/plan'
+      fullPath: '/plan'
+      preLoaderRoute: typeof AuthenticatedPlanRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/profile': {
       id: '/_authenticated/profile'
       path: '/profile'
@@ -367,6 +410,20 @@ declare module '@tanstack/react-router' {
       path: '/recipes'
       fullPath: '/recipes'
       preLoaderRoute: typeof AuthenticatedRecipesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/stats': {
+      id: '/_authenticated/stats'
+      path: '/stats'
+      fullPath: '/stats'
+      preLoaderRoute: typeof AuthenticatedStatsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/train': {
+      id: '/_authenticated/train'
+      path: '/train'
+      fullPath: '/train'
+      preLoaderRoute: typeof AuthenticatedTrainRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/workouts': {
@@ -427,8 +484,11 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDietRoute: typeof AuthenticatedDietRoute
   AuthenticatedExercisesRoute: typeof AuthenticatedExercisesRoute
+  AuthenticatedPlanRoute: typeof AuthenticatedPlanRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedRecipesRoute: typeof AuthenticatedRecipesRoute
+  AuthenticatedStatsRoute: typeof AuthenticatedStatsRoute
+  AuthenticatedTrainRoute: typeof AuthenticatedTrainRoute
   AuthenticatedWorkoutsRoute: typeof AuthenticatedWorkoutsRoute
   AuthenticatedExercisesIdRoute: typeof AuthenticatedExercisesIdRoute
   AuthenticatedRecipesIdRoute: typeof AuthenticatedRecipesIdRoute
@@ -444,8 +504,11 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDietRoute: AuthenticatedDietRoute,
   AuthenticatedExercisesRoute: AuthenticatedExercisesRoute,
+  AuthenticatedPlanRoute: AuthenticatedPlanRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedRecipesRoute: AuthenticatedRecipesRoute,
+  AuthenticatedStatsRoute: AuthenticatedStatsRoute,
+  AuthenticatedTrainRoute: AuthenticatedTrainRoute,
   AuthenticatedWorkoutsRoute: AuthenticatedWorkoutsRoute,
   AuthenticatedExercisesIdRoute: AuthenticatedExercisesIdRoute,
   AuthenticatedRecipesIdRoute: AuthenticatedRecipesIdRoute,

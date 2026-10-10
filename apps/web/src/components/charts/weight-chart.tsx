@@ -20,6 +20,7 @@ import {
   CartesianGrid,
   ComposedChart,
   Line,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -43,9 +44,12 @@ export { CHART_TOOLTIP_STYLE } from "./chart-theme";
 export default function WeightChart({
   data,
   showDots = false,
+  goal,
 }: {
   data: readonly WeightPoint[];
   showDots?: boolean;
+  /** Meta de peso: linha tracejada em âmbar. */
+  goal?: number | null;
 }) {
   const gradiente = useId();
 
@@ -69,7 +73,21 @@ export default function WeightChart({
 
         <CartesianGrid {...CHART_GRID} />
         <XAxis dataKey="date" {...CHART_AXIS} minTickGap={24} />
-        <YAxis {...CHART_AXIS} domain={["auto", "auto"]} width={44} unit=" kg" />
+        <YAxis
+          {...CHART_AXIS}
+          domain={goal ? [(min: number) => Math.min(min, goal) - 1, "auto"] : ["auto", "auto"]}
+          width={44}
+          unit=" kg"
+        />
+        {goal ? (
+          <ReferenceLine
+            y={goal}
+            stroke="var(--warning)"
+            strokeDasharray="6 5"
+            strokeWidth={2}
+            ifOverflow="extendDomain"
+          />
+        ) : null}
 
         <Tooltip
           contentStyle={CHART_TOOLTIP_STYLE}

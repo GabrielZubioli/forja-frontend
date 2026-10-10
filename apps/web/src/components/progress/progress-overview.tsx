@@ -261,7 +261,7 @@ export function ProgressOverview() {
       )}
 
       <Button asChild variant="ghost" className="w-full text-muted-foreground">
-        <Link to="/workouts">Ver progressão de cargas nos treinos</Link>
+        <Link to="/plan">Ver progressão de cargas nos treinos</Link>
       </Button>
     </div>
   );

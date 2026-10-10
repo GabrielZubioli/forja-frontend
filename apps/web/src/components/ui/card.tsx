@@ -25,19 +25,22 @@ import { cn } from "@/lib/utils";
  * 15% da largura de uma tela de 320 px em cada lado — as telas de treino, que
  * empilham cartões, ficavam com uma coluna de conteúdo estreitíssima.
  */
-const cardVariants = cva("rounded-xl border border-border bg-card text-card-foreground", {
-  variants: {
-    variant: {
-      default: "shadow-sm",
-      elevated: "bg-elevated shadow-md",
-      interactive: [
-        "press-feedback cursor-pointer shadow-sm text-left",
-        "hover:border-primary/30 hover:shadow-md",
-      ],
+const cardVariants = cva(
+  "rounded-xl border border-border bg-card text-card-foreground dark:border-transparent",
+  {
+    variants: {
+      variant: {
+        default: "shadow-sm",
+        elevated: "bg-elevated shadow-md",
+        interactive: [
+          "press-feedback cursor-pointer shadow-sm text-left",
+          "hover:border-primary/30 hover:shadow-md",
+        ],
+      },
     },
+    defaultVariants: { variant: "default" },
   },
-  defaultVariants: { variant: "default" },
-});
+);
 
 export interface CardProps
   extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof cardVariants> {}

@@ -61,3 +61,21 @@ Legenda: ✅ Forja já tem · 🟡 tem parcial · ⬜ não tem. **Lote** = quand
 | Importar CSV do Strong/Hevy/FitNotes (casa com o catálogo em pt/en, cria exercício próprio para o resto, não duplica ao reimportar, saneia valores fora de faixa) | `import-csv.ts` + `data/import.ts` + card no Perfil | 14 testes; ao vivo: 12 treinos/90 séries, reimportação = 0 novos |
 
 Ficou para o lote 2: registrar treino feito no papel (dá para fazer criando e mudando a data, mas sem atalho), "próxima vez" no resumo, recordes do histórico importado (as séries importadas entram sem `is_pr`).
+
+## Redesign no jeito do openGym (10/10/2026)
+
+Pedido: o Forja com o modo e o design do openGym, treino e dieta. Decidido com você: **recriar do zero, sem copiar código** (o Forja continua fechado), **dieta mantida no estilo novo** (o openGym não tem dieta) e **navegação do openGym com dieta e treinador como cards na Início**.
+
+| openGym | Forja agora |
+| --- | --- |
+| Barra Home · Plan · **Start** (central) · Stats · Exercises | Início · Plano · **Treinar** (central; laranja "Treino" com sessão aberta) · Estatísticas · Exercícios. Dieta, Treinador, Corpo, Receitas e Perfil no menu lateral (desktop) e em cards/ajustes |
+| Home: semana com setas, "Today" + Start, peso com meta e gráfico, sequência de semanas | igual, mais o card da Dieta de hoje, Treinador e Água |
+| Plan: Coach, agenda por dia da semana, "Add routine", Rest; fixed week **ou** rotation | igual: abas Agenda/Rotinas, semana fixa ou rotação (ao trocar para fixa, distribui as rotinas nos dias de treino), rotinas editáveis e programas prontos na aba Rotinas |
+| Treino: um exercício por vez, "Exercise 1/6", mídia grande, chips, "Last time", barra/por lado, linha de progressão, tabela − valor + / reps / RIR / ✓ | igual: chips numerados por exercício, última vez com data e RIR, anilhas por lado, dica de dupla progressão, RIR por série, + / − série, ✓ no canto com confirmação se houver séries pendentes; descanso inicia ao concluir a série |
+| Stats: 4 números, atividade de 12 meses, Muscle balance / Fatigue / Strength | igual (Equilíbrio por semana/30d/90d no mapa corporal, Fadiga = recuperação, Força = recordes) + últimos treinos |
+| Exercises: busca, chips de músculo e equipamento, "Create your own", "+ Plan" | igual |
+| Visual: preto, cartões grafite, títulos enormes, verde de destaque | igual, com o **jade do Forja** no lugar do verde padrão (o teste de paleta do Forja barra "o verde genérico de fitness"; trocar é mexer em poucos tokens) |
+
+Banco (forja-backend): `workout_routines.schedule_mode` e `workout_templates.weekdays` (migration `20261010100000_fixed_week_schedule.sql`), contrato `@gabrielzubioli/db` 0.1.1.
+
+Mudança de comportamento importante: o treino passou a ser registrado **série a série** (era "marcar o exercício inteiro") e termina pelo ✓, não mais sozinho ao marcar o último exercício.

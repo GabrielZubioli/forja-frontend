@@ -10,7 +10,7 @@
  * proximidade de equipamento, para a sugestão fazer sentido sem o usuário
  * precisar pensar.
  */
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Repeat, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,6 +46,7 @@ export function SubstituteExerciseDialog({
   currentEquipment,
   onSubstitute,
   isPending,
+  trigger,
 }: {
   currentExerciseId: string;
   currentExerciseName: string;
@@ -53,6 +54,8 @@ export function SubstituteExerciseDialog({
   currentEquipment?: string;
   onSubstitute: (exercise: SubstituteCandidate) => void | Promise<void>;
   isPending?: boolean;
+  /** Gatilho próprio (ex.: item de menu). Padrão: botão com ícone de troca. */
+  trigger?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState("");
@@ -93,15 +96,17 @@ export function SubstituteExerciseDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="size-8"
-          aria-label={`Substituir ${currentExerciseName} por outro exercício`}
-          disabled={isPending}
-        >
-          <Repeat className="size-4" />
-        </Button>
+        {trigger ?? (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-8"
+            aria-label={`Substituir ${currentExerciseName} por outro exercício`}
+            disabled={isPending}
+          >
+            <Repeat className="size-4" />
+          </Button>
+        )}
       </DialogTrigger>
 
       <DialogContent className="max-w-lg">
