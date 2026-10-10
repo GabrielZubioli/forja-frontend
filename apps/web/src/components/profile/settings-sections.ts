@@ -1,11 +1,10 @@
-import { Dumbbell, HeartPulse, Palette, ShieldCheck, Target, User, Utensils } from "lucide-react";
+import { Dumbbell, HeartPulse, Palette, ShieldCheck, Target, Utensils } from "lucide-react";
 
 /**
  * As seções de Configurações — cada uma é uma opção do Menu e abre sozinha
  * em `/settings?secao=…`.
  */
 export const SETTINGS_SECTIONS = [
-  { key: "dados", title: "Dados pessoais", icon: User },
   { key: "metas", title: "Metas nutricionais", icon: Target },
   { key: "treino", title: "Treino", icon: Dumbbell },
   { key: "alimentacao", title: "Alimentação", icon: Utensils },

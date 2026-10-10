@@ -1,70 +1,119 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { BookOpen, Clock, Copy, Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { queryKeys } from "@/data/query-keys";
-import { assertOk, errorMessage, unwrap, unwrapList } from "@/data/supabase-helpers";
+import { assertOk, errorMessage, unwrap } from "@/data/supabase-helpers";
+import {
+  RECIPE_CATEGORIES,
+  fetchRecipes,
+  recipeCategoryOf,
+  type RecipeSummary,
+} from "@/data/recipes";
 import { useCurrentUserId } from "@/hooks/use-current-user";
 import { PageBody, PageHeader } from "@/components/page-header";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ConfirmButton } from "@/components/confirm-button";
-import { CardGridSkeleton, EmptyState, QueryBoundary } from "@/components/query-boundary";
-import { Plus, Trash2, BookOpen } from "lucide-react";
-import { toast } from "sonner";
+import { ErrorState } from "@/components/query-boundary";
+import { cn } from "@/lib/utils";
 
+/**
+ * Receitas: as prontas do app, por categoria, e as da pessoa.
+ *
+ * As prontas não se editam (são de todos); abrem num detalhe com macros,
+ * ingredientes e preparo, e podem ser copiadas para as da pessoa — que aí
+ * edita à vontade. Na Dieta, as duas aparecem na aba Receitas do Adicionar.
+ */
 export const Route = createFileRoute("/_authenticated/recipes")({
   head: () => ({
     meta: [
       { title: "Receitas — Habitual Fit" },
-      { name: "description", content: "Suas receitas com macros calculados automaticamente." },
-      { property: "og:title", content: "Receitas — Habitual Fit" },
-      {
-        property: "og:description",
-        content: "Monte receitas reutilizáveis para o diário alimentar.",
-      },
+      { name: "description", content: "Receitas prontas e suas, com macros por porção." },
+      { name: "robots", content: "noindex" },
     ],
   }),
   component: RecipesPage,
 });
 
+const kcal = (n: number) => Math.round(n).toLocaleString("pt-BR");
+
 function RecipesPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const userId = useCurrentUserId();
+  const [busca, setBusca] = useState("");
+  const [categoria, setCategoria] = useState<string | null>(null);
+  const [aberta, setAberta] = useState<RecipeSummary | null>(null);
 
-  const recipes = useQuery({
-    queryKey: queryKeys.recipes.list(),
-    queryFn: async () =>
-      unwrapList(
-        "carregar receitas",
-        await supabase
-          .from("recipes")
-          .select("id, name, servings, notes, recipe_items(count)")
-          .is("deleted_at", null)
-          .order("created_at", { ascending: false }),
-      ),
+  const receitas = useQuery({
+    queryKey: [...queryKeys.recipes.all, "com-prontas"],
+    queryFn: fetchRecipes,
   });
 
-  const create = useMutation({
-    mutationFn: async () => {
-      const created = unwrap(
+  const invalidar = () => qc.invalidateQueries({ queryKey: queryKeys.recipes.all });
+
+  const criar = useMutation({
+    mutationFn: async () =>
+      unwrap(
         "criar receita",
         await supabase
           .from("recipes")
           .insert({ user_id: userId, name: "Nova receita", servings: 1 })
           .select("id")
           .single(),
-      );
-      return created.id;
-    },
+      ).id,
     onSuccess: (id) => {
-      void qc.invalidateQueries({ queryKey: queryKeys.recipes.all });
+      void invalidar();
       void navigate({ to: "/recipes/$id", params: { id } });
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
 
-  const remove = useMutation({
+  const copiar = useMutation({
+    mutationFn: async (r: RecipeSummary) => {
+      const nova = unwrap(
+        "copiar receita",
+        await supabase
+          .from("recipes")
+          .insert({
+            user_id: userId,
+            name: r.name,
+            servings: r.servings,
+            category: r.category,
+            prep_minutes: r.prepMinutes,
+            instructions: r.instructions,
+          })
+          .select("id")
+          .single(),
+      );
+      assertOk(
+        "copiar ingredientes",
+        await supabase
+          .from("recipe_items")
+          .insert(r.items.map((i) => ({ recipe_id: nova.id, food_id: i.foodId, grams: i.grams }))),
+      );
+      return nova.id;
+    },
+    onSuccess: (id) => {
+      toast.success("Copiada para suas receitas");
+      void invalidar();
+      void navigate({ to: "/recipes/$id", params: { id } });
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+
+  const excluir = useMutation({
     mutationFn: async (id: string) => {
       assertOk(
         "excluir receita",
@@ -76,100 +125,274 @@ function RecipesPage() {
       return id;
     },
     onSuccess: (id) => {
-      void qc.invalidateQueries({ queryKey: queryKeys.recipes.all });
-      // Soft delete: dá para restaurar enquanto o toast estiver visível.
+      void invalidar();
       toast.success("Receita excluída", {
-        action: { label: "Desfazer", onClick: () => restore.mutate(id) },
+        action: {
+          label: "Desfazer",
+          onClick: () =>
+            void supabase
+              .from("recipes")
+              .update({ deleted_at: null })
+              .eq("id", id)
+              .then(() => invalidar()),
+        },
       });
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
 
-  const restore = useMutation({
-    mutationFn: async (id: string) => {
-      assertOk(
-        "restaurar receita",
-        await supabase.from("recipes").update({ deleted_at: null }).eq("id", id),
-      );
-    },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: queryKeys.recipes.all });
-      toast.success("Receita restaurada");
-    },
-    onError: (e) => toast.error(errorMessage(e)),
-  });
+  const filtradas = useMemo(() => {
+    const t = busca.trim().toLowerCase();
+    return (receitas.data ?? []).filter(
+      (r) =>
+        (!t || r.name.toLowerCase().includes(t)) &&
+        (!categoria || (categoria === "minhas" ? !r.isSystem : r.category === categoria)),
+    );
+  }, [receitas.data, busca, categoria]);
+
+  const minhas = filtradas.filter((r) => !r.isSystem);
+  const prontas = filtradas.filter((r) => r.isSystem);
 
   return (
     <>
       <PageHeader
-        wide
         title="Receitas"
-        description="Combine alimentos e reaproveite no diário."
+        description={
+          receitas.data
+            ? `${receitas.data.filter((r) => r.isSystem).length} receitas prontas`
+            : undefined
+        }
         action={
-          <Button onClick={() => create.mutate()} disabled={create.isPending}>
+          <Button
+            onClick={() => criar.mutate()}
+            disabled={criar.isPending}
+            className="rounded-full"
+          >
             <Plus className="mr-1 size-4" />
-            Nova receita
+            Nova
           </Button>
         }
       />
-      <PageBody wide>
-        <QueryBoundary
-          query={recipes}
-          skeleton={<CardGridSkeleton />}
-          empty={
-            <EmptyState
-              icon={<BookOpen className="size-6" />}
-              title="Nenhuma receita ainda"
-              description="Monte uma combinação de alimentos uma vez e lance no diário quantas vezes quiser, com os macros já calculados por porção."
-              action={
-                <Button onClick={() => create.mutate()} disabled={create.isPending}>
-                  <Plus className="mr-1 size-4" />
-                  Criar minha primeira receita
-                </Button>
-              }
-            />
-          }
-        >
-          {(list) => (
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {list.map((r) => {
-                const count = r.recipe_items?.[0]?.count ?? 0;
-                return (
-                  <Card key={r.id} className="transition-shadow hover:shadow-md">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <Link to="/recipes/$id" params={{ id: r.id }} className="min-w-0 flex-1">
-                          <p className="truncate font-semibold">{r.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {count === 1 ? "1 ingrediente" : `${count} ingredientes`} ·{" "}
-                            {r.servings === 1 ? "1 porção" : `${r.servings} porções`}
-                          </p>
-                        </Link>
-                        <BookOpen className="size-5 shrink-0 text-muted-foreground" />
-                      </div>
-                      <div className="mt-3 flex gap-2">
-                        <Button size="sm" variant="outline" asChild className="flex-1">
-                          <Link to="/recipes/$id" params={{ id: r.id }}>
-                            Editar
-                          </Link>
-                        </Button>
-                        <ConfirmButton
-                          aria-label={`Excluir receita ${r.name}`}
-                          title="Excluir esta receita?"
-                          description={`“${r.name}” sai da lista. Lançamentos já feitos no diário não são afetados.`}
-                          onConfirm={() => remove.mutate(r.id)}
+      <PageBody>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar receita…"
+            className="h-12 rounded-2xl border-transparent bg-card pl-12"
+            aria-label="Buscar receita"
+          />
+        </div>
+        <div className="mt-3 flex flex-wrap gap-1.5" role="radiogroup" aria-label="Categoria">
+          {[
+            { key: null, label: "Todas" },
+            ...RECIPE_CATEGORIES.map((c) => ({ key: c.key, label: `${c.emoji} ${c.label}` })),
+            { key: "minhas", label: "Minhas" },
+          ].map((c) => (
+            <button
+              key={c.key ?? "todas"}
+              type="button"
+              role="radio"
+              aria-checked={categoria === c.key}
+              onClick={() => setCategoria(c.key)}
+              className={cn(
+                "rounded-full px-3.5 py-2 text-sm font-medium transition-colors",
+                categoria === c.key
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-card text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+
+        {receitas.isPending ? (
+          <div className="mt-6 space-y-3">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-20 rounded-[1.25rem]" />
+            ))}
+          </div>
+        ) : receitas.isError ? (
+          <ErrorState message={errorMessage(receitas.error)} onRetry={receitas.refetch} />
+        ) : (
+          <>
+            {minhas.length > 0 && (
+              <section className="mt-6" aria-label="Suas receitas">
+                <h2 className="mb-3 px-1 text-lg font-semibold">Suas receitas</h2>
+                <ul className="space-y-2">
+                  {minhas.map((r) => (
+                    <li
+                      key={r.id}
+                      className="flex items-center gap-2 rounded-[1.25rem] bg-card p-2 pr-3"
+                    >
+                      <Link
+                        to="/recipes/$id"
+                        params={{ id: r.id }}
+                        className="flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1"
+                      >
+                        <Emoji categoria={r.category} />
+                        <Linha r={r} />
+                      </Link>
+                      <Link
+                        to="/recipes/$id"
+                        params={{ id: r.id }}
+                        aria-label={`Editar ${r.name}`}
+                        className="grid size-9 place-items-center rounded-full text-muted-foreground hover:bg-elevated hover:text-foreground"
+                      >
+                        <Pencil className="size-4" />
+                      </Link>
+                      <ConfirmButton
+                        aria-label={`Excluir receita ${r.name}`}
+                        title="Excluir esta receita?"
+                        description={`“${r.name}” sai da lista. Lançamentos já feitos no diário não são afetados.`}
+                        onConfirm={() => excluir.mutate(r.id)}
+                      >
+                        <Trash2 className="size-4" />
+                      </ConfirmButton>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {RECIPE_CATEGORIES.map((c) => {
+              const daCategoria = prontas.filter((r) => r.category === c.key);
+              if (daCategoria.length === 0) return null;
+              return (
+                <section key={c.key} className="mt-8" aria-label={c.label}>
+                  <h2 className="mb-3 px-1 text-lg font-semibold">
+                    {c.emoji} {c.label}
+                  </h2>
+                  <ul className="grid gap-2 sm:grid-cols-2">
+                    {daCategoria.map((r) => (
+                      <li key={r.id}>
+                        <button
+                          type="button"
+                          onClick={() => setAberta(r)}
+                          className="flex w-full items-center gap-3 rounded-[1.25rem] bg-card p-3 text-left transition-colors hover:bg-elevated"
                         >
-                          <Trash2 className="size-4" />
-                        </ConfirmButton>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </QueryBoundary>
+                          <Emoji categoria={r.category} />
+                          <Linha r={r} />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              );
+            })}
+
+            {filtradas.length === 0 && (
+              <div className="mt-10 text-center text-muted-foreground">
+                <BookOpen className="mx-auto size-8" aria-hidden />
+                <p className="mt-2">Nenhuma receita encontrada.</p>
+              </div>
+            )}
+          </>
+        )}
       </PageBody>
+
+      <Dialog open={aberta !== null} onOpenChange={(o) => !o && setAberta(null)}>
+        <DialogContent className="flex max-h-[min(88dvh,44rem)] flex-col gap-0 overflow-hidden rounded-[1.5rem] p-0 sm:p-0">
+          {aberta && (
+            <>
+              <DialogHeader className="space-y-1 px-5 pb-3 pt-5 text-left">
+                <DialogTitle className="pr-8 text-xl leading-tight">
+                  {recipeCategoryOf(aberta.category)?.emoji} {aberta.name}
+                </DialogTitle>
+                <DialogDescription className="flex items-center gap-1">
+                  Rende {aberta.servings} {aberta.servings === 1 ? "porção" : "porções"}
+                  {aberta.prepMinutes && (
+                    <>
+                      {" "}
+                      · <Clock className="size-3.5" aria-hidden /> {aberta.prepMinutes} min
+                    </>
+                  )}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden px-5 pb-5">
+                <div className="grid grid-cols-4 gap-2 text-center">
+                  {[
+                    ["kcal", aberta.perServing.kcal],
+                    ["Prot.", aberta.perServing.proteinG],
+                    ["Carbo", aberta.perServing.carbsG],
+                    ["Gord.", aberta.perServing.fatG],
+                  ].map(([rotulo, valor]) => (
+                    <div key={rotulo as string} className="rounded-2xl bg-card px-1 py-2.5">
+                      <p className="font-bold tabular-nums">{Math.round(valor as number)}</p>
+                      <p className="text-[11px] text-muted-foreground">{rotulo} / porção</p>
+                    </div>
+                  ))}
+                </div>
+                <div>
+                  <p className="mb-2 text-sm font-semibold">Ingredientes (receita inteira)</p>
+                  <ul className="divide-y divide-border/50 rounded-2xl bg-card">
+                    {aberta.items.map((i) => (
+                      <li
+                        key={i.foodId + i.grams}
+                        className="flex items-start justify-between gap-3 px-4 py-2.5 text-sm"
+                      >
+                        <span className="min-w-0 break-words">{i.name}</span>
+                        <span className="shrink-0 tabular-nums text-muted-foreground">
+                          {i.grams} g
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                {aberta.instructions && (
+                  <div>
+                    <p className="mb-1 text-sm font-semibold">Modo de preparo</p>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
+                      {aberta.instructions}
+                    </p>
+                  </div>
+                )}
+                <p className="text-sm text-muted-foreground">
+                  Para comer, use <b>Dieta → Adicionar → Receitas</b> na refeição.
+                </p>
+                <Button
+                  variant="outline"
+                  className="h-12 w-full"
+                  onClick={() => copiar.mutate(aberta)}
+                  disabled={copiar.isPending}
+                >
+                  {copiar.isPending ? (
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                  ) : (
+                    <Copy className="mr-2 size-4" />
+                  )}
+                  Copiar para minhas receitas
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
+  );
+}
+
+function Emoji({ categoria }: { categoria: string | null }) {
+  return (
+    <span
+      className="grid size-12 shrink-0 place-items-center rounded-xl bg-elevated text-2xl"
+      aria-hidden
+    >
+      {recipeCategoryOf(categoria)?.emoji ?? "🍽️"}
+    </span>
+  );
+}
+
+function Linha({ r }: { r: RecipeSummary }) {
+  return (
+    <span className="min-w-0 flex-1">
+      <span className="line-clamp-2 break-words font-semibold leading-snug">{r.name}</span>
+      <span className="mt-0.5 block text-xs text-muted-foreground tabular-nums">
+        {kcal(r.perServing.kcal)} kcal · P {Math.round(r.perServing.proteinG)} g por porção
+        {r.prepMinutes ? ` · ${r.prepMinutes} min` : ""}
+      </span>
+    </span>
   );
 }

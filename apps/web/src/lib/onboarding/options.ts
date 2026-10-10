@@ -285,7 +285,7 @@ export const COOKING_OPTIONS: Option<"none" | "basic" | "confident">[] = [
  * anterior era seis, o que tornava impossível pedir o cardápio inteiro que a
  * tela de Alimentação foi feita para mostrar.
  */
-export const MEALS_PER_DAY_OPTIONS = [3, 4, 5, 6, 8] as const;
+export const MEALS_PER_DAY_OPTIONS = [3, 4, 5, 6, 7, 8] as const;
 
 /** Padrão de quem não responde: o dia completo. */
 export const DEFAULT_MEALS_PER_DAY = 8;

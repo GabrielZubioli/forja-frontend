@@ -512,6 +512,8 @@ export interface ActiveMealPlan {
     id: string;
     slot: MealSlot;
     position: number;
+    /** Nome dado pela pessoa; `null` = o nome padrão do horário. */
+    label: string | null;
     targetTime: string | null;
     kcalTarget: number;
     items: {
@@ -649,7 +651,7 @@ export async function fetchActiveMealPlan(): Promise<ActiveMealPlan | null> {
     await supabase
       .from("meal_plan_meals")
       .select(
-        "id, slot, position, target_time, kcal_target, meal_plan_items(id, food_id, grams, position, prep_notes, foods(name))",
+        "id, slot, position, label, target_time, kcal_target, meal_plan_items(id, food_id, grams, position, prep_notes, foods(name))",
       )
       .eq("plan_id", plan.id)
       .order("position"),
@@ -667,6 +669,7 @@ export async function fetchActiveMealPlan(): Promise<ActiveMealPlan | null> {
       id: m.id,
       slot: m.slot as MealSlot,
       position: m.position,
+      label: m.label,
       targetTime: m.target_time,
       kcalTarget: num(m.kcal_target),
       items: (m.meal_plan_items ?? [])
@@ -682,4 +685,38 @@ export async function fetchActiveMealPlan(): Promise<ActiveMealPlan | null> {
         })),
     })),
   };
+}
+
+/**
+ * Renomeia uma refeição do plano ativo ("Lanche da tarde" → "Shake pós-aula").
+ * Nome vazio volta ao padrão. Refeição que ainda não existe no plano (as que
+ * aparecem quando a pessoa aumenta as refeições do dia) é criada vazia.
+ */
+export async function setMealLabel(
+  planId: string,
+  slot: MealSlot,
+  label: string,
+  position: number,
+): Promise<void> {
+  const nome = label.trim() || null;
+  const existente = unwrapMaybe(
+    "buscar refeição",
+    await supabase
+      .from("meal_plan_meals")
+      .select("id")
+      .eq("plan_id", planId)
+      .eq("slot", slot)
+      .maybeSingle(),
+  );
+  if (existente) {
+    assertOk(
+      "renomear refeição",
+      await supabase.from("meal_plan_meals").update({ label: nome }).eq("id", existente.id),
+    );
+    return;
+  }
+  assertOk(
+    "criar refeição",
+    await supabase.from("meal_plan_meals").insert({ plan_id: planId, slot, position, label: nome }),
+  );
 }

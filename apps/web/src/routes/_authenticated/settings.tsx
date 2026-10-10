@@ -6,17 +6,9 @@ import { assertOk, errorMessage, num, unwrapMaybe } from "@/data/supabase-helper
 import { PageBody, PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DatePicker } from "@/components/date-picker";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChipGroup, ChipRadio } from "@/components/ui/chip-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { ErrorState } from "@/components/query-boundary";
 import { AdaptiveGoalsCard } from "@/components/adaptive-goals-card";
 import { ExportDataCard } from "@/components/export-data-card";
@@ -29,11 +21,12 @@ import {
 } from "@/components/profile/settings-sections";
 import { ProfileSection } from "@/components/profile/profile-section";
 import { AppearanceSection } from "@/components/profile/appearance-section";
-import { Dumbbell, HeartPulse, Info, LogOut, Palette, Target, User, Utensils } from "lucide-react";
+import { Dumbbell, HeartPulse, Info, LogOut, Palette, Target, Utensils } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { bmrMifflin, tdee, goalCalories, macroTargets, yearsBetween } from "@forja/domain";
+import { macroTargets, yearsBetween } from "@forja/domain";
+import { targetsFor } from "@/lib/profile-targets";
 import {
   DURATION_OPTIONS,
   EQUIPMENT_OPTIONS,
@@ -43,7 +36,6 @@ import {
   MEALS_PER_DAY_OPTIONS,
   PLACE_OPTIONS,
 } from "@/lib/onboarding/options";
-import { ACTIVITY_HINTS, ACTIVITY_LABELS, GOAL_LABELS, SEX_LABELS, label } from "@/lib/labels";
 import { todayISO } from "@/lib/date";
 
 /**
@@ -152,7 +144,6 @@ function SettingsPage() {
   const qc = useQueryClient();
   const [form, setForm] = useState<ProfileForm>(EMPTY_FORM);
   const [prefs, setPrefs] = useState<PreferencesForm>(EMPTY_PREFERENCES);
-  const [touched, setTouched] = useState(false);
   const [prefsTouched, setPrefsTouched] = useState(false);
 
   const profile = useQuery({
@@ -201,61 +192,31 @@ function SettingsPage() {
       water_ml_target: p.water_ml_target ?? null,
       injuries: p.injuries ?? [],
     });
-    setTouched(false);
     setPrefsTouched(false);
     // Só reidrata quando muda o registro carregado, não a cada refetch — senão
     // uma revalidação em background descartaria o que o usuário está digitando.
   }, [profileId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const validation = profileSchema.safeParse(form);
-  const fieldErrors = validation.success ? {} : validation.error.flatten().fieldErrors;
 
   const weightKg = latestWeight.data ?? 0;
 
-  const preview = useMemo(() => {
-    const heightCm = Number(form.height_cm || 0);
-    if (!weightKg || !heightCm || !form.birth_date || !validation.success) return null;
-    const ageYears = yearsBetween(form.birth_date);
-    const bmr = bmrMifflin({ sex: form.sex, weightKg, heightCm, ageYears });
-    const total = tdee(bmr, form.activity_level);
-    const kcal = goalCalories(total, form.goal);
-    return { bmr: Math.round(bmr), tdee: Math.round(total), kcal, ...macroTargets(kcal, weightKg) };
-  }, [form, weightKg, validation.success]);
-
-  const save = useMutation({
-    mutationFn: async () => {
-      if (!validation.success) throw new Error("Corrija os campos destacados antes de salvar.");
-      if (!profileId) throw new Error("Perfil ainda não carregado.");
-
-      assertOk(
-        "salvar perfil",
-        await supabase
-          .from("profiles")
-          .update({
-            display_name: form.display_name?.trim() || null,
-            sex: form.sex,
-            birth_date: form.birth_date || null,
-            height_cm: form.height_cm ? Number(form.height_cm) : null,
-            goal_weight_kg: form.goal_weight_kg ? Number(form.goal_weight_kg) : null,
-            activity_level: form.activity_level,
-            goal: form.goal,
-            onboarding_completed: true,
-            daily_kcal_target: preview?.kcal ?? null,
-            protein_g_target: preview?.protein_g ?? null,
-            carbs_g_target: preview?.carbs_g ?? null,
-            fat_g_target: preview?.fat_g ?? null,
-            fiber_g_target: preview?.fiber_g ?? null,
-          })
-          .eq("id", profileId),
-      );
-    },
-    onSuccess: () => {
-      toast.success(preview ? "Perfil e metas salvos" : "Perfil salvo");
-      setTouched(false);
-      void qc.invalidateQueries({ queryKey: queryKeys.profile() });
-    },
-    onError: (e) => toast.error(errorMessage(e)),
-  });
+  const preview = useMemo(
+    () =>
+      validation.success
+        ? targetsFor(
+            {
+              sex: form.sex,
+              birthDate: form.birth_date || null,
+              heightCm: form.height_cm ? Number(form.height_cm) : null,
+              activityLevel: form.activity_level,
+              goal: form.goal,
+            },
+            weightKg,
+          )
+        : null,
+    [form, weightKg, validation.success],
+  );
 
   const savePreferences = useMutation({
     mutationFn: async () => {
@@ -321,11 +282,6 @@ function SettingsPage() {
     onError: (e) => toast.error(errorMessage(e)),
   });
 
-  const update = <K extends keyof ProfileForm>(key: K, value: ProfileForm[K]) => {
-    setForm((f) => ({ ...f, [key]: value }));
-    setTouched(true);
-  };
-
   const updatePref = <K extends keyof PreferencesForm>(key: K, value: PreferencesForm[K]) => {
     setPrefs((p) => ({ ...p, [key]: value }));
     setPrefsTouched(true);
@@ -358,156 +314,6 @@ function SettingsPage() {
             </div>
           ) : (
             <>
-              {mostra("dados") && (
-                <ProfileSection
-                  defaultOpen={!secao || secao === "dados"}
-                  icon={<User />}
-                  title="Dados pessoais"
-                  description="Entram no cálculo de TMB, gasto diário e macros."
-                  summary={[
-                    form.display_name || null,
-                    form.height_cm ? `${form.height_cm} cm` : null,
-                    label(SEX_LABELS, form.sex),
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                >
-                  <div className="space-y-3">
-                    <Field label="Nome" htmlFor="p-name" error={fieldErrors.display_name?.[0]}>
-                      <Input
-                        id="p-name"
-                        value={form.display_name ?? ""}
-                        onChange={(e) => update("display_name", e.target.value)}
-                        autoComplete="name"
-                      />
-                    </Field>
-
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="Sexo" htmlFor="p-sex">
-                        <Select
-                          value={form.sex}
-                          onValueChange={(v) => update("sex", v as ProfileForm["sex"])}
-                        >
-                          <SelectTrigger id="p-sex">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.entries(SEX_LABELS).map(([value, text]) => (
-                              <SelectItem key={value} value={value}>
-                                {text}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </Field>
-
-                      <Field
-                        label="Data de nascimento"
-                        htmlFor="p-birth"
-                        error={fieldErrors.birth_date?.[0]}
-                      >
-                        <DatePicker
-                          id="p-birth"
-                          years
-                          max={todayISO()}
-                          value={form.birth_date}
-                          onChange={(v) => update("birth_date", v)}
-                          aria-invalid={Boolean(fieldErrors.birth_date)}
-                        />
-                      </Field>
-
-                      <Field
-                        label="Altura (cm)"
-                        htmlFor="p-height"
-                        error={fieldErrors.height_cm?.[0]}
-                      >
-                        <Input
-                          id="p-height"
-                          type="number"
-                          inputMode="numeric"
-                          min={100}
-                          max={250}
-                          value={form.height_cm}
-                          onChange={(e) => update("height_cm", e.target.value)}
-                          aria-invalid={Boolean(fieldErrors.height_cm)}
-                        />
-                      </Field>
-
-                      <Field
-                        label="Peso-alvo (kg)"
-                        htmlFor="p-goal-weight"
-                        hint="Aparece como meta no topo do perfil."
-                        error={fieldErrors.goal_weight_kg?.[0]}
-                      >
-                        <Input
-                          id="p-goal-weight"
-                          type="number"
-                          step="0.1"
-                          inputMode="decimal"
-                          min={30}
-                          max={300}
-                          value={form.goal_weight_kg}
-                          onChange={(e) => update("goal_weight_kg", e.target.value)}
-                          aria-invalid={Boolean(fieldErrors.goal_weight_kg)}
-                        />
-                      </Field>
-                    </div>
-
-                    <Field
-                      label="Nível de atividade"
-                      htmlFor="p-activity"
-                      hint={ACTIVITY_HINTS[form.activity_level]}
-                    >
-                      <Select
-                        value={form.activity_level}
-                        onValueChange={(v) =>
-                          update("activity_level", v as ProfileForm["activity_level"])
-                        }
-                      >
-                        <SelectTrigger id="p-activity">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(ACTIVITY_LABELS).map(([value, text]) => (
-                            <SelectItem key={value} value={value}>
-                              {text}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-
-                    <Field label="Objetivo" htmlFor="p-goal">
-                      <Select
-                        value={form.goal}
-                        onValueChange={(v) => update("goal", v as ProfileForm["goal"])}
-                      >
-                        <SelectTrigger id="p-goal">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(GOAL_LABELS).map(([value, text]) => (
-                            <SelectItem key={value} value={value}>
-                              {text}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-
-                    <Button
-                      className="w-full"
-                      onClick={() => save.mutate()}
-                      loading={save.isPending}
-                      loadingLabel="Salvando perfil"
-                      disabled={!touched || !validation.success}
-                    >
-                      Salvar dados
-                    </Button>
-                  </div>
-                </ProfileSection>
-              )}
-
               {mostra("metas") && (
                 <ProfileSection
                   defaultOpen={secao === "metas"}
