@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
-import { ArrowLeft, Dumbbell, Loader2, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowLeft, Loader2, ShieldCheck, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { loadDraft } from "@/lib/onboarding/storage";
 import { derivedObjective } from "@/lib/onboarding/options";
 import { bmrMifflin, goalCalories, macroTargets, tdee, waterTargetMl } from "@forja/domain";
 import { derivedActivityLevel } from "@/lib/onboarding/options";
+import { BrandSymbol } from "@/components/brand-logo";
 
 /**
  * Cadastro — o último passo, não o primeiro.
@@ -30,7 +31,7 @@ import { derivedActivityLevel } from "@/lib/onboarding/options";
 export const Route = createFileRoute("/criar-conta")({
   head: () => ({
     meta: [
-      { title: "Criar conta — Forja" },
+      { title: "Criar conta — Habitual Fit" },
       { name: "description", content: "Crie sua conta para salvar seu plano de treino e dieta." },
       { name: "robots", content: "noindex" },
     ],
@@ -413,13 +414,7 @@ function Shell({ children, onBack }: { children: React.ReactNode; onBack?: () =>
               <ArrowLeft className="size-5" />
             </Button>
           ) : (
-            <span
-              className="grid size-10 place-items-center rounded-xl"
-              style={{ background: "var(--gradient-primary)" }}
-              aria-hidden
-            >
-              <Dumbbell className="size-5 text-primary-foreground" />
-            </span>
+            <BrandSymbol className="w-10" />
           )}
         </header>
         <main className="flex-1">{children}</main>

@@ -45,6 +45,7 @@ import { CoachTips } from "@/components/coach/coach-tips";
 import { LazyWeightChart } from "@/components/charts/lazy-chart";
 import { formatDate, formatLongDate, fromISODate, toISODate, todayISO } from "@/lib/date";
 import { cn } from "@/lib/utils";
+import { BrandLogo } from "@/components/brand-logo";
 
 /**
  * Início: a semana, o treino de hoje e o resto do dia.
@@ -56,7 +57,7 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
     meta: [
-      { title: "Início — Forja" },
+      { title: "Início — Habitual Fit" },
       { name: "description", content: "Sua semana, o treino de hoje e o resto do dia." },
       { name: "robots", content: "noindex" },
     ],
@@ -90,7 +91,9 @@ function Home() {
   return (
     <div className="mx-auto w-full max-w-3xl px-4 pb-8 pt-6 md:px-8 md:pt-8">
       <header className="mb-6">
-        <h1 className="text-[2.75rem] font-extrabold leading-none tracking-tight">Forja</h1>
+        <h1>
+          <BrandLogo className="h-12" />
+        </h1>
         <p className="mt-2 text-lg text-muted-foreground first-letter:uppercase">
           {formatLongDate(today).toLowerCase()}
         </p>

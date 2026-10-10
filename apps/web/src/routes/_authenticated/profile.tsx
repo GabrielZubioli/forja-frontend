@@ -36,7 +36,7 @@ import { formatDate } from "@/lib/date";
  */
 export const Route = createFileRoute("/_authenticated/profile")({
   head: () => ({
-    meta: [{ title: "Perfil — Forja" }, { name: "robots", content: "noindex" }],
+    meta: [{ title: "Perfil — Habitual Fit" }, { name: "robots", content: "noindex" }],
   }),
   component: ProfilePage,
 });
@@ -190,7 +190,7 @@ function ProfilePage() {
         )}
 
         {/* Atividade no app. */}
-        <h3 className="mb-3 mt-8 px-1 text-lg text-muted-foreground">No Forja</h3>
+        <h3 className="mb-3 mt-8 px-1 text-lg text-muted-foreground">No Habitual Fit</h3>
         <div className="grid grid-cols-3 gap-3">
           <Dado icon={<Dumbbell />} rotulo="Treinos" valor={treinos.data?.total ?? null} />
           <Dado icon={<CalendarHeart />} rotulo="Este mês" valor={treinos.data?.month ?? null} />

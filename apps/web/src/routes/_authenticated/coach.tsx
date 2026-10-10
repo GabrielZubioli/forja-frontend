@@ -39,7 +39,7 @@ import {
 export const Route = createFileRoute("/_authenticated/coach")({
   head: () => ({
     meta: [
-      { title: "Treinador — Forja" },
+      { title: "Treinador — Habitual Fit" },
       { name: "description", content: "Tire dúvidas sobre treino e alimentação." },
       { name: "robots", content: "noindex" },
     ],

@@ -55,7 +55,7 @@ import { todayISO } from "@/lib/date";
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
     meta: [
-      { title: "Configurações — Forja" },
+      { title: "Configurações — Habitual Fit" },
       { name: "description", content: "Ajuste dados corporais, objetivos e metas de calorias." },
       { name: "robots", content: "noindex" },
     ],

@@ -7,7 +7,8 @@ import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dumbbell, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { BrandLogo } from "@/components/brand-logo";
 
 /**
  * Entrar — **só** entrar.
@@ -23,8 +24,8 @@ import { Dumbbell, Loader2 } from "lucide-react";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Entrar — Forja" },
-      { name: "description", content: "Acesse sua conta Forja." },
+      { title: "Entrar — Habitual Fit" },
+      { name: "description", content: "Acesse sua conta Habitual Fit." },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -51,15 +52,8 @@ function AuthPage() {
   return (
     <div className="grid min-h-dvh place-items-center bg-background px-6 py-10">
       <div className="w-full max-w-sm">
-        <Link to="/" className="mb-8 flex items-center justify-center gap-2">
-          <span
-            className="grid size-10 place-items-center rounded-xl"
-            style={{ background: "var(--gradient-primary)" }}
-            aria-hidden
-          >
-            <Dumbbell className="size-5 text-primary-foreground" />
-          </span>
-          <span className="text-lg font-semibold tracking-tight">Forja</span>
+        <Link to="/" className="mb-8 flex items-center justify-center" aria-label="Habitual Fit">
+          <BrandLogo className="h-14" />
         </Link>
 
         <h1 className="text-center text-2xl font-bold tracking-tight">Bem-vindo de volta</h1>

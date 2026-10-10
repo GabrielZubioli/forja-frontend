@@ -75,7 +75,7 @@ import { nutritionTotals, portionMacros, type FoodCandidate } from "@forja/domai
 export const Route = createFileRoute("/_authenticated/diet")({
   head: () => ({
     meta: [
-      { title: "Dieta — Forja" },
+      { title: "Dieta — Habitual Fit" },
       { name: "description", content: "Seu cardápio do dia, com substituições inteligentes." },
       { name: "robots", content: "noindex" },
     ],

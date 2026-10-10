@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
  */
 export const Route = createFileRoute("/confirme-email")({
   head: () => ({
-    meta: [{ title: "Confirme seu e-mail — Forja" }, { name: "robots", content: "noindex" }],
+    meta: [{ title: "Confirme seu e-mail — Habitual Fit" }, { name: "robots", content: "noindex" }],
   }),
   ssr: false,
   // O e-mail vem na URL para a tela sobreviver ao recarregamento; um estado em

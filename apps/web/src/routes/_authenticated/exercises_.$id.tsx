@@ -32,7 +32,7 @@ import { subDays } from "date-fns";
 export const Route = createFileRoute("/_authenticated/exercises_/$id")({
   head: () => ({
     meta: [
-      { title: "Histórico do exercício — Forja" },
+      { title: "Histórico do exercício — Habitual Fit" },
       { name: "description", content: "Progressão de carga, volume e recordes por exercício." },
     ],
   }),

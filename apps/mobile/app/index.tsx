@@ -37,7 +37,7 @@ export default function Home() {
     <SafeAreaView className="flex-1 bg-background">
       <ScrollView contentContainerClassName="p-6 gap-5">
         <View className="gap-1">
-          <Text className="text-3xl font-bold text-foreground">Forja</Text>
+          <Text className="text-3xl font-bold text-foreground">Habitual Fit</Text>
           <Text className="text-base text-muted-foreground">
             Fundação do app mobile — scaffold funcional.
           </Text>

@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Dumbbell, Sparkles } from "lucide-react";
+import { ArrowLeft, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +46,7 @@ import {
   weightGoalFeedback,
 } from "@/lib/onboarding/options";
 import { WEEKDAY_LABELS, type Weekday } from "@forja/domain";
+import { BrandSymbol } from "@/components/brand-logo";
 
 /**
  * A raiz do app **é** o questionário.
@@ -65,13 +66,13 @@ import { WEEKDAY_LABELS, type Weekday } from "@forja/domain";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Forja — seu treino e sua dieta, montados para você" },
+      { title: "Habitual Fit — seu treino e sua dieta, montados para você" },
       {
         name: "description",
         content:
           "Responda algumas perguntas e receba um plano de treino e alimentação feito para o seu corpo, sua rotina e seus objetivos.",
       },
-      { property: "og:title", content: "Forja — treino e dieta personalizados" },
+      { property: "og:title", content: "Habitual Fit — treino e dieta personalizados" },
       {
         property: "og:description",
         content:
@@ -181,13 +182,7 @@ function OnboardingQuiz() {
               <ArrowLeft className="size-5" />
             </Button>
           ) : (
-            <span
-              className="grid size-10 shrink-0 place-items-center rounded-xl"
-              style={{ background: "var(--gradient-primary)" }}
-              aria-hidden
-            >
-              <Dumbbell className="size-5 text-primary-foreground" />
-            </span>
+            <BrandSymbol className="w-10" />
           )}
           <ProgressBar current={safeIndex + 1} total={steps.length} />
           <span className="w-11 shrink-0 text-right text-xs font-medium tabular-nums text-muted-foreground">
@@ -625,13 +620,7 @@ function OnboardingQuiz() {
 function Welcome({ onStart }: { onStart: () => void }) {
   return (
     <div className="flex flex-1 flex-col justify-center text-center">
-      <span
-        className="mx-auto grid size-20 place-items-center rounded-3xl animate-in zoom-in-50 duration-500"
-        style={{ background: "var(--gradient-primary)" }}
-        aria-hidden
-      >
-        <Dumbbell className="size-10 text-primary-foreground" />
-      </span>
+      <BrandSymbol className="mx-auto w-24 animate-in zoom-in-50 duration-500" />
 
       <h1 className="mt-8 text-balance text-3xl font-bold leading-tight tracking-tight animate-in fade-in slide-in-from-bottom-2 duration-500">
         Seu treino e sua dieta, montados para você

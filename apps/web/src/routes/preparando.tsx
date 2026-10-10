@@ -30,7 +30,7 @@ import { isComplete } from "@/lib/onboarding/schema";
  */
 export const Route = createFileRoute("/preparando")({
   head: () => ({
-    meta: [{ title: "Montando seu plano — Forja" }, { name: "robots", content: "noindex" }],
+    meta: [{ title: "Montando seu plano — Habitual Fit" }, { name: "robots", content: "noindex" }],
   }),
   ssr: false,
   component: PreparingPage,

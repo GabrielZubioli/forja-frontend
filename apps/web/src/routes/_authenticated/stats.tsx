@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/_authenticated/stats")({
   head: () => ({
     meta: [
-      { title: "Estatísticas — Forja" },
+      { title: "Estatísticas — Habitual Fit" },
       { name: "description", content: "Progresso e histórico de treino." },
       { name: "robots", content: "noindex" },
     ],

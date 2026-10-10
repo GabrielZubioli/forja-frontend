@@ -84,7 +84,7 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/_authenticated/workouts_/session/$id")({
   head: () => ({
     meta: [
-      { title: "Treino em andamento — Forja" },
+      { title: "Treino em andamento — Habitual Fit" },
       { name: "description", content: "Registre as séries conforme executa." },
       { name: "robots", content: "noindex" },
     ],

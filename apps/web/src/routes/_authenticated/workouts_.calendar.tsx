@@ -29,7 +29,7 @@ import { WEEKDAY_INITIALS, type Weekday } from "@forja/domain";
 export const Route = createFileRoute("/_authenticated/workouts_/calendar")({
   head: () => ({
     meta: [
-      { title: "Calendário de treinos — Forja" },
+      { title: "Calendário de treinos — Habitual Fit" },
       { name: "description", content: "Veja seus treinos por mês e acompanhe a constância." },
     ],
   }),

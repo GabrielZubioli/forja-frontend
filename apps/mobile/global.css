@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /*
- * Design tokens do Forja (acento laranja/âmbar).
+ * Design tokens do Habitual Fit (acento laranja/âmbar).
  * Tema segue o sistema; o override manual troca a classe `dark` na raiz.
  * Valores em HSL para casar com `hsl(var(--token))` no tailwind.config.
  */

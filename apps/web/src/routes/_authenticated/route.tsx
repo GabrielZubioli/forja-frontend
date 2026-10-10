@@ -40,6 +40,7 @@ import { SETTINGS_SECTIONS } from "@/components/profile/settings-sections";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { BrandLogo } from "@/components/brand-logo";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -124,15 +125,8 @@ function AuthLayout() {
       {/* Barra lateral (desktop) */}
       <aside className="fixed inset-y-0 left-0 hidden w-60 flex-col border-r border-border bg-sidebar md:flex">
         <div className="flex items-center justify-between gap-2 px-5 py-5">
-          <Link to="/dashboard" className="flex items-center gap-2">
-            <span
-              className="grid size-9 place-items-center rounded-xl"
-              style={{ background: "var(--gradient-primary)" }}
-              aria-hidden
-            >
-              <Dumbbell className="size-5 text-primary-foreground" />
-            </span>
-            <span className="font-semibold tracking-tight">Forja</span>
+          <Link to="/dashboard" className="flex items-center" aria-label="Habitual Fit — início">
+            <BrandLogo className="h-9" />
           </Link>
           <ThemeToggle />
         </div>

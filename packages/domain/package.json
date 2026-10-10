@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Lógica de negócio pura do Forja (treino, dieta, corpo). Sem DOM/window/localStorage — portável entre web e React Native.",
+  "description": "Lógica de negócio pura do Habitual Fit (treino, dieta, corpo). Sem DOM/window/localStorage — portável entre web e React Native.",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {

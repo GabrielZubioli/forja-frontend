@@ -4,7 +4,7 @@
   "private": true,
   "sideEffects": false,
   "type": "module",
-  "description": "App web do Forja (TanStack Start).",
+  "description": "App web do Habitual Fit (TanStack Start).",
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",

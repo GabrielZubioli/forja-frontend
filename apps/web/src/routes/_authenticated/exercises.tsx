@@ -28,7 +28,7 @@ import { EQUIPMENT_LABELS, MUSCLE_LABELS, label, type MuscleValue } from "@/lib/
 export const Route = createFileRoute("/_authenticated/exercises")({
   head: () => ({
     meta: [
-      { title: "Exercícios — Forja" },
+      { title: "Exercícios — Habitual Fit" },
       { name: "description", content: "Mais de mil exercícios com demonstração animada." },
     ],
   }),

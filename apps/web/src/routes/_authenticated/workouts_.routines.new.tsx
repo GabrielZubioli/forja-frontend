@@ -40,7 +40,7 @@ import {
 export const Route = createFileRoute("/_authenticated/workouts_/routines/new")({
   head: () => ({
     meta: [
-      { title: "Montar plano de treino — Forja" },
+      { title: "Montar plano de treino — Habitual Fit" },
       {
         name: "description",
         content: "Responda quatro perguntas e receba sua divisão de treino pronta.",

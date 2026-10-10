@@ -23,9 +23,9 @@ import { MUSCLE_LABELS, label } from "@/lib/labels";
 export const Route = createFileRoute("/_authenticated/workouts_/templates/$id")({
   head: () => ({
     meta: [
-      { title: "Editar template — Forja" },
+      { title: "Editar template — Habitual Fit" },
       { name: "description", content: "Monte e edite seus templates de treino." },
-      { property: "og:title", content: "Editar template — Forja" },
+      { property: "og:title", content: "Editar template — Habitual Fit" },
       { property: "og:description", content: "Adicione exercícios, séries e reps alvo." },
     ],
   }),

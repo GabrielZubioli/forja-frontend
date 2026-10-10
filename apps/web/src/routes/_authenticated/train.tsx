@@ -31,7 +31,9 @@ import { cn } from "@/lib/utils";
  * treinos à mão para quem quiser treinar mesmo assim.
  */
 export const Route = createFileRoute("/_authenticated/train")({
-  head: () => ({ meta: [{ title: "Treinar — Forja" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [{ title: "Treinar — Habitual Fit" }, { name: "robots", content: "noindex" }],
+  }),
   component: TrainPage,
 });
 

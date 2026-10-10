@@ -1,19 +1,23 @@
 {
   "expo": {
-    "name": "Forja",
-    "slug": "forja",
-    "scheme": "forja",
+    "name": "Habitual Fit",
+    "slug": "habitual-fit",
+    "scheme": "habitualfit",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.forja.app"
+      "bundleIdentifier": "com.habitualfit.app"
     },
     "android": {
-      "package": "com.forja.app",
-      "edgeToEdgeEnabled": true
+      "package": "com.habitualfit.app",
+      "edgeToEdgeEnabled": true,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#020306"
+      }
     },
     "plugins": [
       "expo-router",
@@ -21,7 +25,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "O Forja usa a câmera para ler o código de barras de alimentos."
+          "cameraPermission": "O Habitual Fit usa a câmera para ler o código de barras de alimentos."
         }
       ],
       [
@@ -33,6 +37,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#020306"
     }
   }
 }

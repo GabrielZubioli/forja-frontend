@@ -1,5 +1,5 @@
 /**
- * @forja/domain — lógica de negócio pura do Forja.
+ * @forja/domain — lógica de negócio pura do Habitual Fit.
  *
  * Sem DOM, window, localStorage ou I/O. Portável entre o app web e o app
  * React Native. Toda entrada estruturada é validada com Zod; toda função é

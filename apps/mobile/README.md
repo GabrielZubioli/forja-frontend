@@ -1,6 +1,6 @@
 # @forja/mobile
 
-App Expo (React Native) do Forja — destino de publicação nas lojas.
+App Expo (React Native) do Habitual Fit — destino de publicação nas lojas.
 
 ## Stack
 

@@ -15,9 +15,9 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/_authenticated/recipes")({
   head: () => ({
     meta: [
-      { title: "Receitas — Forja" },
+      { title: "Receitas — Habitual Fit" },
       { name: "description", content: "Suas receitas com macros calculados automaticamente." },
-      { property: "og:title", content: "Receitas — Forja" },
+      { property: "og:title", content: "Receitas — Habitual Fit" },
       {
         property: "og:description",
         content: "Monte receitas reutilizáveis para o diário alimentar.",

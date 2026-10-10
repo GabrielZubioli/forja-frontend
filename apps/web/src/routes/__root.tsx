@@ -79,18 +79,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Forja — Treino, Dieta e Progresso" },
+      { title: "Habitual Fit — Treino, Dieta e Progresso" },
       {
         name: "description",
         content:
           "Registre treinos, monitore macros e acompanhe seu progresso corporal em um só app.",
       },
-      { property: "og:title", content: "Forja — Treino, Dieta e Progresso" },
+      { property: "og:title", content: "Habitual Fit — Treino, Dieta e Progresso" },
       {
         property: "og:description",
         content: "Registre treinos, monitore macros e acompanhe seu progresso corporal.",
       },
       { property: "og:type", content: "website" },
+      { property: "og:image", content: "/og-image.png" },
+      { property: "og:site_name", content: "Habitual Fit" },
       { name: "twitter:card", content: "summary_large_image" },
       // PWA: um app usado na academia precisa abrir da tela inicial, em tela
       // cheia, sem a barra do navegador roubando espaço vertical.
@@ -102,7 +104,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "theme-color", content: "#f6faf8", media: "(prefers-color-scheme: light)" },
       { name: "theme-color", content: "#070d0b", media: "(prefers-color-scheme: dark)" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
-      { name: "apple-mobile-web-app-title", content: "Forja" },
+      { name: "apple-mobile-web-app-title", content: "Habitual Fit" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
       { name: "mobile-web-app-capable", content: "yes" },
       // Evita que o iOS transforme números em links de telefone nas tabelas de séries.
@@ -116,7 +118,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
       { rel: "icon", href: "/icon.svg", type: "image/svg+xml" },
       { rel: "manifest", href: "/manifest.webmanifest" },
-      { rel: "apple-touch-icon", href: "/icon.svg" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
     ],
   }),
   shellComponent: RootShell,

@@ -6,7 +6,7 @@
 
 /*
  * ============================================================================
- * FORJA — DESIGN SYSTEM
+ * HABITUAL FIT — DESIGN SYSTEM
  * ============================================================================
  *
  * Toda a identidade visual do produto está neste arquivo. Nenhum componente
@@ -317,7 +317,9 @@
   --foreground: oklch(0.985 0 0); /* 15.7:1 sobre card */
   --card-foreground: oklch(0.985 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --muted-foreground: oklch(0.68 0.009 286); /* ~#98989f — 5.3:1 sobre o card */ /* 5.6:1 card · 5.0:1 elevated */
+  --muted-foreground: oklch(
+    0.68 0.009 286
+  ); /* ~#98989f — 5.3:1 sobre o card */ /* 5.6:1 card · 5.0:1 elevated */
   --subtle-foreground: oklch(0.8 0.006 286); /* 8.8:1 */
 
   --muted: oklch(0.275 0.005 286);
@@ -330,7 +332,9 @@
 
   /* Jade claro. O texto por cima é o quase-preto da marca, não branco:
      10:1 contra 1.6:1 — a diferença entre legível e decorativo. */
-  --primary: oklch(0.78 0.155 162); /* #3ad598 */
+  --primary: oklch(
+    0.778 0.167 162
+  ); /* ≈ #01d798, o verde da marca Habitual Fit (matiz igual ao tema claro) */
   --primary-foreground: oklch(0.18 0.035 162); /* 9.95:1 */
   --primary-hover: oklch(0.835 0.14 162);
   --primary-active: oklch(0.715 0.15 162);

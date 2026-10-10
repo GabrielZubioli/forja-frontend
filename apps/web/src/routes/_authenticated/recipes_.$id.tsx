@@ -38,9 +38,9 @@ import { nutritionTotals, perServing, portionMacros, type Portion } from "@forja
 export const Route = createFileRoute("/_authenticated/recipes_/$id")({
   head: () => ({
     meta: [
-      { title: "Editar receita — Forja" },
+      { title: "Editar receita — Habitual Fit" },
       { name: "description", content: "Ajuste ingredientes e porções." },
-      { property: "og:title", content: "Editar receita — Forja" },
+      { property: "og:title", content: "Editar receita — Habitual Fit" },
       { property: "og:description", content: "Cálculo automático de macros por porção." },
     ],
   }),

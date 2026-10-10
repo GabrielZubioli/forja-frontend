@@ -58,7 +58,7 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/_authenticated/plan")({
   head: () => ({
     meta: [
-      { title: "Plano — Forja" },
+      { title: "Plano — Habitual Fit" },
       { name: "description", content: "Sua rotina semanal e as rotinas de treino." },
       { name: "robots", content: "noindex" },
     ],

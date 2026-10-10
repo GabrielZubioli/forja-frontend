@@ -310,7 +310,7 @@ function jaccard(a: Set<string>, b: Set<string>): number {
   return inter / (a.size + b.size - inter);
 }
 
-/** Equipamento do Forja inferido do nome, para exercícios que não casaram. */
+/** Equipamento do Habitual Fit inferido do nome, para exercícios que não casaram. */
 export function guessEquipment(
   name: string,
 ): "barbell" | "dumbbell" | "cable" | "machine" | "kettlebell" | "band" | "bodyweight" | "other" {
