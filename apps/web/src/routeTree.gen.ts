@@ -23,6 +23,7 @@ import { Route as AuthenticatedExercisesRouteImport } from './routes/_authentica
 import { Route as AuthenticatedPlanRouteImport } from './routes/_authenticated/plan'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedRecipesRouteImport } from './routes/_authenticated/recipes'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedStatsRouteImport } from './routes/_authenticated/stats'
 import { Route as AuthenticatedTrainRouteImport } from './routes/_authenticated/train'
 import { Route as AuthenticatedWorkoutsRouteImport } from './routes/_authenticated/workouts'
@@ -102,6 +103,11 @@ const AuthenticatedRecipesRoute = AuthenticatedRecipesRouteImport.update({
   path: '/recipes',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedStatsRoute = AuthenticatedStatsRouteImport.update({
   id: '/stats',
   path: '/stats',
@@ -167,6 +173,7 @@ export interface FileRoutesByFullPath {
   '/plan': typeof AuthenticatedPlanRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/recipes': typeof AuthenticatedRecipesRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/stats': typeof AuthenticatedStatsRoute
   '/train': typeof AuthenticatedTrainRoute
   '/workouts': typeof AuthenticatedWorkoutsRoute
@@ -191,6 +198,7 @@ export interface FileRoutesByTo {
   '/plan': typeof AuthenticatedPlanRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/recipes': typeof AuthenticatedRecipesRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/stats': typeof AuthenticatedStatsRoute
   '/train': typeof AuthenticatedTrainRoute
   '/workouts': typeof AuthenticatedWorkoutsRoute
@@ -217,6 +225,7 @@ export interface FileRoutesById {
   '/_authenticated/plan': typeof AuthenticatedPlanRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/recipes': typeof AuthenticatedRecipesRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/stats': typeof AuthenticatedStatsRoute
   '/_authenticated/train': typeof AuthenticatedTrainRoute
   '/_authenticated/workouts': typeof AuthenticatedWorkoutsRoute
@@ -243,6 +252,7 @@ export interface FileRouteTypes {
     | '/plan'
     | '/profile'
     | '/recipes'
+    | '/settings'
     | '/stats'
     | '/train'
     | '/workouts'
@@ -267,6 +277,7 @@ export interface FileRouteTypes {
     | '/plan'
     | '/profile'
     | '/recipes'
+    | '/settings'
     | '/stats'
     | '/train'
     | '/workouts'
@@ -292,6 +303,7 @@ export interface FileRouteTypes {
     | '/_authenticated/plan'
     | '/_authenticated/profile'
     | '/_authenticated/recipes'
+    | '/_authenticated/settings'
     | '/_authenticated/stats'
     | '/_authenticated/train'
     | '/_authenticated/workouts'
@@ -412,6 +424,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRecipesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/stats': {
       id: '/_authenticated/stats'
       path: '/stats'
@@ -487,6 +506,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPlanRoute: typeof AuthenticatedPlanRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedRecipesRoute: typeof AuthenticatedRecipesRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedStatsRoute: typeof AuthenticatedStatsRoute
   AuthenticatedTrainRoute: typeof AuthenticatedTrainRoute
   AuthenticatedWorkoutsRoute: typeof AuthenticatedWorkoutsRoute
@@ -507,6 +527,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPlanRoute: AuthenticatedPlanRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedRecipesRoute: AuthenticatedRecipesRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedStatsRoute: AuthenticatedStatsRoute,
   AuthenticatedTrainRoute: AuthenticatedTrainRoute,
   AuthenticatedWorkoutsRoute: AuthenticatedWorkoutsRoute,

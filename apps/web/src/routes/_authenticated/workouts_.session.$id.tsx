@@ -42,6 +42,7 @@ import { videoSearchUrl } from "@/data/exercise-media";
 import { SubstituteExerciseDialog } from "@/components/pickers/substitute-exercise-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/date-picker";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
@@ -312,17 +313,17 @@ function SessionPage() {
 
       {terminado && (
         <div className="mt-2 flex flex-wrap items-center gap-2 rounded-2xl bg-card p-3">
-          <label className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <span className="text-muted-foreground">Data</span>
-            <Input
-              type="date"
+            <DatePicker
               className="h-9 w-auto"
               max={todayISO()}
               value={toISODate(new Date(dados.startedAt))}
               disabled={mudarData.isPending}
-              onChange={(e) => e.target.value && mudarData.mutate(e.target.value)}
+              onChange={(v) => mudarData.mutate(v)}
+              aria-label="Data do treino"
             />
-          </label>
+          </div>
           {editando ? (
             <Button
               size="sm"
@@ -356,9 +357,11 @@ function SessionPage() {
         </div>
       ) : (
         <>
-          {/* Um número por exercício: preenchido quando todas as séries estão feitas. */}
+          {/* Um número por exercício: preenchido quando todas as séries estão feitas.
+              O respiro (`p-1.5`) é para o anel do exercício atual — a rolagem
+              horizontal corta tudo que passa da borda da lista. */}
           <ol
-            className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="-mx-1.5 mt-1.5 flex gap-2 overflow-x-auto p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             aria-label="Exercícios do treino"
           >
             {dados.exercises.map((e, i) => (
@@ -369,11 +372,12 @@ function SessionPage() {
                   aria-label={`${i + 1}. ${e.name}${e.done ? " — feito" : ""}`}
                   aria-current={i === atual ? "step" : undefined}
                   className={cn(
-                    "grid size-9 place-items-center rounded-full text-sm font-bold tabular-nums transition-colors",
+                    "grid size-9 shrink-0 place-items-center rounded-full text-sm font-bold tabular-nums transition-colors",
+                    i === atual && "ring-2 ring-primary ring-offset-2 ring-offset-background",
                     e.done
                       ? "bg-primary text-primary-foreground"
                       : i === atual
-                        ? "bg-elevated ring-2 ring-primary"
+                        ? "bg-elevated"
                         : "bg-card text-muted-foreground",
                   )}
                 >

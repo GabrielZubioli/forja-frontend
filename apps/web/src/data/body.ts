@@ -25,6 +25,21 @@ export async function fetchWeighIns(days: number): Promise<WeighIn[]> {
   ).map((r) => ({ date: r.log_date, kg: num(r.weight_kg) }));
 }
 
+/** Primeira e última pesagem — o começo e o agora da jornada de peso. */
+export async function fetchWeightEnds(): Promise<{ first: number | null; latest: number | null }> {
+  const uma = (ascending: boolean) =>
+    supabase
+      .from("body_weights")
+      .select("weight_kg")
+      .order("log_date", { ascending })
+      .limit(1)
+      .maybeSingle();
+  const [primeira, ultima] = await Promise.all([uma(true), uma(false)]);
+  const p = unwrapMaybe("buscar peso inicial", primeira);
+  const u = unwrapMaybe("buscar último peso", ultima);
+  return { first: p ? num(p.weight_kg) : null, latest: u ? num(u.weight_kg) : null };
+}
+
 /** Meta de peso do perfil, se definida. */
 export async function fetchGoalWeight(): Promise<number | null> {
   const p = unwrapMaybe(

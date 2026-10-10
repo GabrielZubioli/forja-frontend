@@ -39,6 +39,8 @@ export interface WeekExercise {
 export interface WeekSplit {
   templateId: string;
   letter: string | null;
+  /** Ícone escolhido (chave de `ROUTINE_ICONS`); null = palpite pelo nome. */
+  icon: string | null;
   name: string;
   order: number;
   /** Dias da divisão na semana fixa (0 = domingo). */
@@ -73,7 +75,7 @@ export async function fetchWorkoutWeek(): Promise<WorkoutWeek | null> {
     "carregar divisões",
     await supabase
       .from("workout_templates")
-      .select("id, name, routine_letter, routine_order, weekdays")
+      .select("id, name, icon, routine_letter, routine_order, weekdays")
       .eq("routine_id", routine.id)
       .is("deleted_at", null)
       .order("routine_order"),
@@ -151,6 +153,7 @@ export async function fetchWorkoutWeek(): Promise<WorkoutWeek | null> {
     splits: templates.map((t, i) => ({
       templateId: t.id,
       letter: t.routine_letter,
+      icon: t.icon,
       name: t.name,
       order: t.routine_order ?? i,
       weekdays: t.weekdays ?? [],

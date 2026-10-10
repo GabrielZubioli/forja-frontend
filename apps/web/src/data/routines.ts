@@ -352,6 +352,7 @@ export async function createRoutine(
         days_per_week: input.daysPerWeek,
         training_weekdays: [...trainingWeekdays].sort((a, b) => a - b),
         current_index: 0,
+        schedule_mode: "fixed",
         is_active: true,
       })
       .select("id")
@@ -360,6 +361,9 @@ export async function createRoutine(
 
   // Um template por divisão. Falha em qualquer ponto desfaz a rotina inteira,
   // para não deixar o usuário com meia ficha.
+  // Semana fixa: os dias de treino vão para as divisões em sequência
+  // (A no 1º dia, B no 2º, … e de novo A).
+  const dias = [...trainingWeekdays].sort((a, b) => a - b);
   try {
     for (const [index, split] of draft.splits.entries()) {
       const template = unwrap(
@@ -372,6 +376,7 @@ export async function createRoutine(
             routine_id: routine.id,
             routine_order: index,
             routine_letter: split.letter,
+            weekdays: dias.filter((_, k) => k % draft.splits.length === index),
           })
           .select("id")
           .single(),
@@ -420,6 +425,8 @@ export type ActiveRoutine = {
     id: string;
     name: string;
     letter: string | null;
+    /** Ícone escolhido (chave de `ROUTINE_ICONS`); null = palpite pelo nome. */
+    icon: string | null;
     order: number;
     exerciseCount: number;
     /** Dias da divisão na semana fixa. */
@@ -486,6 +493,14 @@ export async function renameTemplate(templateId: string, letter: string | null, 
       .from("workout_templates")
       .update({ name: letter ? `${letter} — ${limpo}` : limpo })
       .eq("id", templateId),
+  );
+}
+
+/** Ícone da rotina (chave de `ROUTINE_ICONS`). */
+export async function setTemplateIcon(templateId: string, icon: string) {
+  assertOk(
+    "trocar o ícone da rotina",
+    await supabase.from("workout_templates").update({ icon }).eq("id", templateId),
   );
 }
 
@@ -563,7 +578,7 @@ export async function fetchActiveRoutine(): Promise<ActiveRoutine | null> {
     await supabase
       .from("workout_templates")
       .select(
-        "id, name, routine_letter, routine_order, weekdays, workout_template_exercises(count)",
+        "id, name, icon, routine_letter, routine_order, weekdays, workout_template_exercises(count)",
       )
       .eq("routine_id", routine.id)
       .is("deleted_at", null)
@@ -583,6 +598,7 @@ export async function fetchActiveRoutine(): Promise<ActiveRoutine | null> {
       id: t.id,
       name: t.name,
       letter: t.routine_letter,
+      icon: t.icon,
       order: t.routine_order ?? i,
       exerciseCount: t.workout_template_exercises?.[0]?.count ?? 0,
       weekdays: t.weekdays ?? [],

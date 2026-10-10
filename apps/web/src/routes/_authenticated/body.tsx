@@ -9,6 +9,7 @@ import { ProgressOverview } from "@/components/progress/progress-overview";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/date-picker";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -196,13 +197,7 @@ function WeightPanel() {
 
           <div className="space-y-1.5">
             <Label htmlFor="weight-date">Data</Label>
-            <Input
-              id="weight-date"
-              type="date"
-              value={logDate}
-              max={todayISO()}
-              onChange={(e) => e.target.value && setLogDate(e.target.value)}
-            />
+            <DatePicker id="weight-date" value={logDate} max={todayISO()} onChange={setLogDate} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="weight-value">Peso (kg)</Label>
@@ -394,13 +389,7 @@ function MeasurementsPanel() {
         <CardContent className="space-y-3">
           <div className="space-y-1.5">
             <Label htmlFor="measure-date">Data</Label>
-            <Input
-              id="measure-date"
-              type="date"
-              value={logDate}
-              max={todayISO()}
-              onChange={(e) => e.target.value && setLogDate(e.target.value)}
-            />
+            <DatePicker id="measure-date" value={logDate} max={todayISO()} onChange={setLogDate} />
           </div>
           {/* Agrupado por região: onze caixas iguais em coluna única viram um
               formulário de censo. Separadas, dá para preencher só o bloco que

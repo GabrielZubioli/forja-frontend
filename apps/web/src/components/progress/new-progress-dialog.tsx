@@ -15,6 +15,7 @@ import {
 import { useCurrentUserId } from "@/hooks/use-current-user";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/date-picker";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -286,12 +287,11 @@ function EscolhaDeAngulos({
     <div className="space-y-4">
       <div className="space-y-1.5">
         <Label htmlFor="evolucao-data">Data</Label>
-        <Input
+        <DatePicker
           id="evolucao-data"
-          type="date"
           value={logDate}
           max={todayISO()}
-          onChange={(e) => e.target.value && onLogDateChange(e.target.value)}
+          onChange={onLogDateChange}
         />
       </div>
 

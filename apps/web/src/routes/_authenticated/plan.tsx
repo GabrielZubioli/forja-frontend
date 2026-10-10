@@ -1,22 +1,18 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { addDays, startOfWeek } from "date-fns";
 import { ChevronDown, ChevronRight, Pencil, Play, Plus, Wand2, X } from "lucide-react";
-import { TRAINING_PROGRAMS, WEEKDAY_LABELS, projectSchedule, type Weekday } from "@forja/domain";
+import { TRAINING_PROGRAMS, WEEKDAY_LABELS, weekdayOf, type Weekday } from "@forja/domain";
 import { queryKeys } from "@/data/query-keys";
 import { errorMessage } from "@/data/supabase-helpers";
 import {
   createTemplate,
   ensureActiveRoutine,
-  fetchCompletedWorkouts,
   renameRoutine,
   renameTemplate,
-  scheduleInputOf,
-  setScheduleMode,
+  setTemplateIcon,
   setTemplateWeekdays,
-  setTrainingWeekdays,
   splitDisplayName,
 } from "@/data/routines";
 import { addTemplateItem, fetchWorkoutWeek, type WorkoutWeek } from "@/data/workout-week";
@@ -46,7 +42,8 @@ import { NoRoutineCard } from "@/components/home/today-workout-card";
 import { ExercisePicker } from "@/components/pickers/exercise-picker";
 import { ExerciseDetailSheet } from "@/components/workouts/exercise-detail-sheet";
 import { RoutineExerciseRow, estimarDuracao } from "@/components/workouts/routine-exercise-row";
-import { toISODate, todayISO } from "@/lib/date";
+import { RoutineIcon, RoutineIconPicker } from "@/components/workouts/routine-icon";
+import { todayISO } from "@/lib/date";
 import { cn } from "@/lib/utils";
 
 /**
@@ -54,10 +51,8 @@ import { cn } from "@/lib/utils";
  *
  * Duas abas, como nos apps de academia que se usa com uma mão:
  *
- * - **Agenda** — o que se faz em cada dia. Em *semana fixa*, cada rotina tem
- *   os seus dias (segunda = Peito, quarta = Costas…). Em *rotação*, os dias
- *   são só de treino ou de descanso, e as rotinas seguem A → B → C a cada
- *   treino concluído — faltou um dia, a próxima continua esperando.
+ * - **Agenda** — o que se faz em cada dia: cada rotina tem os seus dias
+ *   (segunda = Peito, quarta = Costas…). Dia sem rotina é descanso.
  * - **Rotinas** — o conteúdo de cada uma: exercícios, séries, descanso.
  */
 export const Route = createFileRoute("/_authenticated/plan")({
@@ -100,16 +95,6 @@ function PlanPage() {
       await ensureActiveRoutine(userId);
       return fetchWorkoutWeek();
     },
-  });
-
-  const semanaAtual = useMemo(() => {
-    const inicio = startOfWeek(new Date(), { weekStartsOn: 1 });
-    return Array.from({ length: 7 }, (_, i) => toISODate(addDays(inicio, i)));
-  }, []);
-
-  const feitos = useQuery({
-    queryKey: [...queryKeys.workouts.all, "completed-week"],
-    queryFn: () => fetchCompletedWorkouts(semanaAtual[0]!, semanaAtual[6]!),
   });
 
   const invalidar = () => qc.invalidateQueries({ queryKey: queryKeys.workouts.all });
@@ -181,35 +166,7 @@ function PlanPage() {
     await invalidar();
     setNomeando(null);
   };
-  const fixa = dados.scheduleMode === "fixed";
-  const projecao = projectSchedule(
-    semanaAtual,
-    todayISO(),
-    scheduleInputOf({
-      trainingWeekdays: dados.trainingWeekdays,
-      currentIndex: dados.currentIndex,
-      scheduleMode: dados.scheduleMode,
-      templates: dados.splits,
-    }),
-    feitos.data ?? [],
-  );
-
-  /** Ao mudar para semana fixa sem nada marcado, distribui as rotinas nos dias de treino atuais. */
-  const mudarModo = (modo: "rotation" | "fixed") =>
-    salvar.mutate(async () => {
-      if (modo === "fixed" && dados.splits.every((s) => s.weekdays.length === 0)) {
-        const dias = dados.trainingWeekdays.length ? dados.trainingWeekdays : [1, 3, 5];
-        await Promise.all(
-          dados.splits.map((s, i) =>
-            setTemplateWeekdays(
-              s.templateId,
-              dias.filter((_, k) => k % dados.splits.length === i),
-            ),
-          ),
-        );
-      }
-      await setScheduleMode(dados.routineId, modo);
-    });
+  const hoje = weekdayOf(todayISO());
 
   return (
     <>
@@ -243,69 +200,33 @@ function PlanPage() {
 
         {aba === "agenda" ? (
           <section aria-label="Agenda da semana" className="mt-5">
-            <Segmented
-              value={dados.scheduleMode}
-              onChange={mudarModo}
-              options={[
-                { value: "fixed", label: "Semana fixa" },
-                { value: "rotation", label: "Rotação" },
-              ]}
-              label="Modo da agenda"
-              small
-            />
-            <p className="mt-2 px-1 text-sm text-muted-foreground">
-              {fixa
-                ? "Cada rotina tem os seus dias. Dia sem rotina é descanso."
-                : "As rotinas seguem em sequência a cada treino concluído. Faltou um dia, a próxima continua esperando."}
+            <p className="px-1 text-sm text-muted-foreground">
+              Cada rotina tem os seus dias. Dia sem rotina é descanso.
             </p>
 
-            <h2 className="mb-3 mt-6 px-1 text-lg text-muted-foreground">Agenda da semana</h2>
+            <h2 className="mb-3 mt-4 px-1 text-lg text-muted-foreground">Agenda da semana</h2>
             <ul className="space-y-3">
-              {ORDEM_SEMANA.map((dia) => {
-                const projetado = projecao.find((p) => p.weekday === dia);
-                return (
-                  <li key={dia}>
-                    {fixa ? (
-                      <DiaFixo
-                        dia={dia}
-                        dados={dados}
-                        onAdd={(templateId, dias) =>
-                          salvar.mutate(() => setTemplateWeekdays(templateId, [...dias, dia]))
-                        }
-                        onRemove={(templateId, dias) =>
-                          salvar.mutate(() =>
-                            setTemplateWeekdays(
-                              templateId,
-                              dias.filter((d) => d !== dia),
-                            ),
-                          )
-                        }
-                        onStart={(templateId) => abrir.mutate(templateId)}
-                        isToday={projetado?.isToday ?? false}
-                      />
-                    ) : (
-                      <DiaRotacao
-                        dia={dia}
-                        dados={dados}
-                        status={projetado?.status ?? "rest"}
-                        splitIndex={projetado?.splitIndex ?? null}
-                        isToday={projetado?.isToday ?? false}
-                        onToggle={(treina) =>
-                          salvar.mutate(() =>
-                            setTrainingWeekdays(
-                              dados.routineId,
-                              treina
-                                ? [...dados.trainingWeekdays, dia]
-                                : dados.trainingWeekdays.filter((d) => d !== dia),
-                            ),
-                          )
-                        }
-                        onStart={(templateId) => abrir.mutate(templateId)}
-                      />
-                    )}
-                  </li>
-                );
-              })}
+              {ORDEM_SEMANA.map((dia) => (
+                <li key={dia}>
+                  <DiaFixo
+                    dia={dia}
+                    dados={dados}
+                    onAdd={(templateId, dias) =>
+                      salvar.mutate(() => setTemplateWeekdays(templateId, [...dias, dia]))
+                    }
+                    onRemove={(templateId, dias) =>
+                      salvar.mutate(() =>
+                        setTemplateWeekdays(
+                          templateId,
+                          dias.filter((d) => d !== dia),
+                        ),
+                      )
+                    }
+                    onStart={(templateId) => abrir.mutate(templateId)}
+                    isToday={dia === hoje}
+                  />
+                </li>
+              ))}
             </ul>
           </section>
         ) : (
@@ -316,7 +237,13 @@ function PlanPage() {
                 return (
                   <li key={split.templateId} className="rounded-[1.25rem] bg-card">
                     <div className="flex items-center gap-2 p-4">
-                      <RoutineIcon letter={split.letter} />
+                      <RoutineIconPicker
+                        icon={split.icon}
+                        name={splitDisplayName(split.name)}
+                        onChange={(icon) =>
+                          salvar.mutate(() => setTemplateIcon(split.templateId, icon))
+                        }
+                      />
                       <button
                         type="button"
                         onClick={() => setAberta(expandida ? null : split.templateId)}
@@ -556,7 +483,7 @@ function DiaFixo({
       <ul className="space-y-1">
         {doDia.map((s) => (
           <li key={s.templateId} className="flex items-center gap-3 py-1.5">
-            <RoutineIcon letter={s.letter} />
+            <RoutineIcon icon={s.icon} name={splitDisplayName(s.name)} />
             <button
               type="button"
               onClick={() => onStart(s.templateId)}
@@ -589,83 +516,6 @@ function DiaFixo({
             Adicionar rotina
           </button>,
         )}
-    </div>
-  );
-}
-
-/** Dia na rotação: dia de treino (com a rotina prevista) ou descanso. */
-function DiaRotacao({
-  dia,
-  dados,
-  status,
-  splitIndex,
-  isToday,
-  onToggle,
-  onStart,
-}: {
-  dia: Weekday;
-  dados: WorkoutWeek;
-  status: string;
-  splitIndex: number | null;
-  isToday: boolean;
-  onToggle: (treina: boolean) => void;
-  onStart: (templateId: string) => void;
-}) {
-  const treina = dados.trainingWeekdays.includes(dia);
-  const split = splitIndex !== null ? dados.splits[splitIndex] : undefined;
-  const ultimo = treina && dados.trainingWeekdays.length === 1;
-
-  return (
-    <div className="flex items-center gap-3 rounded-[1.25rem] bg-card px-5 py-4">
-      <div className="min-w-0 flex-1">
-        <p className="text-xl font-medium">
-          {WEEKDAY_LABELS[dia]}
-          {isToday && <span className="ml-2 text-sm font-semibold text-primary">hoje</span>}
-        </p>
-        {treina && (
-          <p className="text-sm text-muted-foreground">
-            {status === "done"
-              ? "Feito ✓"
-              : status === "missed"
-                ? "Passou"
-                : split
-                  ? `Próxima: ${split.name.replace(/^[A-Z]\s*—\s*/, "")}`
-                  : "Dia de treino"}
-          </p>
-        )}
-      </div>
-      {treina ? (
-        <>
-          {split && (status === "today" || status === "upcoming") && (
-            <Button
-              size="sm"
-              variant="secondary"
-              className="rounded-full"
-              onClick={() => onStart(split.templateId)}
-            >
-              Começar
-            </Button>
-          )}
-          <button
-            type="button"
-            onClick={() => onToggle(false)}
-            disabled={ultimo}
-            aria-label={`Tornar ${WEEKDAY_LABELS[dia].toLowerCase()} descanso`}
-            className="grid size-10 place-items-center rounded-full hover:bg-elevated disabled:opacity-30"
-          >
-            <X className="size-5" />
-          </button>
-        </>
-      ) : (
-        <button
-          type="button"
-          onClick={() => onToggle(true)}
-          className="flex items-center gap-2 rounded-lg bg-elevated px-3 py-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          Descanso
-          <Plus className="size-4" aria-label="Tornar dia de treino" />
-        </button>
-      )}
     </div>
   );
 }
@@ -720,18 +570,6 @@ function NomeDialog({
         </form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-/** O ícone de cada rotina: a letra num quadrado verde. */
-function RoutineIcon({ letter }: { letter: string | null }) {
-  return (
-    <span
-      className="grid size-12 shrink-0 place-items-center rounded-xl bg-primary text-lg font-extrabold text-primary-foreground"
-      aria-hidden
-    >
-      {letter ?? "•"}
-    </span>
   );
 }
 

@@ -19,6 +19,7 @@ import { PageBody, PageHeader } from "@/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/query-boundary";
 import { NoRoutineCard } from "@/components/home/today-workout-card";
+import { RoutineIcon } from "@/components/workouts/routine-icon";
 import { todayISO } from "@/lib/date";
 import { cn } from "@/lib/utils";
 
@@ -156,9 +157,11 @@ function TrainPage() {
                     disabled={comecar.isPending}
                     className="flex w-full items-center gap-4 rounded-[1.5rem] bg-primary p-5 text-left text-primary-foreground transition-opacity disabled:opacity-60"
                   >
-                    <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-primary-foreground/15 text-2xl font-extrabold">
-                      {t.letter ?? "•"}
-                    </span>
+                    <RoutineIcon
+                      icon={t.icon}
+                      name={t.name}
+                      className="size-14 rounded-2xl bg-primary-foreground/15 text-primary-foreground [&>svg]:size-7"
+                    />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-2xl font-bold">
                         {splitDisplayName(t.name)}
@@ -216,12 +219,7 @@ function TrainPage() {
             <ul className="space-y-3">
               {outros.map((t) => (
                 <li key={t.id} className="flex items-center gap-3 rounded-[1.25rem] bg-card p-4">
-                  <span
-                    className="grid size-12 shrink-0 place-items-center rounded-xl bg-elevated text-lg font-extrabold"
-                    aria-hidden
-                  >
-                    {t.letter ?? "•"}
-                  </span>
+                  <RoutineIcon icon={t.icon} name={t.name} muted />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-lg font-semibold">
                       {splitDisplayName(t.name)}

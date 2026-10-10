@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState, ErrorState } from "@/components/query-boundary";
 import { cn } from "@/lib/utils";
+import { RoutineIcon, routineIconOf } from "@/components/workouts/routine-icon";
 import { errorMessage } from "@/data/supabase-helpers";
 import { fetchActiveRoutine, fetchCompletedWorkouts } from "@/data/routines";
 import { queryKeys } from "@/data/query-keys";
@@ -165,10 +166,11 @@ function WorkoutCalendar() {
                       const temTreino = treinos.length > 0;
                       const ehHoje = iso === hoje;
                       const foraDoMes = !isSameMonth(dia, monthCursor);
-                      const letra =
+                      const rotina =
                         treinos[0]?.splitIndex !== undefined
-                          ? (templates[treinos[0].splitIndex]?.letter ?? null)
-                          : null;
+                          ? templates[treinos[0].splitIndex]
+                          : undefined;
+                      const Icone = rotina ? routineIconOf(rotina.icon, rotina.name) : Dumbbell;
 
                       return (
                         <button
@@ -196,11 +198,7 @@ function WorkoutCalendar() {
                           <span className={cn("font-medium", ehHoje && "font-bold")}>
                             {dia.getDate()}
                           </span>
-                          {temTreino && (
-                            <span className="text-[9px] font-bold opacity-90">
-                              {letra ?? <Dumbbell className="size-2.5" aria-hidden />}
-                            </span>
-                          )}
+                          {temTreino && <Icone className="size-3 opacity-90" aria-hidden />}
                           {treinos.length > 1 && (
                             <span className="absolute right-1 top-1 size-1.5 rounded-full bg-primary-foreground" />
                           )}
@@ -251,10 +249,13 @@ function WorkoutCalendar() {
                             ` · ${Math.round(treino.volumeKg).toLocaleString("pt-BR")} kg`}
                         </p>
                       </div>
-                      {treino.splitIndex !== undefined && templates[treino.splitIndex]?.letter && (
-                        <Badge variant="secondary" className="shrink-0">
-                          {templates[treino.splitIndex]!.letter}
-                        </Badge>
+                      {treino.splitIndex !== undefined && templates[treino.splitIndex] && (
+                        <RoutineIcon
+                          icon={templates[treino.splitIndex]!.icon}
+                          name={templates[treino.splitIndex]!.name}
+                          className="size-9 rounded-lg [&>svg]:size-5"
+                          muted
+                        />
                       )}
                     </Link>
                   </li>

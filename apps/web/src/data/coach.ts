@@ -202,7 +202,7 @@ function energyToInsight(v: EnergyVerdict): CoachInsight | null {
     body: rapido
       ? `Você está a ${Math.abs(v.observedKgPerWeek).toFixed(2)} kg por semana. Nesse ritmo, parte do que sai é músculo. Sugerimos ${v.suggestedKcal.toLocaleString("pt-BR")} kcal por dia.`
       : `A tendência está em ${v.observedKgPerWeek > 0 ? "+" : ""}${v.observedKgPerWeek.toFixed(2)} kg por semana, longe do esperado. Sugerimos ${v.suggestedKcal.toLocaleString("pt-BR")} kcal por dia.`,
-    action: { label: "Ajustar metas", to: "/profile" },
+    action: { label: "Ajustar metas", to: "/settings" },
   };
 }
 

@@ -56,6 +56,7 @@ const NAV_ITEMS = [
   { to: "/recipes", label: "Receitas", icon: BookOpen },
   { to: "/body", label: "Corpo", icon: HeartPulse },
   { to: "/profile", label: "Perfil", icon: User },
+  { to: "/settings", label: "Configurações", icon: User },
 ] as const;
 
 /** Abaixo disso a busca não filtra o suficiente para valer uma requisição. */

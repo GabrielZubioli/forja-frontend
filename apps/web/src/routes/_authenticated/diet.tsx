@@ -1,11 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Check,
-  ChevronLeft,
-  ChevronRight,
   Clock,
   CopyPlus,
   Minus,
@@ -31,6 +29,7 @@ import {
 import { ensureActiveMealPlan } from "@/data/meal-plans";
 import { useCurrentUserId } from "@/hooks/use-current-user";
 import { PageBody, PageHeader } from "@/components/page-header";
+import { DatePicker } from "@/components/date-picker";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,7 +47,7 @@ import { FoodPicker } from "@/components/pickers/food-picker";
 import { SubstituteFoodDialog } from "@/components/diet/substitute-food-dialog";
 import { CalorieRing, MACRO_COLORS, MacroRing } from "@/components/home/macro-rings";
 import { MEALS, MEAL_LABELS, label, type MealValue } from "@/lib/labels";
-import { formatWeekday, fromISODate, toISODate, todayISO } from "@/lib/date";
+import { fromISODate, toISODate, todayISO } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import { addDays } from "date-fns";
 import { nutritionTotals, portionMacros, type FoodCandidate } from "@forja/domain";
@@ -212,8 +211,6 @@ function DietPage() {
     onError: (e) => toast.error(errorMessage(e)),
   });
 
-  const shiftDay = (days: number) => setDate(toISODate(addDays(fromISODate(date), days)));
-
   // Refeições exibidas: as do plano, mais qualquer uma que tenha item lançado à
   // mão. A ordem é sempre a cronológica do dia, não a de chegada dos dados.
   const doPlano = new Set(plan.data?.meals.map((m) => m.slot as MealValue) ?? []);
@@ -227,33 +224,14 @@ function DietPage() {
     <>
       <PageHeader
         title="Dieta"
-        description={formatWeekday(date)}
+        description={date === hoje ? "Hoje" : undefined}
         action={
-          <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => shiftDay(-1)}
-              aria-label="Dia anterior"
-            >
-              <ChevronLeft className="size-4" />
-            </Button>
-            <Input
-              type="date"
-              value={date}
-              onChange={(e) => e.target.value && setDate(e.target.value)}
-              className="w-36"
-              aria-label="Data do diário"
-            />
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => shiftDay(1)}
-              aria-label="Próximo dia"
-            >
-              <ChevronRight className="size-4" />
-            </Button>
-          </div>
+          <DatePicker
+            value={date}
+            onChange={setDate}
+            className="h-11 w-auto rounded-2xl border-transparent bg-card"
+            aria-label="Data do diário"
+          />
         }
       />
 
@@ -419,6 +397,18 @@ function MealCard({
       );
       return { anterior };
     },
+    onSuccess: (_r, { consumed }) => {
+      // A refeição se conclui sozinha quando o último alimento é marcado. O
+      // aviso sai daqui, do toque — e não de um efeito sobre os dados, que o
+      // repetia para cada refeição já concluída sempre que se trocava de dia.
+      const dia = qc.getQueryData<DayEntry[]>(queryKeys.diet.log(date)) ?? [];
+      const daRefeicao = dia.filter((e) => e.slot === slot);
+      if (consumed && daRefeicao.length > 0 && daRefeicao.every((e) => e.consumed)) {
+        toast.success(`${label(MEAL_LABELS, slot)} concluída`, {
+          description: "Suas calorias e macros do dia já foram atualizados.",
+        });
+      }
+    },
     onError: (e, _v, ctx) => {
       if (ctx?.anterior) qc.setQueryData(queryKeys.diet.log(date), ctx.anterior);
       toast.error(errorMessage(e));
@@ -456,26 +446,6 @@ function MealCard({
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
-
-  /**
-   * A refeição se conclui sozinha quando o último alimento é marcado.
-   *
-   * O usuário não deveria precisar avisar o app de algo que o app acabou de
-   * ver. O aviso aparece uma vez por refeição concluída — a trava por `useRef`
-   * impede que uma revalidação do cache o repita.
-   */
-  const jaAvisou = useRef(false);
-  useEffect(() => {
-    if (!todosConsumidos) {
-      jaAvisou.current = false;
-      return;
-    }
-    if (jaAvisou.current) return;
-    jaAvisou.current = true;
-    toast.success(`${label(MEAL_LABELS, slot)} concluída`, {
-      description: "Suas calorias e macros do dia já foram atualizados.",
-    });
-  }, [todosConsumidos, slot]);
 
   return (
     <Card

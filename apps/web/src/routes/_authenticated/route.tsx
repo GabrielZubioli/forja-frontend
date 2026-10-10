@@ -19,6 +19,7 @@ import {
   LogOut,
   Menu,
   Settings,
+  User,
   Utensils,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -35,6 +36,7 @@ import {
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CommandPalette, CommandPaletteTrigger } from "@/components/command-palette";
 import { CoachIcon } from "@/components/coach/coach-icon";
+import { SETTINGS_SECTIONS } from "@/components/profile/settings-sections";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -75,7 +77,7 @@ const SECONDARY_NAV = [
   { to: "/coach", label: "Treinador", icon: CoachIcon },
   { to: "/body", label: "Corpo", icon: HeartPulse },
   { to: "/recipes", label: "Receitas", icon: BookOpen },
-  { to: "/profile", label: "Configurações", icon: Settings },
+  { to: "/profile", label: "Perfil", icon: User },
 ] as const;
 
 function AuthLayout() {
@@ -107,7 +109,7 @@ function AuthLayout() {
   });
   const emTreino = Boolean(sessaoAberta.data) || pathname.startsWith("/workouts/session/");
   const [menuAberto, setMenuAberto] = useState(false);
-  const menuAtivo = SECONDARY_NAV.some((item) => isActive(item.to));
+  const menuAtivo = [...SECONDARY_NAV.map((i) => i.to), "/settings"].some(isActive);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -193,6 +195,19 @@ function AuthLayout() {
               </Link>
             );
           })}
+          <Link
+            to="/settings"
+            aria-current={isActive("/settings") ? "page" : undefined}
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+              isActive("/settings")
+                ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                : "text-sidebar-foreground hover:bg-sidebar-accent",
+            )}
+          >
+            <Settings className="size-4" aria-hidden />
+            Configurações
+          </Link>
         </nav>
 
         <div className="p-3">
@@ -281,39 +296,57 @@ function AuthLayout() {
             <DrawerTitle className="text-2xl">Menu</DrawerTitle>
             <DrawerDescription className="sr-only">Outras telas e configurações</DrawerDescription>
           </DrawerHeader>
-          <ul className="space-y-1 px-3 pb-3">
-            {SECONDARY_NAV.map((item) => (
-              <li key={item.to}>
-                <Link
-                  to={item.to}
-                  onClick={() => setMenuAberto(false)}
-                  aria-current={isActive(item.to) ? "page" : undefined}
-                  className="flex items-center gap-4 rounded-2xl px-3 py-3 text-lg transition-colors hover:bg-elevated aria-[current=page]:text-primary"
-                >
-                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-elevated">
-                    <item.icon className="size-5" aria-hidden />
-                  </span>
-                  <span className="flex-1">{item.label}</span>
-                  <ChevronRight className="size-5 text-muted-foreground" aria-hidden />
-                </Link>
-              </li>
-            ))}
-            <li>
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuAberto(false);
-                  void signOut();
-                }}
-                className="flex w-full items-center gap-4 rounded-2xl px-3 py-3 text-lg text-destructive transition-colors hover:bg-elevated"
-              >
-                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-elevated">
-                  <LogOut className="size-5" aria-hidden />
-                </span>
-                Sair da conta
-              </button>
-            </li>
-          </ul>
+          <div className="max-h-[75vh] overflow-y-auto px-3 pb-4">
+            <ul className="grid grid-cols-3 gap-2">
+              {SECONDARY_NAV.map((item) => (
+                <li key={item.to}>
+                  <Link
+                    to={item.to}
+                    onClick={() => setMenuAberto(false)}
+                    aria-current={isActive(item.to) ? "page" : undefined}
+                    className="flex flex-col items-center gap-2 rounded-2xl bg-card px-2 py-4 text-sm font-medium transition-colors hover:bg-elevated aria-[current=page]:text-primary"
+                  >
+                    <span className="grid size-11 place-items-center rounded-xl bg-elevated">
+                      <item.icon className="size-5" aria-hidden />
+                    </span>
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+
+            <h2 className="mb-1 mt-5 px-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Configurações
+            </h2>
+            <ul className="overflow-hidden rounded-2xl bg-card">
+              {SETTINGS_SECTIONS.map((sec) => (
+                <li key={sec.key} className="border-b border-border/60 last:border-b-0">
+                  <Link
+                    to="/settings"
+                    search={{ secao: sec.key }}
+                    onClick={() => setMenuAberto(false)}
+                    className="flex items-center gap-4 px-3 py-3 transition-colors hover:bg-elevated"
+                  >
+                    <sec.icon className="size-5 shrink-0 text-muted-foreground" aria-hidden />
+                    <span className="flex-1">{sec.title}</span>
+                    <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+
+            <button
+              type="button"
+              onClick={() => {
+                setMenuAberto(false);
+                void signOut();
+              }}
+              className="mt-3 flex w-full items-center gap-4 rounded-2xl bg-card px-3 py-3 text-destructive transition-colors hover:bg-elevated"
+            >
+              <LogOut className="size-5" aria-hidden />
+              Sair da conta
+            </button>
+          </div>
         </DrawerContent>
       </Drawer>
 
