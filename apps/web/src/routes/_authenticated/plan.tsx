@@ -3,23 +3,36 @@ import { useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { addDays, startOfWeek } from "date-fns";
-import { ChevronDown, ChevronRight, Play, Plus, Sparkles, Wand2, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, Play, Plus, Wand2, X } from "lucide-react";
 import { TRAINING_PROGRAMS, WEEKDAY_LABELS, projectSchedule, type Weekday } from "@forja/domain";
 import { queryKeys } from "@/data/query-keys";
 import { errorMessage } from "@/data/supabase-helpers";
 import {
+  createTemplate,
   ensureActiveRoutine,
   fetchCompletedWorkouts,
+  renameRoutine,
+  renameTemplate,
   scheduleInputOf,
   setScheduleMode,
   setTemplateWeekdays,
   setTrainingWeekdays,
+  splitDisplayName,
 } from "@/data/routines";
 import { addTemplateItem, fetchWorkoutWeek, type WorkoutWeek } from "@/data/workout-week";
 import { openWorkoutForTemplate } from "@/data/workout-session";
 import { useCurrentUserId } from "@/hooks/use-current-user";
 import { PageBody, PageHeader, headerIconClass } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { CoachIcon } from "@/components/coach/coach-icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
@@ -68,6 +81,13 @@ function PlanPage() {
   const [aba, setAba] = useState<"agenda" | "rotinas">("agenda");
   const [aberta, setAberta] = useState<string | null>(null);
   const [detalhe, setDetalhe] = useState<string | null>(null);
+  /** Diálogo de nome aberto: renomear o plano, renomear uma rotina ou criar uma. */
+  const [nomeando, setNomeando] = useState<
+    | { tipo: "plano" }
+    | { tipo: "rotina"; templateId: string; letter: string | null; atual: string }
+    | { tipo: "nova" }
+    | null
+  >(null);
 
   const week = useQuery({
     queryKey: [...queryKeys.workouts.all, "week"],
@@ -121,7 +141,7 @@ function PlanPage() {
   const header = (
     <PageHeader
       title="Plano"
-      description="Sua rotina semanal"
+      description={week.data?.routineName ?? "Sua rotina semanal"}
       action={
         <Link
           to="/workouts/routines/new"
@@ -146,6 +166,21 @@ function PlanPage() {
   }
 
   const dados = week.data;
+
+  const salvarNome = async (nome: string) => {
+    if (!nomeando) return;
+    if (nomeando.tipo === "plano") await renameRoutine(dados.routineId, nome);
+    else if (nomeando.tipo === "rotina")
+      await renameTemplate(nomeando.templateId, nomeando.letter, nome);
+    else {
+      const id = await createTemplate(userId, dados.routineId, dados.splits, nome);
+      setAba("rotinas");
+      setAberta(id);
+      toast.success("Rotina criada. Adicione os exercícios.");
+    }
+    await invalidar();
+    setNomeando(null);
+  };
   const fixa = dados.scheduleMode === "fixed";
   const projecao = projectSchedule(
     semanaAtual,
@@ -185,7 +220,7 @@ function PlanPage() {
           className="mb-6 flex items-center gap-4 rounded-[1.5rem] border border-primary/40 bg-primary/10 p-4 transition-colors hover:bg-primary/15"
         >
           <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground">
-            <Sparkles className="size-6" aria-hidden />
+            <CoachIcon className="size-7" aria-hidden />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-xl font-bold">Treinador</span>
@@ -280,7 +315,7 @@ function PlanPage() {
                 const expandida = aberta === split.templateId;
                 return (
                   <li key={split.templateId} className="rounded-[1.25rem] bg-card">
-                    <div className="flex items-center gap-3 p-4">
+                    <div className="flex items-center gap-2 p-4">
                       <RoutineIcon letter={split.letter} />
                       <button
                         type="button"
@@ -297,14 +332,29 @@ function PlanPage() {
                           {estimarDuracao(split)}
                         </span>
                       </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setNomeando({
+                            tipo: "rotina",
+                            templateId: split.templateId,
+                            letter: split.letter,
+                            atual: splitDisplayName(split.name),
+                          })
+                        }
+                        aria-label={`Renomear ${splitDisplayName(split.name)}`}
+                        className="grid size-9 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-elevated"
+                      >
+                        <Pencil className="size-4" />
+                      </button>
                       <Button
-                        size="sm"
-                        className="rounded-full"
+                        size="icon"
+                        className="shrink-0 rounded-full"
                         onClick={() => abrir.mutate(split.templateId)}
                         disabled={abrir.isPending || split.exercises.length === 0}
+                        aria-label={`Começar ${splitDisplayName(split.name)}`}
                       >
-                        <Play className="mr-1 size-4" aria-hidden />
-                        Começar
+                        <Play className="size-4 fill-current" aria-hidden />
                       </Button>
                       <button
                         type="button"
@@ -357,6 +407,31 @@ function PlanPage() {
               })}
             </ul>
 
+            <button
+              type="button"
+              onClick={() => setNomeando({ tipo: "nova" })}
+              className="mt-3 flex w-full items-center gap-3 rounded-[1.25rem] border border-dashed border-border p-4 text-left text-primary transition-colors hover:bg-card"
+            >
+              <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-primary/15">
+                <Plus className="size-6" aria-hidden />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-lg font-semibold">Criar rotina personalizada</span>
+                <span className="block text-sm text-muted-foreground">
+                  Dê um nome e escolha os exercícios
+                </span>
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setNomeando({ tipo: "plano" })}
+              className="mt-3 flex w-full items-center gap-2 px-1 py-2 text-muted-foreground hover:text-foreground"
+            >
+              <Pencil className="size-4" aria-hidden />
+              Renomear o plano “{dados.routineName}”
+            </button>
+
             <h2 className="mb-3 mt-8 px-1 text-lg text-muted-foreground">Programas prontos</h2>
             <ul className="space-y-3">
               {TRAINING_PROGRAMS.map((p) => (
@@ -385,6 +460,28 @@ function PlanPage() {
         exerciseId={detalhe}
         open={detalhe !== null}
         onOpenChange={(o) => !o && setDetalhe(null)}
+      />
+
+      <NomeDialog
+        key={nomeando ? JSON.stringify(nomeando) : "fechado"}
+        open={nomeando !== null}
+        onOpenChange={(o) => !o && setNomeando(null)}
+        titulo={
+          nomeando?.tipo === "plano"
+            ? "Nome do plano"
+            : nomeando?.tipo === "nova"
+              ? "Nova rotina"
+              : "Nome da rotina"
+        }
+        inicial={
+          nomeando?.tipo === "plano"
+            ? dados.routineName
+            : nomeando?.tipo === "rotina"
+              ? nomeando.atual
+              : ""
+        }
+        confirmar={nomeando?.tipo === "nova" ? "Criar" : "Salvar"}
+        onSave={salvarNome}
       />
     </>
   );
@@ -570,6 +667,59 @@ function DiaRotacao({
         </button>
       )}
     </div>
+  );
+}
+
+/** Diálogo com um campo de nome — renomear o plano, uma rotina, ou criar uma. */
+function NomeDialog({
+  open,
+  onOpenChange,
+  titulo,
+  inicial,
+  confirmar,
+  onSave,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  titulo: string;
+  inicial: string;
+  confirmar: string;
+  onSave: (nome: string) => Promise<void>;
+}) {
+  const [nome, setNome] = useState(inicial);
+  const salvar = useMutation({
+    mutationFn: () => onSave(nome),
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{titulo}</DialogTitle>
+        </DialogHeader>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            salvar.mutate();
+          }}
+        >
+          <Input
+            autoFocus
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
+            maxLength={60}
+            placeholder="Ex.: Peito e tríceps"
+            aria-label={titulo}
+            className="h-12 text-lg"
+          />
+          <DialogFooter className="mt-4">
+            <Button type="submit" disabled={!nome.trim() || salvar.isPending} className="w-full">
+              {confirmar}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

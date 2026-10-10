@@ -6,7 +6,6 @@ import { addDays, startOfWeek } from "date-fns";
 import {
   ArrowDown,
   ArrowUp,
-  Bot,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
@@ -14,7 +13,6 @@ import {
   Flame,
   Moon,
   Plus,
-  Settings,
   Target,
   Utensils,
 } from "lucide-react";
@@ -40,7 +38,7 @@ import { ensureActiveMealPlan } from "@/data/meal-plans";
 import { fetchGoalWeight, fetchWeighIns, fetchWorkoutCounts } from "@/data/body";
 import { useCurrentUserId } from "@/hooks/use-current-user";
 import { Skeleton } from "@/components/ui/skeleton";
-import { headerIconClass } from "@/components/page-header";
+import { CoachIcon } from "@/components/coach/coach-icon";
 import { NoRoutineCard } from "@/components/home/today-workout-card";
 import { WaterCard } from "@/components/home/water-card";
 import { CoachTips } from "@/components/coach/coach-tips";
@@ -51,9 +49,9 @@ import { cn } from "@/lib/utils";
 /**
  * Início: a semana, o treino de hoje e o resto do dia.
  *
- * Ordem: a semana com o treino de hoje e o botão de começar; a dieta do dia
- * (o que é do Forja); o treinador; o peso contra a meta; a sequência de
- * semanas. Gráficos longos e histórico vivem em Estatísticas.
+ * Ordem: a sequência de semanas; a semana com o treino de hoje e o botão de
+ * começar; o peso contra a meta; a dieta do dia; a água; o treinador.
+ * Gráficos longos e histórico vivem em Estatísticas.
  */
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -91,31 +89,29 @@ function Home() {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 pb-8 pt-6 md:px-8 md:pt-8">
-      <header className="mb-6 flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-[2.75rem] font-extrabold leading-none tracking-tight">Forja</h1>
-          <p className="mt-2 text-lg text-muted-foreground first-letter:uppercase">
-            {formatLongDate(today).toLowerCase()}
-          </p>
-        </div>
-        <Link to="/profile" className={headerIconClass} aria-label="Ajustes e perfil">
-          <Settings />
-        </Link>
+      <header className="mb-6">
+        <h1 className="text-[2.75rem] font-extrabold leading-none tracking-tight">Forja</h1>
+        <p className="mt-2 text-lg text-muted-foreground first-letter:uppercase">
+          {formatLongDate(today).toLowerCase()}
+        </p>
       </header>
 
       <div className="space-y-4">
+        <SequenciaCard />
         <SemanaCard />
+        <PesoCard />
         <DietaCard
           kcalTarget={num(profile.data?.daily_kcal_target)}
           proteinTarget={num(profile.data?.protein_g_target)}
           loadingProfile={profile.isPending}
         />
+        <WaterCard date={today} targetMl={num(profile.data?.water_ml_target, 2500)} />
         <Link
           to="/coach"
           className="flex items-center gap-4 rounded-[1.5rem] bg-card p-5 transition-colors hover:bg-elevated"
         >
           <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-info text-info-foreground">
-            <Bot className="size-6" aria-hidden />
+            <CoachIcon className="size-6" aria-hidden />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-xl">Treinador</span>
@@ -124,9 +120,6 @@ function Home() {
           <ChevronRight className="size-5 shrink-0" aria-hidden />
         </Link>
         <CoachTips limit={1} />
-        <PesoCard />
-        <SequenciaCard />
-        <WaterCard date={today} targetMl={num(profile.data?.water_ml_target, 2500)} />
       </div>
     </div>
   );

@@ -471,6 +471,66 @@ export async function setTemplateWeekdays(templateId: string, weekdays: number[]
   );
 }
 
+/** Nome exibido de uma divisão, sem o prefixo "A — ". */
+export function splitDisplayName(name: string): string {
+  return name.replace(/^[A-Z]\s*—\s*/, "");
+}
+
+/** Renomeia uma divisão, mantendo a letra na frente (é ela que ordena a rotação). */
+export async function renameTemplate(templateId: string, letter: string | null, name: string) {
+  const limpo = name.trim();
+  if (!limpo) throw new Error("Dê um nome à rotina.");
+  assertOk(
+    "renomear a rotina",
+    await supabase
+      .from("workout_templates")
+      .update({ name: letter ? `${letter} — ${limpo}` : limpo })
+      .eq("id", templateId),
+  );
+}
+
+/** Renomeia o plano (a rotina ativa como um todo). */
+export async function renameRoutine(routineId: string, name: string) {
+  const limpo = name.trim();
+  if (!limpo) throw new Error("Dê um nome ao plano.");
+  assertOk(
+    "renomear o plano",
+    await supabase.from("workout_routines").update({ name: limpo }).eq("id", routineId),
+  );
+}
+
+/**
+ * Cria uma divisão vazia no fim do plano, com a próxima letra.
+ *
+ * `routine_order` = quantidade atual: as ordens existentes são 0..n−1, e o
+ * índice da divisão na agenda é a posição nessa ordem.
+ */
+export async function createTemplate(
+  userId: string,
+  routineId: string,
+  existing: readonly { letter: string | null }[],
+  name: string,
+): Promise<string> {
+  const limpo = name.trim();
+  if (!limpo) throw new Error("Dê um nome à rotina.");
+  const usadas = new Set(existing.map((t) => t.letter));
+  const letter = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].find((l) => !usadas.has(l)) ?? null;
+  return unwrap(
+    "criar a rotina",
+    await supabase
+      .from("workout_templates")
+      .insert({
+        user_id: userId,
+        routine_id: routineId,
+        name: letter ? `${letter} — ${limpo}` : limpo,
+        routine_letter: letter,
+        routine_order: existing.length,
+      })
+      .select("id")
+      .single(),
+  ).id;
+}
+
 /** Dias de treino da rotação. */
 export async function setTrainingWeekdays(routineId: string, weekdays: number[]) {
   assertOk(

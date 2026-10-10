@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowUp, Bot, Loader2, Sparkles, User } from "lucide-react";
+import { ArrowUp, Loader2, User } from "lucide-react";
+import { CoachIcon } from "@/components/coach/coach-icon";
 import { PageBody, PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -251,7 +252,7 @@ function Welcome({ onPick }: { onPick: (texto: string) => void }) {
         style={{ background: "var(--gradient-primary)" }}
         aria-hidden
       >
-        <Sparkles className="size-7 text-primary-foreground" />
+        <CoachIcon className="size-7 text-primary-foreground" />
       </span>
       <h2 className="mt-4 text-lg font-bold tracking-tight">Como posso ajudar?</h2>
       <p className="mx-auto mt-1.5 max-w-sm text-sm text-muted-foreground">
@@ -306,7 +307,7 @@ function Avatar({ role }: { role: "user" | "assistant" }) {
       )}
       aria-hidden
     >
-      {role === "user" ? <User className="size-4" /> : <Bot className="size-4" />}
+      {role === "user" ? <User className="size-4" /> : <CoachIcon className="size-4" />}
     </span>
   );
 }
@@ -319,7 +320,7 @@ function NotConfigured({ message }: { message: string }) {
         <Card className="mx-auto max-w-lg">
           <CardContent className="p-6 text-center">
             <span className="mx-auto grid size-12 place-items-center rounded-xl bg-muted text-muted-foreground">
-              <Bot className="size-6" aria-hidden />
+              <CoachIcon className="size-6" aria-hidden />
             </span>
             <h2 className="mt-4 font-bold">Treinador ainda não configurado</h2>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{message}</p>

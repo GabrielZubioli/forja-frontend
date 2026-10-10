@@ -10,24 +10,33 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   BarChart3,
   BookOpen,
-  Bot,
   CalendarDays,
+  ChevronRight,
   Dumbbell,
   HeartPulse,
   Home,
   List,
   LogOut,
-  User,
+  Menu,
+  Settings,
   Utensils,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/data/query-keys";
 import { fetchOpenSessionId } from "@/data/workout-session";
 import { Button } from "@/components/ui/button";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CommandPalette, CommandPaletteTrigger } from "@/components/command-palette";
+import { CoachIcon } from "@/components/coach/coach-icon";
 import { cn } from "@/lib/utils";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -49,24 +58,24 @@ export const Route = createFileRoute("/_authenticated")({
 
 /**
  * Navegação principal, no formato das apps de academia que funcionam bem com
- * uma mão: quatro destinos e, no centro, o botão de treinar — a ação que a
- * pessoa abre o app para fazer. Durante um treino ele fica laranja e leva de
- * volta à sessão.
+ * uma mão: Início, Plano, Dieta e Menu e, no centro, o botão de treinar — a
+ * ação que a pessoa abre o app para fazer. Durante um treino ele fica laranja
+ * e leva de volta à sessão.
  */
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Início", icon: Home },
   { to: "/plan", label: "Plano", icon: CalendarDays },
-  { to: "/stats", label: "Estatísticas", icon: BarChart3 },
-  { to: "/exercises", label: "Exercícios", icon: List },
+  { to: "/diet", label: "Dieta", icon: Utensils },
 ] as const;
 
-/** Itens fora da barra, presentes no menu lateral do desktop e nos cards da Início. */
+/** O resto: no Menu (painel de baixo) no celular, abaixo da barra lateral no desktop. */
 const SECONDARY_NAV = [
-  { to: "/diet", label: "Dieta", icon: Utensils },
-  { to: "/coach", label: "Treinador", icon: Bot },
+  { to: "/exercises", label: "Exercícios", icon: List },
+  { to: "/stats", label: "Estatísticas", icon: BarChart3 },
+  { to: "/coach", label: "Treinador", icon: CoachIcon },
   { to: "/body", label: "Corpo", icon: HeartPulse },
   { to: "/recipes", label: "Receitas", icon: BookOpen },
-  { to: "/profile", label: "Perfil", icon: User },
+  { to: "/profile", label: "Configurações", icon: Settings },
 ] as const;
 
 function AuthLayout() {
@@ -97,6 +106,8 @@ function AuthLayout() {
     queryFn: fetchOpenSessionId,
   });
   const emTreino = Boolean(sessaoAberta.data) || pathname.startsWith("/workouts/session/");
+  const [menuAberto, setMenuAberto] = useState(false);
+  const menuAtivo = SECONDARY_NAV.some((item) => isActive(item.to));
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -192,13 +203,13 @@ function AuthLayout() {
         </div>
       </aside>
 
-      {/* Barra inferior (celular): quatro destinos e o botão central de treinar. */}
+      {/* Barra inferior (celular): três destinos, o botão central de treinar e o Menu. */}
       <nav
         className="fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
         aria-label="Navegação principal"
       >
         <ul className="grid grid-cols-5 items-end">
-          {[NAV_ITEMS[0], NAV_ITEMS[1], null, NAV_ITEMS[2], NAV_ITEMS[3]].map((item) => {
+          {[NAV_ITEMS[0], NAV_ITEMS[1], null, NAV_ITEMS[2]].map((item) => {
             if (!item) {
               return (
                 <li key="treinar" className="flex justify-center">
@@ -246,8 +257,65 @@ function AuthLayout() {
               </li>
             );
           })}
+          <li>
+            <button
+              type="button"
+              onClick={() => setMenuAberto(true)}
+              aria-haspopup="dialog"
+              aria-expanded={menuAberto}
+              className={cn(
+                "flex min-h-[3.75rem] w-full flex-col items-center justify-center gap-1 px-1 py-2 text-[12px] transition-colors",
+                menuAtivo ? "font-semibold text-primary" : "text-muted-foreground",
+              )}
+            >
+              <Menu className="size-6" aria-hidden />
+              <span>Menu</span>
+            </button>
+          </li>
         </ul>
       </nav>
+
+      <Drawer open={menuAberto} onOpenChange={setMenuAberto}>
+        <DrawerContent className="pb-[env(safe-area-inset-bottom)]">
+          <DrawerHeader className="text-left">
+            <DrawerTitle className="text-2xl">Menu</DrawerTitle>
+            <DrawerDescription className="sr-only">Outras telas e configurações</DrawerDescription>
+          </DrawerHeader>
+          <ul className="space-y-1 px-3 pb-3">
+            {SECONDARY_NAV.map((item) => (
+              <li key={item.to}>
+                <Link
+                  to={item.to}
+                  onClick={() => setMenuAberto(false)}
+                  aria-current={isActive(item.to) ? "page" : undefined}
+                  className="flex items-center gap-4 rounded-2xl px-3 py-3 text-lg transition-colors hover:bg-elevated aria-[current=page]:text-primary"
+                >
+                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-elevated">
+                    <item.icon className="size-5" aria-hidden />
+                  </span>
+                  <span className="flex-1">{item.label}</span>
+                  <ChevronRight className="size-5 text-muted-foreground" aria-hidden />
+                </Link>
+              </li>
+            ))}
+            <li>
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuAberto(false);
+                  void signOut();
+                }}
+                className="flex w-full items-center gap-4 rounded-2xl px-3 py-3 text-lg text-destructive transition-colors hover:bg-elevated"
+              >
+                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-elevated">
+                  <LogOut className="size-5" aria-hidden />
+                </span>
+                Sair da conta
+              </button>
+            </li>
+          </ul>
+        </DrawerContent>
+      </Drawer>
 
       <main id="conteudo" className="min-h-screen pb-28 md:pb-0 md:pl-60">
         <Outlet />
