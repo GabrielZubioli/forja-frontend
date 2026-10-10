@@ -33,17 +33,19 @@ export function PageHeader({
   wide?: boolean;
 }) {
   return (
-    <div className="border-b border-border/70 px-4 py-6 md:px-8">
+    <div className="px-4 pb-2 pt-6 md:px-8 md:pt-8">
       <div
         className={cn(
-          "mx-auto flex w-full flex-col gap-3 md:flex-row md:items-end md:justify-between",
+          "mx-auto flex w-full items-start justify-between gap-3",
           LARGURA[wide ? "wide" : "default"],
         )}
       >
         <div className="min-w-0">
-          <h1 className="text-balance text-2xl font-bold tracking-tight md:text-3xl">{title}</h1>
+          <h1 className="text-balance text-[2.5rem] font-extrabold leading-[1.05] tracking-tight">
+            {title}
+          </h1>
           {description && (
-            <p className="mt-1 text-pretty text-sm text-muted-foreground">{description}</p>
+            <p className="mt-1 text-pretty text-lg text-muted-foreground">{description}</p>
           )}
         </div>
         {action && <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div>}
@@ -51,6 +53,10 @@ export function PageHeader({
     </div>
   );
 }
+
+/** Botão redondo do canto do cabeçalho (ajustes, histórico…): aplicar num Link ou button. */
+export const headerIconClass =
+  "grid size-12 place-items-center rounded-full bg-card text-foreground transition-colors hover:bg-elevated [&_svg]:size-5";
 
 export function PageBody({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
   return (

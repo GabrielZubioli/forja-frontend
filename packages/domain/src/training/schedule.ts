@@ -43,14 +43,24 @@ export const WEEKDAY_INITIALS: Record<Weekday, string> = {
   6: "S",
 };
 
-export const scheduleInputSchema = z.object({
-  /** Dias planejados para treinar. */
-  weekdays: z.array(z.number().int().min(0).max(6)).min(1).max(7),
-  /** Quantas divisões a rotina tem (A, B, C…). */
-  splitCount: z.number().int().positive(),
-  /** Posição atual na sequência (0 = próxima é a divisão A). */
-  currentIndex: z.number().int().nonnegative(),
-});
+export const scheduleInputSchema = z
+  .object({
+    /** Dias planejados para treinar (modo rotação). */
+    weekdays: z.array(z.number().int().min(0).max(6)).max(7),
+    /** Quantas divisões a rotina tem (A, B, C…). */
+    splitCount: z.number().int().positive(),
+    /** Posição atual na sequência (0 = próxima é a divisão A). */
+    currentIndex: z.number().int().nonnegative(),
+    /**
+     * Semana fixa: para cada dia (0 = domingo … 6 = sábado), as divisões feitas
+     * nele. Presente = modo fixo — a sequência deixa de existir e o dia sem
+     * divisão é descanso. Ausente = rotação (o comportamento de sempre).
+     */
+    fixed: z.array(z.array(z.number().int().nonnegative())).length(7).optional(),
+  })
+  .refine((v) => v.fixed !== undefined || v.weekdays.length > 0, {
+    message: "Rotação precisa de ao menos um dia de treino.",
+  });
 
 export type ScheduleInput = z.infer<typeof scheduleInputSchema>;
 
@@ -79,6 +89,8 @@ export interface ScheduledDay {
   splitIndex: number | null;
   /** Índice da divisão efetivamente treinada, quando houve treino. */
   completedSplitIndex?: number;
+  /** Todas as divisões previstas para o dia (semana fixa pode ter mais de uma). */
+  splitIndices: number[];
   isToday: boolean;
 }
 
@@ -104,7 +116,10 @@ export function projectSchedule(
   completed: readonly CompletedWorkout[] = [],
 ): ScheduledDay[] {
   const input = scheduleInputSchema.parse(rawInput);
-  const trainingDays = new Set(input.weekdays);
+  const fixo = input.fixed;
+  const trainingDays = new Set(
+    fixo ? WEEKDAYS.filter((d) => (fixo[d]?.length ?? 0) > 0) : input.weekdays,
+  );
 
   const completedByDate = new Map<string, CompletedWorkout>();
   for (const workout of completed) completedByDate.set(workout.date, workout);
@@ -125,30 +140,37 @@ export function projectSchedule(
         weekday,
         status: "done",
         splitIndex: null,
+        splitIndices: [],
         ...(feito.splitIndex !== undefined ? { completedSplitIndex: feito.splitIndex } : {}),
         isToday,
       };
     }
 
     if (!ehDiaDeTreino) {
-      return { date, weekday, status: "rest", splitIndex: null, isToday };
+      return { date, weekday, status: "rest", splitIndex: null, splitIndices: [], isToday };
     }
 
     if (date < today) {
       // Dia de treino que passou em branco. Não recebe divisão: a sequência
       // segue intacta para o próximo treino de verdade.
-      return { date, weekday, status: "missed", splitIndex: null, isToday };
+      return { date, weekday, status: "missed", splitIndex: null, splitIndices: [], isToday };
     }
 
+    const status = isToday ? "today" : "upcoming";
+    if (fixo) {
+      const indices = fixo[weekday] ?? [];
+      return {
+        date,
+        weekday,
+        status,
+        splitIndex: indices[0] ?? null,
+        splitIndices: indices,
+        isToday,
+      };
+    }
     const splitIndex = proximo % input.splitCount;
     proximo += 1;
-    return {
-      date,
-      weekday,
-      status: isToday ? "today" : "upcoming",
-      splitIndex,
-      isToday,
-    };
+    return { date, weekday, status, splitIndex, splitIndices: [splitIndex], isToday };
   });
 }
 
@@ -166,6 +188,17 @@ export function todaysWorkout(
 ): { splitIndex: number; isPlannedDay: boolean; alreadyDone: boolean } {
   const input = scheduleInputSchema.parse(rawInput);
   const jaFeito = completed.some((w) => w.date === today);
+  const doDia = input.fixed?.[weekdayOf(today)] ?? [];
+
+  if (input.fixed) {
+    // Semana fixa: o treino de hoje é o do dia. Fora da agenda, a próxima da
+    // sequência continua sendo uma sugestão razoável para quem quer treinar.
+    return {
+      splitIndex: doDia[0] ?? input.currentIndex % input.splitCount,
+      isPlannedDay: doDia.length > 0,
+      alreadyDone: jaFeito,
+    };
+  }
 
   return {
     splitIndex: input.currentIndex % input.splitCount,

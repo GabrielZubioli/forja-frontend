@@ -1,32 +1,34 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { Dumbbell, Loader2, Plus, SearchX, Search, Sparkles, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { queryKeys } from "@/data/query-keys";
+import { errorMessage } from "@/data/supabase-helpers";
+import { fetchActiveRoutine, type ActiveRoutine } from "@/data/routines";
+import { addTemplateItem } from "@/data/workout-week";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { PageBody, PageHeader } from "@/components/page-header";
 import { CreateExerciseDialog } from "@/components/create-exercise-dialog";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ChipGroup } from "@/components/ui/chip-group";
-import { CardGridSkeleton, EmptyState, ErrorState } from "@/components/query-boundary";
-import { Loader2, Search, SearchX, SlidersHorizontal, X } from "lucide-react";
-import { ExerciseMediaView } from "@/components/workouts/exercise-media-view";
-import { exerciseMedia } from "@/data/exercise-media";
-import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  CATEGORY_LABELS,
-  EQUIPMENT_LABELS,
-  MUSCLE_LABELS,
-  label,
-  type MuscleValue,
-} from "@/lib/labels";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { CardGridSkeleton, EmptyState, ErrorState } from "@/components/query-boundary";
+import { exerciseMedia } from "@/data/exercise-media";
+import { cn } from "@/lib/utils";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { EQUIPMENT_LABELS, MUSCLE_LABELS, label, type MuscleValue } from "@/lib/labels";
 
 export const Route = createFileRoute("/_authenticated/exercises")({
   head: () => ({
     meta: [
-      { title: "Biblioteca de exercícios — Forja" },
+      { title: "Exercícios — Forja" },
       { name: "description", content: "Mais de mil exercícios com demonstração animada." },
     ],
   }),
@@ -83,9 +85,26 @@ const PAGE_SIZE = 24;
 
 function ExerciseLibrary() {
   const [term, setTerm] = useState("");
-  const [muscles, setMuscles] = useState<string[]>([]);
-  const [equipment, setEquipment] = useState<string[]>([]);
-  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+  const [muscle, setMuscle] = useState<string | null>(null);
+  const [equip, setEquip] = useState<string | null>(null);
+  const muscles = useMemo(() => (muscle ? [muscle] : []), [muscle]);
+  const equipment = useMemo(() => (equip ? [equip] : []), [equip]);
+
+  const total = useQuery({
+    queryKey: [...queryKeys.exercises.all, "count"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("exercises")
+        .select("id", { count: "exact", head: true })
+        .is("deleted_at", null);
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+  const rotina = useQuery({
+    queryKey: queryKeys.workouts.activeRoutine(),
+    queryFn: fetchActiveRoutine,
+  });
 
   // Sem debounce, cada tecla disparava uma requisição ao Supabase.
   const debouncedTerm = useDebouncedValue(term.trim(), 300);
@@ -128,8 +147,8 @@ function ExerciseLibrary() {
 
   const filtrosAtivos = muscles.length + equipment.length;
   const limparFiltros = () => {
-    setMuscles([]);
-    setEquipment([]);
+    setMuscle(null);
+    setEquip(null);
   };
 
   const sentinelaRef = useInfiniteScroll(() => {
@@ -139,93 +158,82 @@ function ExerciseLibrary() {
   return (
     <>
       <PageHeader
-        wide
-        title="Biblioteca de exercícios"
-        description="Busque por nome, músculo ou equipamento."
-        action={<CreateExerciseDialog />}
+        title="Exercícios"
+        description={
+          total.data
+            ? `${total.data.toLocaleString("pt-BR")} exercícios com demonstração`
+            : undefined
+        }
       />
-      <PageBody wide>
+      <PageBody>
         <div className="mb-4 space-y-3">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search
-                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              placeholder="Buscar…"
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+              className="h-14 rounded-2xl border-transparent bg-card pl-12 pr-10 text-lg"
+              aria-label="Buscar exercício"
+            />
+            {lista.isFetching && !lista.isFetchingNextPage ? (
+              <Loader2
+                className="absolute right-4 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground"
                 aria-hidden
               />
-              <Input
-                placeholder="Buscar exercício…"
-                value={term}
-                onChange={(e) => setTerm(e.target.value)}
-                className="pl-9 pr-9"
-                aria-label="Buscar exercício"
-              />
-              {lista.isFetching && !lista.isFetchingNextPage && (
-                <Loader2
-                  className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground"
-                  aria-hidden
-                />
-              )}
-              {term && !lista.isFetching && (
+            ) : (
+              term && (
                 <button
                   type="button"
                   onClick={() => setTerm("")}
                   aria-label="Limpar busca"
-                  className="press-feedback absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:text-foreground"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:text-foreground"
                 >
                   <X className="size-4" />
                 </button>
-              )}
-            </div>
-
-            <Button
-              variant={filtrosAtivos > 0 ? "soft" : "outline"}
-              onClick={() => setFiltrosAbertos((v) => !v)}
-              aria-expanded={filtrosAbertos}
-            >
-              <SlidersHorizontal aria-hidden />
-              Filtros
-              {filtrosAtivos > 0 && (
-                <span className="ml-0.5 grid size-5 place-items-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground">
-                  {filtrosAtivos}
-                </span>
-              )}
-            </Button>
+              )
+            )}
           </div>
 
-          {filtrosAbertos && (
-            <div className="animate-rise space-y-4 rounded-xl border border-border bg-surface p-4">
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Músculo</p>
-                <ChipGroup
-                  label="Filtrar por músculo"
-                  options={FILTERABLE_MUSCLES.map((m) => ({ value: m, label: MUSCLE_LABELS[m] }))}
-                  selected={muscles as MuscleValue[]}
-                  onChange={(v) => setMuscles(v)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Equipamento</p>
-                <ChipGroup
-                  label="Filtrar por equipamento"
-                  options={FILTERABLE_EQUIPMENT.map((e) => ({
-                    value: e,
-                    label: label(EQUIPMENT_LABELS, e),
-                  }))}
-                  selected={equipment as (typeof FILTERABLE_EQUIPMENT)[number][]}
-                  onChange={(v) => setEquipment(v)}
-                />
-              </div>
-
-              {filtrosAtivos > 0 && (
-                <Button variant="ghost" size="sm" onClick={limparFiltros}>
-                  <X aria-hidden />
-                  Limpar filtros
-                </Button>
-              )}
-            </div>
-          )}
+          <FilaDeChips
+            rotulo="Filtrar por músculo"
+            todos="Todos"
+            valor={muscle}
+            onChange={setMuscle}
+            opcoes={FILTERABLE_MUSCLES.map((m) => ({ value: m, label: MUSCLE_LABELS[m] }))}
+          />
+          <FilaDeChips
+            rotulo="Filtrar por equipamento"
+            todos="Qualquer equipamento"
+            valor={equip}
+            onChange={setEquip}
+            opcoes={FILTERABLE_EQUIPMENT.map((e) => ({
+              value: e,
+              label: label(EQUIPMENT_LABELS, e),
+            }))}
+          />
         </div>
+
+        <CreateExerciseDialog
+          trigger={
+            <button
+              type="button"
+              className="mb-3 flex w-full items-center gap-4 rounded-[1.25rem] bg-card p-3 text-left transition-colors hover:bg-elevated"
+            >
+              <span className="grid size-16 shrink-0 place-items-center rounded-xl bg-elevated text-muted-foreground">
+                <Sparkles className="size-6" aria-hidden />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-lg">Criar seu exercício</span>
+                <span className="block text-muted-foreground">nome e músculo, sem animação</span>
+              </span>
+              <Plus className="mr-2 size-6 shrink-0" aria-hidden />
+            </button>
+          }
+        />
 
         {lista.isError ? (
           <ErrorState
@@ -253,11 +261,11 @@ function ExerciseLibrary() {
           />
         ) : (
           <>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <ul className="space-y-3">
               {exercicios.map((ex) => (
-                <ExerciseCard key={ex.id} exercise={ex} />
+                <ExerciseListRow key={ex.id} exercise={ex} rotina={rotina.data ?? null} />
               ))}
-            </div>
+            </ul>
 
             {/* Sentinela: entra na viewport e dispara a próxima página. */}
             <div ref={sentinelaRef} className="h-px" aria-hidden />
@@ -298,7 +306,15 @@ type ExerciseRow = {
   video_url: string | null;
 };
 
-function ExerciseCard({ exercise }: { exercise: ExerciseRow }) {
+/** Uma linha: miniatura, nome, "músculo · equipamento" e "+ Plano". */
+function ExerciseListRow({
+  exercise,
+  rotina,
+}: {
+  exercise: ExerciseRow;
+  rotina: ActiveRoutine | null;
+}) {
+  const qc = useQueryClient();
   const media = exerciseMedia({
     name: exercise.name,
     imageUrls: exercise.image_urls,
@@ -308,37 +324,118 @@ function ExerciseCard({ exercise }: { exercise: ExerciseRow }) {
     mediaSource: exercise.media_source,
     videoUrl: exercise.video_url,
   });
+  const miniatura = media.gif ?? media.images[0] ?? null;
+
+  const adicionar = useMutation({
+    mutationFn: (t: { id: string; exerciseCount: number }) =>
+      addTemplateItem(t.id, exercise.id, t.exerciseCount + 1),
+    onSuccess: (_d, t) => {
+      const nome = (rotina?.templates.find((x) => x.id === t.id)?.name ?? "a rotina").replace(
+        /^[A-Z]\s*—\s*/,
+        "",
+      );
+      toast.success(`Adicionado a ${nome}`);
+      void qc.invalidateQueries({ queryKey: queryKeys.workouts.all });
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
 
   return (
-    <Card variant="interactive" className="overflow-hidden">
+    <li className="flex items-center gap-4 rounded-[1.25rem] bg-card p-3">
       <Link
         to="/exercises/$id"
         params={{ id: exercise.id }}
-        className="block"
+        className="flex min-w-0 flex-1 items-center gap-4"
         aria-label={`Abrir ${exercise.name}`}
       >
-        <ExerciseMediaView media={media} name={exercise.name} />
-
-        <CardContent className="p-3">
-          <div className="flex items-start justify-between gap-2">
-            <p className="min-w-0 text-balance font-semibold leading-tight">{exercise.name}</p>
-            {exercise.owner_id && (
-              <Badge variant="outline" className="shrink-0">
-                Meu
-              </Badge>
-            )}
-          </div>
-
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            <Badge variant="soft">{label(MUSCLE_LABELS, exercise.primary_muscle)}</Badge>
-            <Badge variant="outline">{label(EQUIPMENT_LABELS, exercise.equipment)}</Badge>
-            {exercise.category !== "strength" && (
-              <Badge variant="outline">{label(CATEGORY_LABELS, exercise.category)}</Badge>
-            )}
-          </div>
-        </CardContent>
+        <span className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-xl bg-white">
+          {miniatura ? (
+            <img src={miniatura} alt="" loading="lazy" className="size-full object-cover" />
+          ) : (
+            <Dumbbell className="size-6 text-neutral-400" aria-hidden />
+          )}
+        </span>
+        <span className="min-w-0">
+          <span className="block text-lg leading-snug">{exercise.name}</span>
+          <span className="block text-muted-foreground">
+            {label(MUSCLE_LABELS, exercise.primary_muscle)} ·{" "}
+            {label(EQUIPMENT_LABELS, exercise.equipment)}
+            {exercise.owner_id && " · seu"}
+          </span>
+        </span>
       </Link>
-    </Card>
+      {rotina && rotina.templates.length > 0 && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="shrink-0 rounded-xl bg-primary-soft px-4 py-2.5 text-lg font-bold text-primary-soft-foreground"
+              aria-label={`Adicionar ${exercise.name} a uma rotina`}
+            >
+              + Plano
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Adicionar à rotina</DropdownMenuLabel>
+            {rotina.templates.map((t) => (
+              <DropdownMenuItem key={t.id} onSelect={() => adicionar.mutate(t)}>
+                {t.name.replace(/^[A-Z]\s*—\s*/, "")}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </li>
+  );
+}
+
+/** Uma fila de chips de escolha única, rolando na horizontal. */
+function FilaDeChips({
+  rotulo,
+  todos,
+  valor,
+  onChange,
+  opcoes,
+}: {
+  rotulo: string;
+  todos: string;
+  valor: string | null;
+  onChange: (v: string | null) => void;
+  opcoes: { value: string; label: string }[];
+}) {
+  const chip = (ativo: boolean) =>
+    cn(
+      "shrink-0 rounded-full px-4 py-2 text-lg transition-colors",
+      ativo ? "bg-primary text-primary-foreground" : "bg-card text-foreground hover:bg-elevated",
+    );
+  return (
+    <div
+      role="radiogroup"
+      aria-label={rotulo}
+      className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] md:mx-0 md:px-0 [&::-webkit-scrollbar]:hidden"
+    >
+      <button
+        type="button"
+        role="radio"
+        aria-checked={valor === null}
+        onClick={() => onChange(null)}
+        className={chip(valor === null)}
+      >
+        {todos}
+      </button>
+      {opcoes.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          role="radio"
+          aria-checked={valor === o.value}
+          onClick={() => onChange(valor === o.value ? null : o.value)}
+          className={chip(valor === o.value)}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
   );
 }
 

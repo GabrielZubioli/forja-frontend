@@ -24,7 +24,7 @@ import { ImportDataCard } from "@/components/import-data-card";
 import { ProfileHeader } from "@/components/profile/profile-header";
 import { ProfileSection } from "@/components/profile/profile-section";
 import { AppearanceSection } from "@/components/profile/appearance-section";
-import { Dumbbell, HeartPulse, Info, Palette, Target, User, Utensils } from "lucide-react";
+import { Dumbbell, HeartPulse, Info, LogOut, Palette, Target, User, Utensils } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -769,6 +769,14 @@ function ProfilePage() {
               <ImportDataCard />
               <ExportDataCard />
               <DeleteAccountCard />
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => void supabase.auth.signOut()}
+              >
+                <LogOut className="mr-1.5 size-4" aria-hidden />
+                Sair da conta
+              </Button>
             </>
           )}
         </div>

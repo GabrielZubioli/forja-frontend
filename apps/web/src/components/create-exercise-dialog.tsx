@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
@@ -25,7 +25,7 @@ const SELECT =
   "h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 /** O aparelho da sua academia que não está no catálogo vira um exercício seu. */
-export function CreateExerciseDialog() {
+export function CreateExerciseDialog({ trigger }: { trigger?: ReactNode } = {}) {
   const userId = useCurrentUserId();
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -52,10 +52,12 @@ export function CreateExerciseDialog() {
   return (
     <Dialog open={aberto} onOpenChange={setAberto}>
       <DialogTrigger asChild>
-        <Button variant="outline">
-          <Plus className="mr-1.5 size-4" aria-hidden />
-          Criar exercício
-        </Button>
+        {trigger ?? (
+          <Button variant="outline">
+            <Plus className="mr-1.5 size-4" aria-hidden />
+            Criar exercício
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

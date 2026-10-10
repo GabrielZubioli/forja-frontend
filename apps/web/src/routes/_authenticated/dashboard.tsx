@@ -1,76 +1,86 @@
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ChevronRight, Scale, TrendingDown, TrendingUp } from "lucide-react";
+import { addDays, startOfWeek } from "date-fns";
+import {
+  ArrowDown,
+  ArrowUp,
+  Bot,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Dumbbell,
+  Flame,
+  Moon,
+  Plus,
+  Settings,
+  Target,
+  Utensils,
+} from "lucide-react";
+import {
+  WEEKDAY_LABELS,
+  ema,
+  nutritionTotals,
+  projectSchedule,
+  todaysWorkout,
+  weekStart,
+  weekdayOf,
+  weeklyStreak,
+  type Weekday,
+} from "@forja/domain";
 import { supabase } from "@/integrations/supabase/client";
 import { queryKeys } from "@/data/query-keys";
-import { errorMessage, num, unwrapList, unwrapMaybe } from "@/data/supabase-helpers";
+import { errorMessage, num, unwrapMaybe } from "@/data/supabase-helpers";
 import { hasCompletedOnboarding } from "@/data/onboarding";
-import { fetchActiveRoutine, fetchCompletedWorkouts } from "@/data/routines";
+import { fetchActiveRoutine, fetchCompletedWorkouts, scheduleInputOf } from "@/data/routines";
 import { openWorkoutForTemplate } from "@/data/workout-session";
 import { ensureDayMaterialized, fetchDayEntries } from "@/data/diet-day";
 import { ensureActiveMealPlan } from "@/data/meal-plans";
+import { fetchGoalWeight, fetchWeighIns, fetchWorkoutCounts } from "@/data/body";
 import { useCurrentUserId } from "@/hooks/use-current-user";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ErrorState } from "@/components/query-boundary";
-import { CalorieRing, MACRO_COLORS, MacroRing } from "@/components/home/macro-rings";
+import { headerIconClass } from "@/components/page-header";
+import { NoRoutineCard } from "@/components/home/today-workout-card";
 import { WaterCard } from "@/components/home/water-card";
-import { NextMealCard } from "@/components/home/next-meal-card";
-import {
-  NoRoutineCard,
-  TodayWorkoutCard,
-  TodayWorkoutSkeleton,
-} from "@/components/home/today-workout-card";
 import { CoachTips } from "@/components/coach/coach-tips";
-import { formatLongDate, toISODate, todayISO } from "@/lib/date";
-import { addDays, startOfWeek } from "date-fns";
-import { ema, nutritionTotals, weekStart, weeklyStreak } from "@forja/domain";
+import { LazyWeightChart } from "@/components/charts/lazy-chart";
+import { formatDate, formatLongDate, fromISODate, toISODate, todayISO } from "@/lib/date";
+import { cn } from "@/lib/utils";
 
 /**
- * A tela inicial responde a uma pergunta: **o que eu faço agora?**
+ * Início: a semana, o treino de hoje e o resto do dia.
  *
- * A versão anterior respondia "como foram os últimos 60 dias" — quatro cards de
- * estatística, um gráfico de peso e uma lista de treinos passados. Informação
- * correta, na hora errada: quem abre o app às 6h30 quer saber qual treino
- * fazer, não qual foi o volume da semana passada.
- *
- * A ordem dos blocos é a ordem da decisão:
- *
- * 1. **Treino de hoje** — a ação principal, com botão grande.
- * 2. **Calorias e macros** — o segundo compromisso do dia.
- * 3. **Próxima refeição pendente** — acionável, não um resumo.
- * 4. **Água** — um toque.
- * 5. **Peso e tendência** — acompanhamento, no fim.
- *
- * Histórico e gráficos longos vivem em Progresso, onde a pergunta é outra.
+ * Ordem: a semana com o treino de hoje e o botão de começar; a dieta do dia
+ * (o que é do Forja); o treinador; o peso contra a meta; a sequência de
+ * semanas. Gráficos longos e histórico vivem em Estatísticas.
  */
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
     meta: [
-      { title: "Hoje — Forja" },
-      { name: "description", content: "Seu treino, suas refeições e suas metas de hoje." },
+      { title: "Início — Forja" },
+      { name: "description", content: "Sua semana, o treino de hoje e o resto do dia." },
       { name: "robots", content: "noindex" },
     ],
   }),
-  /**
-   * Quem chega sem ter passado pela geração vai montá-la.
-   *
-   * Acontece com contas antigas (criadas antes deste fluxo) e com quem
-   * abandonou o processo no meio. Um app de treino sem plano não tem o que
-   * mostrar.
-   */
+  // Quem chega sem ter passado pela geração vai montá-la.
   beforeLoad: async () => {
     if (!(await hasCompletedOnboarding())) throw redirect({ to: "/preparando" });
   },
   component: Home,
 });
 
+const INICIAIS: Record<Weekday, string> = {
+  0: "DOM",
+  1: "SEG",
+  2: "TER",
+  3: "QUA",
+  4: "QUI",
+  5: "SEX",
+  6: "SÁB",
+};
+
 function Home() {
-  const qc = useQueryClient();
-  const navigate = useNavigate();
-  const userId = useCurrentUserId();
   const today = todayISO();
 
   const profile = useQuery({
@@ -79,14 +89,62 @@ function Home() {
       unwrapMaybe("carregar perfil", await supabase.from("profiles").select("*").maybeSingle()),
   });
 
+  return (
+    <div className="mx-auto w-full max-w-3xl px-4 pb-8 pt-6 md:px-8 md:pt-8">
+      <header className="mb-6 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-[2.75rem] font-extrabold leading-none tracking-tight">Forja</h1>
+          <p className="mt-2 text-lg text-muted-foreground first-letter:uppercase">
+            {formatLongDate(today).toLowerCase()}
+          </p>
+        </div>
+        <Link to="/profile" className={headerIconClass} aria-label="Ajustes e perfil">
+          <Settings />
+        </Link>
+      </header>
+
+      <div className="space-y-4">
+        <SemanaCard />
+        <DietaCard
+          kcalTarget={num(profile.data?.daily_kcal_target)}
+          proteinTarget={num(profile.data?.protein_g_target)}
+          loadingProfile={profile.isPending}
+        />
+        <Link
+          to="/coach"
+          className="flex items-center gap-4 rounded-[1.5rem] bg-card p-5 transition-colors hover:bg-elevated"
+        >
+          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-info text-info-foreground">
+            <Bot className="size-6" aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-xl">Treinador</span>
+            <span className="block text-muted-foreground">Pergunte sobre seu treino e dieta</span>
+          </span>
+          <ChevronRight className="size-5 shrink-0" aria-hidden />
+        </Link>
+        <CoachTips limit={1} />
+        <PesoCard />
+        <SequenciaCard />
+        <WaterCard date={today} targetMl={num(profile.data?.water_ml_target, 2500)} />
+      </div>
+    </div>
+  );
+}
+
+/** A semana navegável e o treino de hoje com o botão de começar. */
+function SemanaCard() {
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const userId = useCurrentUserId();
+  const today = todayISO();
+  const [offset, setOffset] = useState(0);
+
   const routine = useQuery({
     queryKey: queryKeys.workouts.activeRoutine(),
     queryFn: fetchActiveRoutine,
   });
-
-  // Uma janela de 26 semanas serve às duas leituras da home: a semana atual
-  // (dias concluídos) e a sequência de semanas batendo a meta.
-  const recentWorkouts = useQuery({
+  const recentes = useQuery({
     queryKey: [...queryKeys.workouts.all, "completed-recent"],
     queryFn: () => {
       const inicio = startOfWeek(new Date(), { weekStartsOn: 1 });
@@ -96,76 +154,8 @@ function Home() {
       );
     },
   });
-  const inicioDaSemana = weekStart(today);
-  const completedThisWeek = (recentWorkouts.data ?? []).filter((w) => w.date >= inicioDaSemana);
-  const streak = routine.data
-    ? weeklyStreak(
-        (recentWorkouts.data ?? []).map((w) => w.date),
-        routine.data.daysPerWeek,
-        today,
-      )
-    : 0;
 
-  /**
-   * O diário de hoje, materializado do plano se for a primeira abertura.
-   *
-   * A materialização acontece dentro da `queryFn` — e não num efeito — para que
-   * a leitura só ocorra depois da escrita. Separá-las produziria uma tela vazia
-   * no primeiro acesso do dia, seguida de um salto quando os dados chegassem.
-   */
-  const diario = useQuery({
-    queryKey: queryKeys.diet.log(today),
-    queryFn: async () => {
-      // Garante o plano antes de materializar: sem ele o dia nasceria vazio e o
-      // registro em `diet_days` impediria a remontagem quando o plano chegasse.
-      await ensureActiveMealPlan(userId);
-      await ensureDayMaterialized(userId, today, today);
-      return fetchDayEntries(today);
-    },
-  });
-
-  const weights = useQuery({
-    queryKey: queryKeys.body.weights(30),
-    queryFn: async () => {
-      const from = toISODate(addDays(new Date(), -30));
-      return unwrapList(
-        "carregar peso",
-        await supabase
-          .from("body_weights")
-          .select("log_date, weight_kg")
-          .gte("log_date", from)
-          .order("log_date"),
-      );
-    },
-  });
-
-  /** Exercícios da divisão de hoje, para a prévia do card de treino. */
-  const todaySplit = useQuery({
-    queryKey: [...queryKeys.workouts.all, "today-preview", routine.data?.id ?? "none"],
-    enabled: !!routine.data,
-    queryFn: async () => {
-      const r = routine.data!;
-      const index = r.currentIndex % Math.max(1, r.templates.length);
-      const template = r.templates[index];
-      if (!template) return { muscles: [], names: [] };
-
-      const rows = unwrapList(
-        "carregar exercícios do treino de hoje",
-        await supabase
-          .from("workout_template_exercises")
-          .select("position, exercises(name, primary_muscle)")
-          .eq("template_id", template.id)
-          .order("position"),
-      );
-
-      // `Set` para não repetir "peito" três vezes quando a divisão tem três
-      // exercícios de peito.
-      const muscles = [...new Set(rows.map((r) => r.exercises?.primary_muscle).filter(Boolean))];
-      return { muscles: muscles as string[], names: rows.map((r) => r.exercises?.name ?? "") };
-    },
-  });
-
-  const startWorkout = useMutation({
+  const comecar = useMutation({
     mutationFn: (templateId: string) => openWorkoutForTemplate(userId, templateId),
     onSuccess: (id) => {
       void qc.invalidateQueries({ queryKey: queryKeys.workouts.all });
@@ -174,11 +164,158 @@ function Home() {
     onError: (e) => toast.error(errorMessage(e)),
   });
 
-  const entries = diario.data ?? [];
-  // Só o que foi **consumido** conta para os anéis. Somar o planejado mostraria
-  // a meta batida antes de a pessoa comer, que é o oposto de acompanhar.
-  const consumidos = entries.filter((e) => e.consumed);
-  const totals = nutritionTotals(
+  const dias = useMemo(() => {
+    const inicio = addDays(fromISODate(weekStart(today)), offset * 7);
+    return Array.from({ length: 7 }, (_, i) => toISODate(addDays(inicio, i)));
+  }, [today, offset]);
+
+  if (routine.isPending) return <Skeleton className="h-64 w-full rounded-[1.5rem]" />;
+  if (!routine.data) return <NoRoutineCard />;
+
+  const r = routine.data;
+  const entrada = scheduleInputOf(r);
+  const feitos = recentes.data ?? [];
+  const projecao = projectSchedule(dias, today, entrada, feitos);
+  const treinados = new Set(feitos.map((w) => w.date));
+
+  const { splitIndex, isPlannedDay, alreadyDone } = todaysWorkout(today, entrada, feitos);
+  const template = r.templates[splitIndex];
+
+  // Próximo dia com treino, para o texto do dia de descanso.
+  const proximos = projectSchedule(
+    Array.from({ length: 7 }, (_, i) => toISODate(addDays(fromISODate(today), i + 1))),
+    today,
+    entrada,
+    feitos,
+  );
+  const proximo = proximos.find((d) => d.splitIndex !== null);
+
+  const titulo =
+    offset === 0
+      ? "Esta semana"
+      : offset === -1
+        ? "Semana passada"
+        : offset === 1
+          ? "Próxima semana"
+          : `${formatDate(dias[0]!, "d MMM")} – ${formatDate(dias[6]!, "d MMM")}`;
+
+  return (
+    <section className="rounded-[1.5rem] bg-card p-5" aria-label="Semana de treino">
+      <div className="mb-4 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setOffset((o) => o - 1)}
+          aria-label="Semana anterior"
+          className="grid size-9 place-items-center rounded-full hover:bg-elevated"
+        >
+          <ChevronLeft className="size-5" />
+        </button>
+        <p className="text-lg text-muted-foreground">{titulo}</p>
+        <button
+          type="button"
+          onClick={() => setOffset((o) => o + 1)}
+          aria-label="Próxima semana"
+          className="grid size-9 place-items-center rounded-full hover:bg-elevated"
+        >
+          <ChevronRight className="size-5" />
+        </button>
+      </div>
+
+      <ol className="grid grid-cols-7 text-center">
+        {dias.map((dia, i) => {
+          const p = projecao[i]!;
+          const eHoje = dia === today;
+          const treinou = treinados.has(dia);
+          const planejado = !treinou && p.splitIndex !== null && dia >= today;
+          return (
+            <li key={dia} className="flex flex-col items-center gap-1">
+              <span className="text-sm text-muted-foreground">{INICIAIS[weekdayOf(dia)]}</span>
+              <span
+                className={cn(
+                  "grid size-11 place-items-center rounded-full text-xl tabular-nums",
+                  eHoje && "bg-primary font-extrabold text-primary-foreground",
+                )}
+                aria-current={eHoje ? "date" : undefined}
+              >
+                {Number(dia.slice(8))}
+              </span>
+              <span
+                className={cn(
+                  "size-1.5 rounded-full",
+                  treinou ? "bg-primary" : planejado ? "bg-warning" : "bg-transparent",
+                )}
+                aria-label={treinou ? "treinou" : planejado ? "treino previsto" : undefined}
+              />
+            </li>
+          );
+        })}
+      </ol>
+
+      <div className="mt-4 flex items-center gap-4 rounded-2xl bg-elevated p-4">
+        <span
+          className={cn(
+            "grid size-12 shrink-0 place-items-center rounded-xl",
+            isPlannedDay && !alreadyDone
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-muted-foreground",
+          )}
+        >
+          {isPlannedDay ? (
+            <Dumbbell className="size-6" aria-hidden />
+          ) : (
+            <Moon className="size-6" aria-hidden />
+          )}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm uppercase tracking-wide text-muted-foreground">Hoje</p>
+          <p className="truncate text-xl">
+            {alreadyDone
+              ? "Treino concluído"
+              : isPlannedDay && template
+                ? template.name.replace(/^[A-Z]\s*—\s*/, "")
+                : proximo
+                  ? `Descanso · ${WEEKDAY_LABELS[proximo.weekday].toLowerCase()} tem treino`
+                  : "Descanso"}
+          </p>
+        </div>
+        {template && !alreadyDone && (
+          <button
+            type="button"
+            onClick={() => comecar.mutate(template.id)}
+            disabled={comecar.isPending}
+            className="shrink-0 rounded-xl bg-primary-soft px-4 py-2 text-lg font-medium text-primary-soft-foreground disabled:opacity-60"
+          >
+            {isPlannedDay ? "Começar" : "Treinar"}
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/** A dieta do dia em uma linha: kcal e proteína contra a meta. */
+function DietaCard({
+  kcalTarget,
+  proteinTarget,
+  loadingProfile,
+}: {
+  kcalTarget: number;
+  proteinTarget: number;
+  loadingProfile: boolean;
+}) {
+  const userId = useCurrentUserId();
+  const today = todayISO();
+  const diario = useQuery({
+    queryKey: queryKeys.diet.log(today),
+    queryFn: async () => {
+      await ensureActiveMealPlan(userId);
+      await ensureDayMaterialized(userId, today, today);
+      return fetchDayEntries(today);
+    },
+  });
+
+  const consumidos = (diario.data ?? []).filter((e) => e.consumed);
+  const totais = nutritionTotals(
     consumidos.map((e) => ({
       food: {
         servingSizeG: e.food.servingSizeG,
@@ -192,191 +329,176 @@ function Home() {
       servings: 1,
     })),
   );
-
-  const pesos = (weights.data ?? []).map((w) => num(w.weight_kg));
-  const tendencia = ema(pesos, 0.25);
-  const pesoAtual = pesos.at(-1);
-  const tendenciaAtual = tendencia.at(-1);
-  const tendenciaAnterior = tendencia.length > 7 ? tendencia.at(-8) : undefined;
-  const deltaSemanal =
-    tendenciaAtual !== undefined && tendenciaAnterior !== undefined
-      ? tendenciaAtual - tendenciaAnterior
-      : undefined;
-
-  const firstName = profile.data?.display_name?.split(" ")[0];
-  const kcalTarget = num(profile.data?.daily_kcal_target);
+  const pendentes = (diario.data ?? []).filter((e) => !e.consumed).length;
+  const pct = kcalTarget > 0 ? Math.min(100, (totais.kcal / kcalTarget) * 100) : 0;
 
   return (
-    // Mesma coluna de leitura das demais telas (ver `page-header.tsx`): a tela
-    // inicial usava `max-w-2xl` e as outras, a largura toda — a troca de aba
-    // deslocava o conteúdo lateralmente no desktop.
-    <div className="mx-auto w-full max-w-3xl px-4 pb-8 pt-5 md:px-8 md:pt-8">
-      <header className="mb-5">
-        <p className="text-sm capitalize text-muted-foreground">{formatLongDate(today)}</p>
-        <h1 className="mt-0.5 text-2xl font-bold tracking-tight">
-          {profile.isPending ? "Olá" : `Olá, ${firstName ?? "atleta"}`}
-        </h1>
-      </header>
-
-      <div className="space-y-4">
-        {/* 1 — Treino de hoje */}
-        {routine.isPending ? (
-          <TodayWorkoutSkeleton />
-        ) : routine.isError ? (
-          <ErrorState
-            message="Não conseguimos carregar seu treino."
-            onRetry={routine.refetch}
-            compact
-          />
-        ) : routine.data ? (
-          <TodayWorkoutCard
-            data={{
-              routine: routine.data,
-              completedThisWeek,
-              streak,
-              muscles: todaySplit.data?.muscles ?? [],
-              exerciseNames: (todaySplit.data?.names ?? []).filter(Boolean),
-            }}
-            today={today}
-            onStart={(id) => startWorkout.mutate(id)}
-            isStarting={startWorkout.isPending}
-          />
-        ) : (
-          <NoRoutineCard />
-        )}
-
-        {/* 2 — Calorias e macros */}
-        <Card>
-          <CardContent className="p-4">
-            {diario.isPending || profile.isPending ? (
-              <NutritionSkeleton />
-            ) : diario.isError ? (
-              <ErrorState
-                message="Não conseguimos ler seu diário."
-                onRetry={diario.refetch}
-                compact
-              />
-            ) : (
-              <div className="flex flex-col items-center gap-5 sm:flex-row sm:gap-6">
-                <CalorieRing consumed={totals.kcal} target={kcalTarget} />
-
-                <div className="grid w-full grid-cols-4 gap-2 sm:gap-3">
-                  <MacroRing
-                    value={totals.proteinG}
-                    target={num(profile.data?.protein_g_target)}
-                    label="Proteína"
-                    unit="g"
-                    color={MACRO_COLORS.protein}
-                  />
-                  <MacroRing
-                    value={totals.carbsG}
-                    target={num(profile.data?.carbs_g_target)}
-                    label="Carbo"
-                    unit="g"
-                    color={MACRO_COLORS.carbs}
-                  />
-                  <MacroRing
-                    value={totals.fatG}
-                    target={num(profile.data?.fat_g_target)}
-                    label="Gordura"
-                    unit="g"
-                    color={MACRO_COLORS.fat}
-                    excessIsBad
-                  />
-                  <MacroRing
-                    value={totals.fiberG}
-                    target={num(profile.data?.fiber_g_target)}
-                    label="Fibra"
-                    unit="g"
-                    color={MACRO_COLORS.fiber}
-                  />
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* 3 — Próxima refeição */}
-        {diario.isPending ? (
-          <Card>
-            <CardContent className="space-y-2 p-4">
-              <Skeleton className="h-3 w-24" />
-              <Skeleton className="h-5 w-32" />
-              <Skeleton className="h-11 w-full rounded-xl" />
-            </CardContent>
-          </Card>
-        ) : (
-          <NextMealCard date={today} entries={entries} isToday />
-        )}
-
-        {/* 4 — Água */}
-        <WaterCard date={today} targetMl={num(profile.data?.water_ml_target, 2500)} />
-
-        {/* 5 — Recomendações do treinador, quando houver */}
-        <CoachTips />
-
-        {/* 6 — Peso e tendência */}
-        <Card>
-          <CardContent className="p-4">
-            <Link to="/body" className="flex items-center gap-3">
-              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-accent text-accent-foreground">
-                <Scale className="size-5" aria-hidden />
+    <Link
+      to="/diet"
+      className="block rounded-[1.5rem] bg-card p-5 transition-colors hover:bg-elevated"
+      aria-label="Abrir a dieta de hoje"
+    >
+      <div className="flex items-center gap-4">
+        <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-warning text-warning-foreground">
+          <Utensils className="size-6" aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-lg text-muted-foreground">Dieta de hoje</p>
+          {diario.isPending || loadingProfile ? (
+            <Skeleton className="mt-1 h-7 w-40" />
+          ) : (
+            <p className="text-2xl font-bold tabular-nums">
+              {Math.round(totais.kcal).toLocaleString("pt-BR")}
+              <span className="text-base font-normal text-muted-foreground">
+                {" "}
+                / {Math.round(kcalTarget).toLocaleString("pt-BR")} kcal
               </span>
-
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold leading-tight">Peso</p>
-                {weights.isPending ? (
-                  <Skeleton className="mt-1 h-4 w-28" />
-                ) : pesoAtual !== undefined ? (
-                  <p className="mt-0.5 flex items-center gap-2 text-sm text-muted-foreground">
-                    <span className="font-medium tabular-nums text-foreground">{pesoAtual} kg</span>
-                    {deltaSemanal !== undefined && Math.abs(deltaSemanal) >= 0.05 && (
-                      <span className="inline-flex items-center gap-0.5 tabular-nums">
-                        {deltaSemanal < 0 ? (
-                          <TrendingDown className="size-3.5" aria-hidden />
-                        ) : (
-                          <TrendingUp className="size-3.5" aria-hidden />
-                        )}
-                        {/* A tendência (média móvel), não a balança: o peso do dia
-                            oscila 1 kg com sal e água, e reagir a isso é ruído. */}
-                        {deltaSemanal > 0 ? "+" : ""}
-                        {deltaSemanal.toFixed(1)} kg na semana
-                      </span>
-                    )}
-                  </p>
-                ) : (
-                  <p className="mt-0.5 text-sm text-muted-foreground">Registre seu peso</p>
-                )}
-              </div>
-
-              <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden />
-            </Link>
-          </CardContent>
-        </Card>
-
-        <Button asChild variant="ghost" className="w-full text-muted-foreground">
-          <Link to="/body">
-            Ver progresso completo
-            <ChevronRight className="ml-1 size-4" />
-          </Link>
-        </Button>
+            </p>
+          )}
+        </div>
+        <ChevronRight className="size-5 shrink-0" aria-hidden />
       </div>
-    </div>
+      <div className="mt-4 h-2 overflow-hidden rounded-full bg-elevated" aria-hidden>
+        <div className="h-full rounded-full bg-warning" style={{ width: `${pct}%` }} />
+      </div>
+      {!diario.isPending && (
+        <p className="mt-3 text-muted-foreground">
+          Proteína {Math.round(totais.proteinG)}/{Math.round(proteinTarget)} g
+          {pendentes > 0 && ` · ${pendentes} ${pendentes === 1 ? "item" : "itens"} a marcar`}
+        </p>
+      )}
+    </Link>
   );
 }
 
-function NutritionSkeleton() {
+/** Peso corporal contra a meta, com o gráfico de 90 dias. */
+function PesoCard() {
+  const pesos = useQuery({
+    queryKey: [...queryKeys.body.all, "weigh-ins", 90],
+    queryFn: () => fetchWeighIns(90),
+  });
+  const meta = useQuery({
+    queryKey: [...queryKeys.body.all, "goal-weight"],
+    queryFn: fetchGoalWeight,
+  });
+
+  const lista = pesos.data ?? [];
+  const tendencia = ema(
+    lista.map((p) => p.kg),
+    0.25,
+  );
+  const atual = lista.at(-1);
+  const anterior = lista.at(-2);
+  const delta = atual && anterior ? atual.kg - anterior.kg : null;
+  const falta = atual && meta.data ? atual.kg - meta.data : null;
+  const fmt = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+
   return (
-    <div className="flex flex-col items-center gap-5 sm:flex-row sm:gap-6">
-      <Skeleton className="size-[148px] shrink-0 rounded-full" />
-      <div className="grid w-full grid-cols-4 gap-3">
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="flex flex-col items-center gap-1.5">
-            <Skeleton className="size-[76px] rounded-full" />
-            <Skeleton className="h-3 w-12" />
-          </div>
-        ))}
+    <section className="rounded-[1.5rem] bg-card p-5" aria-label="Peso corporal">
+      <div className="flex items-center justify-between">
+        <p className="text-lg text-muted-foreground">Peso corporal</p>
+        <div className="flex items-center gap-4">
+          {meta.data && (
+            <span className="flex items-center gap-1 text-lg text-warning">
+              <Target className="size-5" aria-hidden />
+              {fmt(meta.data)}
+            </span>
+          )}
+          <Link to="/body" className="flex items-center gap-1 text-lg text-primary">
+            <Plus className="size-5" aria-hidden />
+            Registrar
+          </Link>
+        </div>
       </div>
-    </div>
+
+      {pesos.isPending ? (
+        <Skeleton className="mt-3 h-40 w-full" />
+      ) : !atual ? (
+        <p className="mt-3 text-muted-foreground">Registre seu peso para acompanhar a tendência.</p>
+      ) : (
+        <>
+          <div className="mt-2 flex items-end justify-between gap-3">
+            <p className="flex items-baseline gap-2">
+              <span className="text-5xl font-extrabold tabular-nums">{fmt(atual.kg)}</span>
+              <span className="text-2xl font-bold text-muted-foreground">kg</span>
+              {delta !== null && Math.abs(delta) >= 0.05 && (
+                <span className="flex items-center text-lg text-primary tabular-nums">
+                  {delta < 0 ? <ArrowDown className="size-4" /> : <ArrowUp className="size-4" />}
+                  {fmt(Math.abs(delta))}
+                </span>
+              )}
+            </p>
+            <p className="pb-1 text-muted-foreground">{formatDate(atual.date, "EEE d MMM")}</p>
+          </div>
+          {meta.data && falta !== null && (
+            <p className="mt-1 flex items-center gap-1.5 text-lg text-warning">
+              <Target className="size-5" aria-hidden />
+              Meta {fmt(meta.data)} kg
+              {Math.abs(falta) >= 0.1 &&
+                ` · ${fmt(Math.abs(falta))} kg para ${falta > 0 ? "perder" : "ganhar"}`}
+            </p>
+          )}
+          {lista.length >= 2 && (
+            <div className="mt-4 h-44">
+              <LazyWeightChart
+                data={lista.map((p, i) => ({
+                  date: formatDate(p.date, "d MMM"),
+                  peso: p.kg,
+                  tendencia: Math.round(tendencia[i]! * 10) / 10,
+                }))}
+                goal={meta.data}
+              />
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+/** Semanas seguidas na meta, a semana atual e o total. */
+function SequenciaCard() {
+  const today = todayISO();
+  const routine = useQuery({
+    queryKey: queryKeys.workouts.activeRoutine(),
+    queryFn: fetchActiveRoutine,
+  });
+  const recentes = useQuery({
+    queryKey: [...queryKeys.workouts.all, "completed-recent"],
+    queryFn: () => {
+      const inicio = startOfWeek(new Date(), { weekStartsOn: 1 });
+      return fetchCompletedWorkouts(
+        toISODate(addDays(inicio, -7 * 25)),
+        toISODate(addDays(inicio, 6)),
+      );
+    },
+  });
+  const contagem = useQuery({
+    queryKey: [...queryKeys.workouts.all, "counts"],
+    queryFn: fetchWorkoutCounts,
+  });
+
+  const meta = routine.data?.daysPerWeek ?? 3;
+  const datas = (recentes.data ?? []).map((w) => w.date);
+  const semanas = weeklyStreak(datas, meta, today);
+  const nestaSemana = datas.filter((d) => d >= weekStart(today)).length;
+
+  return (
+    <Link
+      to="/workouts/calendar"
+      className="flex items-center gap-4 rounded-[1.5rem] bg-card p-5 transition-colors hover:bg-elevated"
+    >
+      <Flame className="size-7 shrink-0 text-warning" aria-hidden />
+      <span className="min-w-0 flex-1">
+        <span className="block text-3xl font-extrabold">
+          {semanas} {semanas === 1 ? "semana seguida" : "semanas seguidas"}
+        </span>
+        <span className="block text-lg text-muted-foreground">
+          {nestaSemana} / {meta} esta semana
+          {contagem.data && ` · ${contagem.data.total} treinos no total`}
+        </span>
+      </span>
+      <CalendarDays className="size-6 shrink-0" aria-label="Ver calendário" />
+    </Link>
   );
 }

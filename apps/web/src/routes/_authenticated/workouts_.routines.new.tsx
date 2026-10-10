@@ -149,7 +149,7 @@ function RoutineWizard() {
     onSuccess: () => {
       toast.success("Plano criado!", { description: "Sua divisão já está pronta em Treinos." });
       void qc.invalidateQueries({ queryKey: queryKeys.workouts.all });
-      void navigate({ to: "/workouts" });
+      void navigate({ to: "/plan" });
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
@@ -176,7 +176,7 @@ function RoutineWizard() {
               } catch {
                 // Storage bloqueado: o convite volta na próxima sessão.
               }
-              void navigate({ to: "/workouts" });
+              void navigate({ to: "/plan" });
             }}
           >
             <ArrowLeft className="mr-1 size-4" />

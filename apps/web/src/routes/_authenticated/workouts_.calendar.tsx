@@ -95,7 +95,7 @@ function WorkoutCalendar() {
         description="Seus treinos por mês."
         action={
           <Button variant="outline" asChild>
-            <Link to="/workouts">
+            <Link to="/plan">
               <ArrowLeft className="mr-1 size-4" />
               Treinos
             </Link>
@@ -272,7 +272,7 @@ function WorkoutCalendar() {
               description="Assim que você finalizar um treino, ele aparece aqui."
               action={
                 <Button asChild>
-                  <Link to="/workouts">Ir para treinos</Link>
+                  <Link to="/plan">Ir para treinos</Link>
                 </Button>
               }
             />

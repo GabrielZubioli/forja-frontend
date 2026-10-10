@@ -248,7 +248,7 @@ function ExerciseDetail() {
             description="Assim que você registrar séries válidas deste exercício, a progressão de carga aparece aqui."
             action={
               <Button asChild>
-                <Link to="/workouts">Iniciar treino</Link>
+                <Link to="/plan">Iniciar treino</Link>
               </Button>
             }
           />
