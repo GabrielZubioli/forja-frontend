@@ -7,6 +7,7 @@ import {
   formatShortDate,
   formatWeekday,
   fromISODate,
+  localDayRange,
   toISODate,
   todayISO,
 } from "./date";
@@ -107,5 +108,24 @@ describe("formatClock", () => {
 
   it("não produz tempo negativo", () => {
     expect(formatClock(-5)).toBe("0:00");
+  });
+});
+
+describe("localDayRange", () => {
+  // Limites do filtro de `timestamptz`: meia-noite **local**, em UTC. Mandar
+  // "2026-10-11T23:59:59" cru fazia o Postgres ler como UTC — no Brasil, o
+  // treino de domingo às 22h caía fora da semana.
+  const { start, endExclusive } = localDayRange("2026-10-05", "2026-10-11");
+  const dentro = (d: Date) => d.toISOString() >= start && d.toISOString() < endExclusive;
+
+  it("inclui o domingo à noite no fuso do usuário", () => {
+    expect(dentro(new Date(2026, 9, 11, 22, 30))).toBe(true);
+    expect(dentro(new Date(2026, 9, 11, 23, 59, 59))).toBe(true);
+  });
+
+  it("começa à meia-noite local da segunda e exclui a segunda seguinte", () => {
+    expect(dentro(new Date(2026, 9, 5, 0, 0))).toBe(true);
+    expect(dentro(new Date(2026, 9, 4, 23, 59))).toBe(false);
+    expect(dentro(new Date(2026, 9, 12, 0, 0))).toBe(false);
   });
 });

@@ -3,28 +3,27 @@ import { assertOk, num, unwrap, unwrapList, unwrapMaybe } from "@/data/supabase-
 import { advanceRoutineForTemplate } from "@/data/routines";
 import { startSessionFromTemplate } from "@/data/workouts";
 import { exerciseImages } from "@/data/exercise-media";
-import { epley1RM, sessionVolume } from "@forja/domain";
+import { toISODate } from "@/lib/date";
+import {
+  compareWithLastSession,
+  epley1RM,
+  sessionVolume,
+  strengthTrainingKcal,
+  type ExerciseComparison,
+  type SimpleSet,
+} from "@forja/domain";
 
 /**
  * A sessão de treino como o usuário a executa.
  *
- * ## A mudança de modelo
+ * Registro série a série: cada série tem carga, repetições, RIR (gravado como
+ * RPE = 10 − RIR) e o círculo de concluída. A tela mostra ao lado o que foi
+ * feito da última vez, a melhor carga e a sugestão de progressão — por isso o
+ * carregador junta o histórico de cada exercício numa consulta só.
  *
- * Antes, treinar era: apertar "Iniciar treino", cair numa planilha de séries e
- * preencher peso e repetições linha a linha. Preciso, e errado para o momento —
- * ninguém quer operar uma planilha entre uma série de agachamento e outra.
- *
- * Agora o treino é uma **lista de exercícios com caixinhas**. Abriu, o
- * cronômetro corre; fez o exercício, marca; marcou todos, acabou. O registro
- * detalhado (carga por série) continua existindo para quem quiser — mas
- * embaixo, expandido sob demanda, e nunca no caminho de quem só quer treinar.
- *
- * ## O que "marcar um exercício" grava
- *
- * Todas as séries daquele exercício viram `completed = true`, preenchidas com a
- * carga sugerida quando o usuário não digitou nada. É o que mantém volume,
- * recorde pessoal e estatísticas funcionando sem exigir digitação: quem quer
- * precisão ajusta os números; quem não quer ainda produz dado utilizável.
+ * Concluir uma série sem ter digitado nada grava o que estava na tela (a carga
+ * sugerida e as repetições do plano): quem não quer digitar ainda produz dado
+ * que alimenta volume, recordes e progressão.
  */
 
 export interface BoardSet {
@@ -34,6 +33,14 @@ export interface BoardSet {
   reps: number | null;
   completed: boolean;
   restSeconds: number | null;
+  /** Repetições em reserva (guardado como RPE = 10 − RIR). */
+  rir: number | null;
+}
+
+export interface LastTime {
+  /** `YYYY-MM-DD` da sessão anterior com este exercício. */
+  date: string;
+  sets: { weightKg: number | null; reps: number | null; rir: number | null }[];
 }
 
 export interface BoardExercise {
@@ -54,6 +61,13 @@ export interface BoardExercise {
   sets: BoardSet[];
   /** Carga sugerida: o que a pessoa levantou da última vez neste exercício. */
   suggestedWeightKg: number | null;
+  /** Faixa de repetições do plano, quando houver. */
+  repMin: number | null;
+  repMax: number | null;
+  /** As séries da sessão anterior com este exercício. */
+  lastTime: LastTime | null;
+  /** Maior carga já registrada neste exercício. */
+  bestKg: number | null;
   done: boolean;
 }
 
@@ -112,7 +126,7 @@ export async function fetchWorkoutBoard(sessionId: string): Promise<WorkoutBoard
     await supabase
       .from("workout_sets")
       .select(
-        "id, exercise_id, position, set_index, weight_kg, reps, rest_seconds, completed, superset_group, notes, exercises(name, primary_muscle, secondary_muscles, equipment, image_urls, video_url)",
+        "id, exercise_id, position, set_index, weight_kg, reps, rpe, rest_seconds, completed, superset_group, notes, exercises(name, primary_muscle, secondary_muscles, equipment, image_urls, video_url)",
       )
       .eq("session_id", sessionId)
       .order("position")
@@ -125,7 +139,9 @@ export async function fetchWorkoutBoard(sessionId: string): Promise<WorkoutBoard
     ? await fetchPrescription(session.template_id)
     : new Map<string, Prescription>();
 
-  const ultimas = await fetchPreviousLoads(sessionId, [...new Set(rows.map((r) => r.exercise_id))]);
+  const historico = await fetchExerciseHistory(sessionId, [
+    ...new Set(rows.map((r) => r.exercise_id)),
+  ]);
 
   const porExercicio = new Map<string, BoardExercise>();
 
@@ -152,7 +168,11 @@ export async function fetchWorkoutBoard(sessionId: string): Promise<WorkoutBoard
         restSeconds: p?.restSeconds ?? num(row.rest_seconds, 90),
         supersetGroup: row.superset_group,
         sets: [],
-        suggestedWeightKg: ultimas.get(row.exercise_id) ?? null,
+        suggestedWeightKg: historico.get(row.exercise_id)?.suggestedKg ?? null,
+        repMin: p?.repMin ?? null,
+        repMax: p?.repMax ?? null,
+        lastTime: historico.get(row.exercise_id)?.lastTime ?? null,
+        bestKg: historico.get(row.exercise_id)?.bestKg ?? null,
         done: false,
       };
       porExercicio.set(chave, grupo);
@@ -165,6 +185,7 @@ export async function fetchWorkoutBoard(sessionId: string): Promise<WorkoutBoard
       reps: row.reps === null ? null : num(row.reps),
       completed: row.completed,
       restSeconds: row.rest_seconds === null ? null : num(row.rest_seconds),
+      rir: rirFromRpe(row.rpe),
     });
   }
 
@@ -191,6 +212,8 @@ interface Prescription {
   /** `"8–12"` ou `"10"`, já formatado — a UI não deve refazer essa decisão. */
   repsLabel: number | null;
   repsText: string;
+  repMin: number | null;
+  repMax: number | null;
   restSeconds: number;
   notes: string | null;
 }
@@ -213,6 +236,8 @@ async function fetchPrescription(templateId: string): Promise<Map<string, Prescr
           i.target_rep_min && i.target_rep_max
             ? `${i.target_rep_min}–${i.target_rep_max}`
             : String(i.target_reps ?? 10),
+        repMin: i.target_rep_min,
+        repMax: i.target_rep_max,
         restSeconds: num(i.rest_seconds, 90),
         notes: i.notes,
       },
@@ -221,89 +246,75 @@ async function fetchPrescription(templateId: string): Promise<Map<string, Prescr
 }
 
 /**
- * A carga da última vez, ignorando a sessão atual.
+ * Histórico de cada exercício, ignorando a sessão atual: as séries da última
+ * vez (com data), a carga sugerida e a melhor carga já feita.
  *
  * Ignorar a sessão atual importa: sem isso, a sugestão passaria a ser o que a
- * pessoa acabou de digitar hoje, e o campo "última vez" viraria um espelho.
+ * pessoa acabou de digitar hoje, e o "última vez" viraria um espelho.
  */
-async function fetchPreviousLoads(
+async function fetchExerciseHistory(
   sessionId: string,
   exerciseIds: readonly string[],
-): Promise<Map<string, number>> {
-  const resultado = new Map<string, number>();
+): Promise<Map<string, { suggestedKg: number | null; bestKg: number | null; lastTime: LastTime }>> {
+  const resultado = new Map<
+    string,
+    { suggestedKg: number | null; bestKg: number | null; lastTime: LastTime }
+  >();
   if (exerciseIds.length === 0) return resultado;
 
   const rows = unwrapList(
-    "carregar cargas anteriores",
+    "carregar histórico dos exercícios",
     await supabase
       .from("workout_sets")
-      .select("exercise_id, weight_kg, created_at, workout_sessions!inner(ended_at)")
+      .select(
+        "exercise_id, session_id, set_index, weight_kg, reps, rpe, workout_sessions!inner(started_at, ended_at, deleted_at)",
+      )
       .in("exercise_id", exerciseIds as string[])
       .neq("session_id", sessionId)
       .eq("completed", true)
-      .not("weight_kg", "is", null)
+      .not("workout_sessions.ended_at", "is", null)
+      .is("workout_sessions.deleted_at", null)
       .order("created_at", { ascending: false })
-      .limit(exerciseIds.length * 20),
+      .limit(exerciseIds.length * 60),
   );
 
-  for (const row of rows) {
-    if (resultado.has(row.exercise_id)) continue;
-    resultado.set(row.exercise_id, num(row.weight_kg));
+  // As linhas vêm da mais recente para a mais antiga: a primeira de cada
+  // exercício aponta a sessão anterior; a melhor carga olha todas.
+  const sessaoDe = new Map<string, { id: string; date: string }>();
+  const series = new Map<string, (LastTime["sets"][number] & { setIndex: number })[]>();
+  for (const r of rows) {
+    if (!sessaoDe.has(r.exercise_id)) {
+      sessaoDe.set(r.exercise_id, {
+        id: r.session_id,
+        date: toISODate(new Date(r.workout_sessions.started_at)),
+      });
+    }
+    const atual = resultado.get(r.exercise_id) ?? {
+      suggestedKg: null,
+      bestKg: null,
+      lastTime: { date: sessaoDe.get(r.exercise_id)!.date, sets: [] },
+    };
+    const kg = r.weight_kg === null ? null : num(r.weight_kg);
+    if (kg !== null) atual.bestKg = Math.max(atual.bestKg ?? 0, kg);
+    if (sessaoDe.get(r.exercise_id)!.id === r.session_id) {
+      const lista = series.get(r.exercise_id) ?? [];
+      lista.push({ weightKg: kg, reps: r.reps, rir: rirFromRpe(r.rpe), setIndex: r.set_index });
+      series.set(r.exercise_id, lista);
+      if (kg !== null) atual.suggestedKg = Math.max(atual.suggestedKg ?? 0, kg);
+    }
+    resultado.set(r.exercise_id, atual);
+  }
+  for (const [id, h] of resultado) {
+    h.lastTime.sets = (series.get(id) ?? [])
+      .sort((x, y) => x.setIndex - y.setIndex)
+      .map(({ weightKg, reps, rir }) => ({ weightKg, reps, rir }));
   }
   return resultado;
 }
 
-/**
- * Marca (ou desmarca) um exercício inteiro.
- *
- * Ao concluir, as séries sem número recebem a carga sugerida e as repetições
- * prescritas. É a diferença entre um registro que alimenta volume, progressão e
- * recorde — e um monte de linhas com `NULL` que não sustentam nenhuma
- * estatística.
- */
-export async function setExerciseDone(exercise: BoardExercise, done: boolean): Promise<void> {
-  const ids = exercise.sets.map((s) => s.id);
-  if (ids.length === 0) return;
-
-  if (!done) {
-    assertOk(
-      "desmarcar exercício",
-      await supabase.from("workout_sets").update({ completed: false }).in("id", ids),
-    );
-    return;
-  }
-
-  const semNumeros = exercise.sets.filter((s) => s.weightKg === null || s.reps === null);
-
-  // Duas escritas em vez de uma por série: a maioria das séries já tem número
-  // e só precisa do `completed`.
-  const completas = exercise.sets.filter((s) => !semNumeros.includes(s));
-  if (completas.length > 0) {
-    assertOk(
-      "concluir exercício",
-      await supabase
-        .from("workout_sets")
-        .update({ completed: true })
-        .in(
-          "id",
-          completas.map((s) => s.id),
-        ),
-    );
-  }
-
-  for (const set of semNumeros) {
-    assertOk(
-      "concluir série",
-      await supabase
-        .from("workout_sets")
-        .update({
-          completed: true,
-          weight_kg: set.weightKg ?? exercise.suggestedWeightKg,
-          reps: set.reps ?? exercise.targetReps ?? 10,
-        })
-        .eq("id", set.id),
-    );
-  }
+/** RPE gravado → RIR mostrado. RIR 0 = falha. */
+function rirFromRpe(rpe: number | string | null): number | null {
+  return rpe === null ? null : Math.max(0, Math.round(10 - num(rpe)));
 }
 
 /**
@@ -331,22 +342,54 @@ export async function substituteSessionExercise(
 /** Ajusta uma série específica — para quem quer registrar a carga real. */
 export async function updateSet(
   setId: string,
-  patch: { weight_kg?: number | null; reps?: number | null; completed?: boolean },
+  patch: {
+    weight_kg?: number | null;
+    reps?: number | null;
+    completed?: boolean;
+    rir?: number | null;
+  },
 ): Promise<void> {
-  assertOk("salvar série", await supabase.from("workout_sets").update(patch).eq("id", setId));
+  const { rir, ...resto } = patch;
+  const linha = rir === undefined ? resto : { ...resto, rpe: rir === null ? null : 10 - rir };
+  assertOk("salvar série", await supabase.from("workout_sets").update(linha).eq("id", setId));
+}
+
+/** Mais uma série no exercício, copiando carga e reps da última. */
+export async function addSet(sessionId: string, exercise: BoardExercise): Promise<void> {
+  const ultima = exercise.sets.at(-1);
+  assertOk(
+    "adicionar série",
+    await supabase.from("workout_sets").insert({
+      session_id: sessionId,
+      exercise_id: exercise.exerciseId,
+      position: exercise.position,
+      set_index: (ultima?.setIndex ?? 0) + 1,
+      weight_kg: ultima?.weightKg ?? exercise.suggestedWeightKg,
+      reps: ultima?.reps ?? exercise.targetReps,
+      rest_seconds: exercise.restSeconds,
+      completed: false,
+    }),
+  );
+}
+
+export async function removeSet(setId: string): Promise<void> {
+  assertOk("remover série", await supabase.from("workout_sets").delete().eq("id", setId));
 }
 
 export interface FinishResult {
   durationSeconds: number;
   volumeKg: number;
   personalRecords: string[];
+  /** Estimativa pelo último peso registrado; `null` sem peso. */
+  kcal: number | null;
+  /** Hoje × última vez, por exercício. */
+  comparisons: ExerciseComparison[];
 }
 
 /**
  * Encerra o treino: grava duração, volume, recordes e avança a divisão.
  *
- * Chamado **automaticamente** quando o último exercício é marcado. O usuário não
- * deveria precisar apertar "finalizar" para dizer ao app o que o app já sabe.
+ * Chamado pelo ✓ da tela de treino (com confirmação se houver séries pendentes).
  */
 export async function finishWorkout(sessionId: string): Promise<FinishResult> {
   const board = await fetchWorkoutBoard(sessionId);
@@ -356,6 +399,8 @@ export async function finishWorkout(sessionId: string): Promise<FinishResult> {
       durationSeconds: board.durationSeconds,
       volumeKg: board.totalVolumeKg,
       personalRecords: [],
+      kcal: null,
+      comparisons: [],
     };
   }
 
@@ -400,7 +445,13 @@ export async function finishWorkout(sessionId: string): Promise<FinishResult> {
     }
   }
 
-  return { durationSeconds: duration, volumeKg: volume, personalRecords };
+  return {
+    durationSeconds: duration,
+    volumeKg: volume,
+    personalRecords,
+    kcal: await estimarCalorias(duration),
+    comparisons: await compararComAnterior(board),
+  };
 }
 
 /** Compara o melhor 1RM estimado do treino com o histórico e marca os recordes. */
@@ -462,4 +513,143 @@ export async function discardWorkout(sessionId: string): Promise<void> {
     "descartar treino",
     await supabase.from("workout_sessions").delete().eq("id", sessionId),
   );
+}
+
+/** Gasto estimado do treino; secundário, então falha vira "sem estimativa". */
+async function estimarCalorias(durationSeconds: number): Promise<number | null> {
+  try {
+    const row = unwrapMaybe(
+      "buscar último peso",
+      await supabase
+        .from("body_weights")
+        .select("weight_kg")
+        .order("log_date", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    );
+    return row ? strengthTrainingKcal(num(row.weight_kg), durationSeconds) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Depois de editar um treino já salvo: refaz o volume e os recordes a partir
+ * das séries corrigidas. Os recordes da sessão são zerados e recalculados — uma
+ * carga digitada errado não pode continuar contando como PR.
+ */
+export async function saveFinishedWorkoutEdits(sessionId: string): Promise<void> {
+  const board = await fetchWorkoutBoard(sessionId);
+  const volume = sessionVolume(
+    board.exercises.flatMap((e) =>
+      e.sets.map((s) => ({
+        weightKg: s.weightKg,
+        reps: s.reps,
+        setType: "working" as const,
+        completed: s.completed,
+      })),
+    ),
+  );
+  assertOk(
+    "zerar recordes do treino",
+    await supabase.from("workout_sets").update({ is_pr: false }).eq("session_id", sessionId),
+  );
+  await marcarRecordes(board);
+  assertOk(
+    "salvar volume do treino",
+    await supabase.from("workout_sessions").update({ total_volume_kg: volume }).eq("id", sessionId),
+  );
+}
+
+/** Move um treino para outro dia, mantendo o horário e a duração. */
+export async function moveWorkoutDate(
+  sessionId: string,
+  startedAt: string,
+  endedAt: string | null,
+  newDay: string,
+): Promise<void> {
+  const inicio = new Date(startedAt);
+  const [ano, mes, dia] = newDay.split("-").map(Number);
+  const novoInicio = new Date(inicio);
+  novoInicio.setFullYear(ano!, mes! - 1, dia!);
+  const delta = novoInicio.getTime() - inicio.getTime();
+  assertOk(
+    "mudar a data do treino",
+    await supabase
+      .from("workout_sessions")
+      .update({
+        started_at: novoInicio.toISOString(),
+        ended_at: endedAt ? new Date(new Date(endedAt).getTime() + delta).toISOString() : null,
+      })
+      .eq("id", sessionId),
+  );
+}
+
+/** Melhor série de cada exercício hoje × na sessão anterior em que ele apareceu. */
+async function compararComAnterior(board: WorkoutBoard): Promise<ExerciseComparison[]> {
+  const ids = board.exercises.map((e) => e.exerciseId);
+  if (ids.length === 0) return [];
+  try {
+    const rows = unwrapList(
+      "carregar a última vez de cada exercício",
+      await supabase
+        .from("workout_sets")
+        .select(
+          "exercise_id, session_id, weight_kg, reps, workout_sessions!inner(ended_at, deleted_at)",
+        )
+        .in("exercise_id", ids)
+        .neq("session_id", board.sessionId)
+        .eq("completed", true)
+        .not("workout_sessions.ended_at", "is", null)
+        .is("workout_sessions.deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(ids.length * 40),
+    );
+    // A primeira linha de cada exercício aponta a sessão mais recente dele.
+    const sessaoDe = new Map<string, string>();
+    const anterior = new Map<string, SimpleSet[]>();
+    for (const r of rows) {
+      if (!sessaoDe.has(r.exercise_id)) sessaoDe.set(r.exercise_id, r.session_id);
+      if (sessaoDe.get(r.exercise_id) !== r.session_id) continue;
+      const lista = anterior.get(r.exercise_id) ?? [];
+      lista.push({ weightKg: r.weight_kg === null ? null : num(r.weight_kg), reps: r.reps });
+      anterior.set(r.exercise_id, lista);
+    }
+    return compareWithLastSession(
+      board.exercises.map((e) => ({
+        exerciseId: e.exerciseId,
+        name: e.name,
+        sets: e.sets.filter((x) => x.completed),
+      })),
+      anterior,
+    );
+  } catch {
+    // Comparação é enfeite do resumo: falhar aqui não pode falhar o treino.
+    return [];
+  }
+}
+
+/** Janela em que um treino aberto ainda conta como "em andamento". */
+const OPEN_SESSION_HOURS = 6;
+
+/**
+ * Treino aberto agora, se houver — o que deixa o botão central laranja.
+ * Só os iniciados nas últimas horas: uma sessão esquecida aberta ontem não
+ * pode prender o app em "treino em andamento".
+ */
+export async function fetchOpenSessionId(): Promise<string | null> {
+  const desde = new Date(Date.now() - OPEN_SESSION_HOURS * 3_600_000).toISOString();
+  const row = unwrapMaybe(
+    "procurar treino em andamento",
+    await supabase
+      .from("workout_sessions")
+      .select("id")
+      .is("ended_at", null)
+      .is("deleted_at", null)
+      .gte("started_at", desde)
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  );
+  return row?.id ?? null;
 }

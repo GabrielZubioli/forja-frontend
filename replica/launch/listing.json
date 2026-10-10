@@ -1,0 +1,14 @@
+{
+  "app_store": {
+    "name": "Forja: Treino e Dieta",
+    "subtitle": "Diário de treino grátis",
+    "promotional_text": "Registre treinos de graça e sem limite. Traga seu histórico de outros apps e tenha plano, descanso, recordes e dieta no mesmo lugar.",
+    "keywords": "treino,academia,musculação,ficha,diário,dieta,hipertrofia,séries,descanso,recorde,carga,plano",
+    "description": "Registre seus treinos de graça, sem limite e sem prazo.\n\nO Forja monta sua divisão de treino a partir do seu objetivo, nível, equipamento e dias disponíveis. No dia, abra o treino, marque as séries e deixe o descanso correr: o app avisa quando acaba, mostra as anilhas por lado e diz se você bateu recorde.\n\nVINDO DE OUTRO APP?\nImporte o CSV do Strong, Hevy ou FitNotes. Os exercícios são reconhecidos pelo nome e nada é duplicado se você importar de novo.\n\nSEUS DADOS SÃO SEUS\nTudo fica na sua conta, não no celular. Exporte quando quiser. Excluir a conta apaga tudo de verdade.\n\nPROGRESSO QUE DÁ PARA LER\nRecordes por exercício, séries por parte do corpo nas últimas semanas, recuperação de cada músculo e um mapa do ano inteiro de treinos.\n\nTREINO E DIETA JUNTOS\nPlano alimentar e registro de refeições no mesmo app do treino.\n\nPRO (OPCIONAL)\nPlano ajustado automaticamente, programas prontos, treinador com IA e análises extras. Teste de 7 dias, cancelamento em um toque. Sem o Pro, o diário continua funcionando."
+  },
+  "google_play": {
+    "title": "Forja: Treino e Dieta",
+    "short_description": "Diário de treino grátis, plano montado para você e dieta no mesmo app.",
+    "full_description": "Registre seus treinos de graça, sem limite e sem prazo.\n\nO Forja monta sua divisão de treino a partir do seu objetivo, nível, equipamento e dias disponíveis. No dia, abra o treino, marque as séries e deixe o descanso correr: o app avisa quando acaba, mostra as anilhas por lado e diz se você bateu recorde.\n\nVindo de outro app? Importe o CSV do Strong, Hevy ou FitNotes.\n\nSeus dados ficam na sua conta. Exporte quando quiser; excluir a conta apaga tudo.\n\nPro opcional: plano ajustado automaticamente, programas prontos, treinador com IA. Teste de 7 dias e cancelamento em um toque."
+  }
+}

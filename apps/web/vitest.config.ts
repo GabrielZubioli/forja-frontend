@@ -19,6 +19,8 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // Os testes de data são escritos no fuso do público (BRT); o CI roda em UTC.
+    env: { TZ: "America/Sao_Paulo" },
     include: ["src/**/*.test.ts"],
     exclude: ["node_modules", "packages", "apps", ".output"],
   },

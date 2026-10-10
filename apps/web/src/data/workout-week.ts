@@ -41,6 +41,8 @@ export interface WeekSplit {
   letter: string | null;
   name: string;
   order: number;
+  /** Dias da divisão na semana fixa (0 = domingo). */
+  weekdays: number[];
   exercises: WeekExercise[];
 }
 
@@ -50,6 +52,7 @@ export interface WorkoutWeek {
   daysPerWeek: number;
   currentIndex: number;
   trainingWeekdays: number[];
+  scheduleMode: "rotation" | "fixed";
   splits: WeekSplit[];
 }
 
@@ -58,7 +61,7 @@ export async function fetchWorkoutWeek(): Promise<WorkoutWeek | null> {
     "carregar rotina",
     await supabase
       .from("workout_routines")
-      .select("id, name, days_per_week, current_index, training_weekdays")
+      .select("id, name, days_per_week, current_index, training_weekdays, schedule_mode")
       .eq("is_active", true)
       .is("deleted_at", null)
       .limit(1),
@@ -70,7 +73,7 @@ export async function fetchWorkoutWeek(): Promise<WorkoutWeek | null> {
     "carregar divisões",
     await supabase
       .from("workout_templates")
-      .select("id, name, routine_letter, routine_order")
+      .select("id, name, routine_letter, routine_order, weekdays")
       .eq("routine_id", routine.id)
       .is("deleted_at", null)
       .order("routine_order"),
@@ -83,6 +86,7 @@ export async function fetchWorkoutWeek(): Promise<WorkoutWeek | null> {
       daysPerWeek: routine.days_per_week,
       currentIndex: routine.current_index,
       trainingWeekdays: routine.training_weekdays ?? [],
+      scheduleMode: routine.schedule_mode === "fixed" ? "fixed" : "rotation",
       splits: [],
     };
   }
@@ -143,11 +147,13 @@ export async function fetchWorkoutWeek(): Promise<WorkoutWeek | null> {
     daysPerWeek: routine.days_per_week,
     currentIndex: routine.current_index,
     trainingWeekdays: routine.training_weekdays ?? [],
+    scheduleMode: routine.schedule_mode === "fixed" ? "fixed" : "rotation",
     splits: templates.map((t, i) => ({
       templateId: t.id,
       letter: t.routine_letter,
       name: t.name,
       order: t.routine_order ?? i,
+      weekdays: t.weekdays ?? [],
       exercises: (porTemplate.get(t.id) ?? []).sort((a, b) => a.position - b.position),
     })),
   };

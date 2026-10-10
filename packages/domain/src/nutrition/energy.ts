@@ -64,3 +64,16 @@ export function macroTargets(kcal: number, weightKg: number): MacroTargets {
   const fiber_g = Math.round((kcal / 1000) * 14);
   return { protein_g, fat_g, carbs_g, fiber_g };
 }
+
+/**
+ * Gasto estimado de uma sessão de musculação: MET × peso × horas.
+ *
+ * MET 3,5 é o do Compendium of Physical Activities para musculação com vários
+ * exercícios (8–15 reps). O tempo é o da sessão inteira, descansos incluídos —
+ * é assim que o MET foi medido. Conservador de propósito: superestimar calorias
+ * queimadas é o erro que faz alguém comer de volta o déficit.
+ */
+export function strengthTrainingKcal(bodyWeightKg: number, durationSeconds: number): number {
+  if (bodyWeightKg <= 0 || durationSeconds <= 0) return 0;
+  return Math.round(3.5 * bodyWeightKg * (durationSeconds / 3600));
+}

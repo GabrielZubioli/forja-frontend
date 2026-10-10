@@ -12,13 +12,14 @@
 import { supabase } from "@/integrations/supabase/client";
 import { assertOk, num, unwrap, unwrapList, unwrapMaybe } from "@/data/supabase-helpers";
 import { loadPlanningInputs, trainingPlanInput } from "@/data/planning-profile";
-import { toISODate } from "@/lib/date";
+import { localDayRange, toISODate } from "@/lib/date";
 import {
   generatePlan,
   type ExerciseSlot,
   type GeneratedPlan,
   type MovementPattern,
   type PlanInput,
+  type ScheduleInput,
 } from "@forja/domain";
 
 /** Equipamentos aceitos em cada perfil, do mais ao menos preferido. */
@@ -413,14 +414,73 @@ export type ActiveRoutine = {
   currentIndex: number;
   /** Dias planejados para treinar (0=domingo … 6=sábado). */
   trainingWeekdays: number[];
+  /** Rotação A → B → C, ou semana fixa (cada divisão no seu dia). */
+  scheduleMode: "rotation" | "fixed";
   templates: {
     id: string;
     name: string;
     letter: string | null;
     order: number;
     exerciseCount: number;
+    /** Dias da divisão na semana fixa. */
+    weekdays: number[];
   }[];
 };
+
+/**
+ * Entrada da agenda a partir da rotina — a mesma regra para a Início, o Plano
+ * e o botão Treinar. Na semana fixa, cada dia recebe os índices das divisões
+ * marcadas para ele.
+ */
+export function scheduleInputOf(routine: {
+  trainingWeekdays: number[];
+  currentIndex: number;
+  scheduleMode: "rotation" | "fixed";
+  templates: readonly { weekdays: number[] }[];
+}): ScheduleInput {
+  const splitCount = Math.max(1, routine.templates.length);
+  if (routine.scheduleMode === "fixed") {
+    const fixed = Array.from({ length: 7 }, (_, dia) =>
+      routine.templates.flatMap((t, i) => (t.weekdays.includes(dia) ? [i] : [])),
+    );
+    return { weekdays: [], splitCount, currentIndex: routine.currentIndex, fixed };
+  }
+  return {
+    weekdays: routine.trainingWeekdays.length ? routine.trainingWeekdays : [1, 3, 5],
+    splitCount,
+    currentIndex: routine.currentIndex,
+  };
+}
+
+/** Troca entre rotação e semana fixa. */
+export async function setScheduleMode(routineId: string, mode: "rotation" | "fixed") {
+  assertOk(
+    "mudar o modo da agenda",
+    await supabase.from("workout_routines").update({ schedule_mode: mode }).eq("id", routineId),
+  );
+}
+
+/** Dias da semana de uma divisão (semana fixa). */
+export async function setTemplateWeekdays(templateId: string, weekdays: number[]) {
+  assertOk(
+    "salvar os dias da rotina",
+    await supabase
+      .from("workout_templates")
+      .update({ weekdays: [...new Set(weekdays)].sort() })
+      .eq("id", templateId),
+  );
+}
+
+/** Dias de treino da rotação. */
+export async function setTrainingWeekdays(routineId: string, weekdays: number[]) {
+  assertOk(
+    "salvar os dias de treino",
+    await supabase
+      .from("workout_routines")
+      .update({ training_weekdays: [...new Set(weekdays)].sort() })
+      .eq("id", routineId),
+  );
+}
 
 /** Rotina ativa do usuário, com os templates na ordem da divisão. */
 export async function fetchActiveRoutine(): Promise<ActiveRoutine | null> {
@@ -428,7 +488,9 @@ export async function fetchActiveRoutine(): Promise<ActiveRoutine | null> {
     "carregar rotina ativa",
     await supabase
       .from("workout_routines")
-      .select("id, name, level, goal, days_per_week, current_index, training_weekdays")
+      .select(
+        "id, name, level, goal, days_per_week, current_index, training_weekdays, schedule_mode",
+      )
       .eq("is_active", true)
       .is("deleted_at", null)
       .maybeSingle(),
@@ -440,7 +502,9 @@ export async function fetchActiveRoutine(): Promise<ActiveRoutine | null> {
     "carregar divisões da rotina",
     await supabase
       .from("workout_templates")
-      .select("id, name, routine_letter, routine_order, workout_template_exercises(count)")
+      .select(
+        "id, name, routine_letter, routine_order, weekdays, workout_template_exercises(count)",
+      )
       .eq("routine_id", routine.id)
       .is("deleted_at", null)
       .order("routine_order"),
@@ -454,12 +518,14 @@ export async function fetchActiveRoutine(): Promise<ActiveRoutine | null> {
     daysPerWeek: routine.days_per_week,
     currentIndex: routine.current_index,
     trainingWeekdays: routine.training_weekdays ?? [],
+    scheduleMode: routine.schedule_mode === "fixed" ? "fixed" : "rotation",
     templates: templates.map((t, i) => ({
       id: t.id,
       name: t.name,
       letter: t.routine_letter,
       order: t.routine_order ?? i,
       exerciseCount: t.workout_template_exercises?.[0]?.count ?? 0,
+      weekdays: t.weekdays ?? [],
     })),
   };
 }
@@ -522,6 +588,7 @@ export async function fetchCompletedWorkouts(
   fromDate: string,
   toDate: string,
 ): Promise<CompletedWorkoutDay[]> {
+  const intervalo = localDayRange(fromDate, toDate);
   const rows = unwrapList(
     "carregar treinos do período",
     await supabase
@@ -529,8 +596,8 @@ export async function fetchCompletedWorkouts(
       .select("id, name, started_at, ended_at, total_volume_kg, duration_seconds, template_id")
       .is("deleted_at", null)
       .not("ended_at", "is", null)
-      .gte("started_at", `${fromDate}T00:00:00`)
-      .lte("started_at", `${toDate}T23:59:59`)
+      .gte("started_at", intervalo.start)
+      .lt("started_at", intervalo.endExclusive)
       .order("started_at"),
   );
 

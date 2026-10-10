@@ -27,6 +27,7 @@ import {
   WEEKDAYS,
   WEEKDAY_INITIALS,
   WEEKDAY_LABELS,
+  findProgram,
   findVolumeOutliers,
   suggestWeekdays,
   sumWeeklySetsByGroup,
@@ -45,6 +46,10 @@ export const Route = createFileRoute("/_authenticated/workouts_/routines/new")({
         content: "Responda quatro perguntas e receba sua divisão de treino pronta.",
       },
     ],
+  }),
+  // `?programa=<slug>` chega dos programas prontos com as respostas escolhidas.
+  validateSearch: (search: Record<string, unknown>): { programa?: string } => ({
+    programa: typeof search.programa === "string" ? search.programa : undefined,
   }),
   component: RoutineWizard,
 });
@@ -107,15 +112,24 @@ function RoutineWizard() {
   const qc = useQueryClient();
   const userId = useCurrentUserId();
 
-  const [step, setStep] = useState<Step>(0);
-  const [level, setLevel] = useState<TrainingLevel | null>(null);
-  const [goal, setGoal] = useState<TrainingGoal | null>(null);
-  const [equipment, setEquipment] = useState<EquipmentProfile | null>(null);
-  const [daysPerWeek, setDaysPerWeek] = useState<number | null>(null);
-  const [weekdays, setWeekdays] = useState<number[]>([]);
+  // Programa pronto: as quatro respostas já vêm escolhidas e o assistente abre
+  // direto na escolha dos dias — a única coisa que o programa não sabe.
+  const programa = findProgram(Route.useSearch().programa);
+  const preset = programa?.input;
+
+  const [step, setStep] = useState<Step>(preset ? 4 : 0);
+  const [level, setLevel] = useState<TrainingLevel | null>(preset?.level ?? null);
+  const [goal, setGoal] = useState<TrainingGoal | null>(preset?.goal ?? null);
+  const [equipment, setEquipment] = useState<EquipmentProfile | null>(preset?.equipment ?? null);
+  const [daysPerWeek, setDaysPerWeek] = useState<number | null>(preset?.daysPerWeek ?? null);
+  const [weekdays, setWeekdays] = useState<number[]>(() =>
+    preset ? suggestWeekdays(preset.daysPerWeek) : [],
+  );
 
   const input: PlanInput | null =
-    level && goal && equipment && daysPerWeek ? { level, goal, equipment, daysPerWeek } : null;
+    level && goal && equipment && daysPerWeek
+      ? { level, goal, equipment, daysPerWeek, focus: preset?.focus, duration: preset?.duration }
+      : null;
 
   // Só monta a prévia no último passo, quando todas as respostas existem.
   const draft = useQuery({
@@ -127,13 +141,15 @@ function RoutineWizard() {
   const save = useMutation({
     mutationFn: async () => {
       if (!input || !draft.data) throw new Error("Plano ainda não está pronto.");
-      const nome = `${GOAL_OPTIONS.find((g) => g.value === input.goal)?.label ?? "Treino"} · ${input.daysPerWeek}× por semana`;
+      const nome =
+        programa?.name ??
+        `${GOAL_OPTIONS.find((g) => g.value === input.goal)?.label ?? "Treino"} · ${input.daysPerWeek}× por semana`;
       return createRoutine(userId, input, draft.data, nome, weekdays);
     },
     onSuccess: () => {
       toast.success("Plano criado!", { description: "Sua divisão já está pronta em Treinos." });
       void qc.invalidateQueries({ queryKey: queryKeys.workouts.all });
-      void navigate({ to: "/workouts" });
+      void navigate({ to: "/plan" });
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
@@ -160,7 +176,7 @@ function RoutineWizard() {
               } catch {
                 // Storage bloqueado: o convite volta na próxima sessão.
               }
-              void navigate({ to: "/workouts" });
+              void navigate({ to: "/plan" });
             }}
           >
             <ArrowLeft className="mr-1 size-4" />

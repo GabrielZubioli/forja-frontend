@@ -153,7 +153,7 @@
    ========================================================================== */
 
 :root {
-  --radius: 0.75rem;
+  --radius: 1rem;
 
   /* ——— Escada de superfície ———
      Os neutros carregam um traço mínimo do matiz da marca (hue 168, croma
@@ -296,37 +296,37 @@
    TEMA ESCURO
    ==========================================================================
 
-   Não é o tema claro invertido. Três diferenças deliberadas:
+   Não é o tema claro invertido:
 
-   - O fundo **não é preto**. `oklch(0.152 …)` é um quase-preto esverdeado;
-     preto absoluto sob OLED cria halo em volta do texto claro e faz cada
-     borda virar um corte.
-   - O texto **não é branco puro**. `oklch(0.965)` sobre `oklch(0.218)` dá
-     15.7:1 — muito acima do exigido, e sem o brilho agressivo do branco.
+   - Fundo **preto** com superfícies grafite neutras (#1c1c1e, #2c2c2e): o
+     visual das apps de academia feitas para o celular, onde o cartão se
+     destaca do fundo pela luminância, não por borda.
+   - O texto **não é branco puro**. `oklch(0.985)` evita o brilho agressivo.
    - O jade **ganha luminância** (0.78 contra 0.55) porque cor saturada escura
      desaparece sobre fundo escuro. Mesmo matiz, mesma identidade.
+   - Laranja (`--warning`) marca o treino em andamento na barra inferior.
    ========================================================================== */
 
 .dark {
-  --background: oklch(0.152 0.012 168); /* #070d0b */
-  --surface: oklch(0.192 0.014 168); /* #0e1613 */
-  --card: oklch(0.218 0.015 168); /* #131c19 */
-  --elevated: oklch(0.258 0.016 168); /* #1c2622 — mais claro = mais perto */
-  --popover: oklch(0.258 0.016 168);
+  --background: oklch(0 0 0); /* #070d0b */
+  --surface: oklch(0.17 0.003 286); /* #0e1613 */
+  --card: oklch(0.218 0.004 286); /* #1c1c1e */ /* #131c19 */
+  --elevated: oklch(0.275 0.005 286); /* #2c2c2e */ /* #1c2622 — mais claro = mais perto */
+  --popover: oklch(0.275 0.005 286);
 
-  --foreground: oklch(0.965 0.006 168); /* 15.7:1 sobre card */
-  --card-foreground: oklch(0.965 0.006 168);
-  --popover-foreground: oklch(0.965 0.006 168);
-  --muted-foreground: oklch(0.66 0.014 168); /* 5.6:1 card · 5.0:1 elevated */
-  --subtle-foreground: oklch(0.782 0.014 168); /* 8.8:1 */
+  --foreground: oklch(0.985 0 0); /* 15.7:1 sobre card */
+  --card-foreground: oklch(0.985 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --muted-foreground: oklch(0.68 0.009 286); /* ~#98989f — 5.3:1 sobre o card */ /* 5.6:1 card · 5.0:1 elevated */
+  --subtle-foreground: oklch(0.8 0.006 286); /* 8.8:1 */
 
-  --muted: oklch(0.235 0.015 168);
+  --muted: oklch(0.275 0.005 286);
   --accent: oklch(0.305 0.058 162);
   --accent-foreground: oklch(0.93 0.05 162);
 
-  --border: oklch(0.315 0.017 168);
-  --divider: oklch(0.275 0.015 168);
-  --input: oklch(0.325 0.018 168);
+  --border: oklch(0.31 0.005 286);
+  --divider: oklch(0.27 0.004 286);
+  --input: oklch(0.31 0.005 286);
 
   /* Jade claro. O texto por cima é o quase-preto da marca, não branco:
      10:1 contra 1.6:1 — a diferença entre legível e decorativo. */
@@ -340,17 +340,17 @@
   --primary-dark: oklch(0.44 0.094 162);
   --primary-glow: oklch(0.86 0.13 162);
 
-  --secondary: oklch(0.258 0.016 168);
-  --secondary-foreground: oklch(0.94 0.008 168);
+  --secondary: oklch(0.275 0.005 286);
+  --secondary-foreground: oklch(0.95 0 0);
 
   --ring: oklch(0.78 0.155 162); /* 10.4:1 sobre o fundo */
-  --primary-ring: oklch(0.78 0.155 162 / 0.26);
+  --primary-ring: oklch(0.78 0.155 162 / 0.28);
 
   --success: oklch(0.775 0.15 152); /* 9.0:1 */
   --success-foreground: oklch(0.18 0.035 152);
   --success-soft: oklch(0.3 0.055 152);
-  --warning: oklch(0.8 0.16 72); /* 9.0:1 */
-  --warning-foreground: oklch(0.2 0.04 72);
+  --warning: oklch(0.78 0.15 62); /* 9.0:1 */
+  --warning-foreground: oklch(0.2 0.05 62);
   --warning-soft: oklch(0.32 0.055 72);
   --destructive: oklch(0.705 0.17 27); /* 6.1:1 */
   --destructive-foreground: oklch(0.16 0.03 27);
@@ -365,13 +365,13 @@
   --chart-4: oklch(0.8 0.146 66);
   --chart-5: oklch(0.745 0.155 340);
 
-  --sidebar: oklch(0.178 0.013 168);
-  --sidebar-foreground: oklch(0.86 0.01 168);
+  --sidebar: oklch(0.12 0 0);
+  --sidebar-foreground: oklch(0.88 0 0);
   --sidebar-primary: oklch(0.78 0.155 162);
   --sidebar-primary-foreground: oklch(0.18 0.035 162);
-  --sidebar-accent: oklch(0.288 0.05 162);
-  --sidebar-accent-foreground: oklch(0.93 0.05 162);
-  --sidebar-border: oklch(0.29 0.016 168);
+  --sidebar-accent: oklch(0.25 0.004 286);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.25 0.004 286);
   --sidebar-ring: oklch(0.78 0.155 162);
 
   /* No escuro a sombra sozinha não separa nada — não há luz para bloquear.
@@ -383,8 +383,8 @@
   --elevation-primary: 0 6px 22px -8px oklch(0.78 0.155 162 / 0.4);
 
   /* No escuro a relação se inverte: o relevo é mais claro que a silhueta. */
-  --body-fill: oklch(0.26 0.016 168);
-  --body-relief: oklch(0.33 0.018 168);
+  --body-fill: oklch(0.3 0.004 286);
+  --body-relief: oklch(0.38 0.005 286);
 
   --shimmer-highlight: oklch(1 0 0 / 0.05);
 }

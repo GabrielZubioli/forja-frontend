@@ -37,6 +37,19 @@ export function fromISODate(isoDate: string): Date {
   return parseISO(`${isoDate}T00:00:00`);
 }
 
+/**
+ * Intervalo de dias locais `[from, to]` como instantes UTC, para filtrar
+ * colunas `timestamptz`. Uma string sem fuso seria lida como UTC pelo Postgres.
+ */
+export function localDayRange(
+  fromDate: string,
+  toDate: string,
+): { start: string; endExclusive: string } {
+  const fim = fromISODate(toDate);
+  fim.setDate(fim.getDate() + 1);
+  return { start: fromISODate(fromDate).toISOString(), endExclusive: fim.toISOString() };
+}
+
 /** Formata uma data (ou chave ISO) em pt-BR. */
 export function formatDate(value: string | Date, pattern: string): string {
   const date = typeof value === "string" ? asDate(value) : value;

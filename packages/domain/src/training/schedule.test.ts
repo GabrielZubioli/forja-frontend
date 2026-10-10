@@ -157,3 +157,34 @@ describe("suggestWeekdays", () => {
     expect(suggestWeekdays(99)).toEqual([1, 3, 5]);
   });
 });
+
+describe("semana fixa", () => {
+  // A na segunda e na quinta, B na quarta, A + C (duas rotinas) no sábado.
+  const fixed = [[], [0], [], [1], [0], [], [0, 2]];
+  const FIXA: ScheduleInput = { weekdays: [], splitCount: 3, currentIndex: 1, fixed };
+
+  it("cada dia recebe a divisão do dia, sem sequência", () => {
+    const dias = projectSchedule(SEMANA, "2026-07-27", FIXA);
+    expect(dias.map((d) => d.splitIndex)).toEqual([0, null, 1, 0, null, 0, null]);
+    expect(dias[5]!.splitIndices).toEqual([0, 2]);
+    expect(dias[1]!.status).toBe("rest");
+  });
+
+  it("treino de hoje é o do dia; fora da agenda sugere a sequência", () => {
+    expect(todaysWorkout("2026-07-29", FIXA)).toMatchObject({ splitIndex: 1, isPlannedDay: true });
+    expect(todaysWorkout("2026-07-28", FIXA)).toMatchObject({ splitIndex: 1, isPlannedDay: false });
+  });
+
+  it("semana fixa vazia é válida (tudo descanso)", () => {
+    const vazia = { ...FIXA, fixed: [[], [], [], [], [], [], []] };
+    expect(projectSchedule(SEMANA, "2026-07-27", vazia).every((d) => d.status === "rest")).toBe(
+      true,
+    );
+  });
+
+  it("rotação continua preenchendo splitIndices com a divisão do dia", () => {
+    const dias = projectSchedule(SEMANA, "2026-07-27", BASE);
+    expect(dias[0]!.splitIndices).toEqual([0]);
+    expect(dias[1]!.splitIndices).toEqual([]);
+  });
+});

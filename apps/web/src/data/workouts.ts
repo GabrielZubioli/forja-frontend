@@ -6,9 +6,10 @@
  * impossível testá-las.
  */
 import { supabase } from "@/integrations/supabase/client";
+import type { Enums } from "@/integrations/supabase/types";
 import { assertOk, num, unwrap, unwrapList } from "@/data/supabase-helpers";
-import { epley1RM } from "@forja/domain";
-import { formatDate } from "@/lib/date";
+import { countsTowardVolume, epley1RM, type MuscleSetEntry } from "@forja/domain";
+import { formatDate, localDayRange, toISODate } from "@/lib/date";
 
 /** Defaults de template, alinhados com os do banco. */
 const DEFAULT_TARGET_SETS = 3;
@@ -181,4 +182,127 @@ export async function fetchBestE1rm(userId: string, exerciseId: string): Promise
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+export type PersonalRecord = {
+  exerciseId: string;
+  exerciseName: string;
+  weightKg: number;
+  reps: number;
+  /** 1RM estimado (Epley) — o que define "recorde" em `finishWorkout`. */
+  e1rm: number;
+  date: string;
+};
+
+/**
+ * O recorde mais recente de cada exercício.
+ *
+ * Lê só as séries marcadas como PR (índice parcial `idx_workout_sets_pr`):
+ * como cada PR supera o anterior, o mais recente por exercício é o atual.
+ */
+export async function fetchPersonalRecords(limit = 8): Promise<PersonalRecord[]> {
+  const rows = unwrapList(
+    "carregar recordes",
+    await supabase
+      .from("workout_sets")
+      .select(
+        "exercise_id, weight_kg, reps, exercises(name), workout_sessions!inner(started_at, deleted_at)",
+      )
+      .eq("is_pr", true)
+      .is("workout_sessions.deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(300),
+  );
+
+  const porExercicio = new Map<string, PersonalRecord>();
+  for (const r of rows) {
+    if (porExercicio.has(r.exercise_id)) continue;
+    const weightKg = num(r.weight_kg);
+    const reps = num(r.reps);
+    porExercicio.set(r.exercise_id, {
+      exerciseId: r.exercise_id,
+      exerciseName: r.exercises?.name ?? "Exercício",
+      weightKg,
+      reps,
+      e1rm: epley1RM(weightKg, reps),
+      date: r.workout_sessions.started_at,
+    });
+  }
+  return [...porExercicio.values()].slice(0, limit);
+}
+
+/**
+ * Séries efetivas por músculo e dia local nas últimas `weeks` semanas, para o
+ * progresso por parte do corpo. Mesma convenção da recuperação: músculo
+ * primário conta 1 série, secundário meia.
+ */
+export async function fetchMuscleSetEntries(weeks = 8): Promise<MuscleSetEntry[]> {
+  const hoje = new Date();
+  const inicio = new Date(hoje);
+  inicio.setDate(hoje.getDate() - 7 * weeks);
+  const { start, endExclusive } = localDayRange(toISODate(inicio), toISODate(hoje));
+
+  const rows = unwrapList(
+    "carregar séries por músculo",
+    await supabase
+      .from("workout_sets")
+      .select(
+        "set_type, completed, exercises(primary_muscle, secondary_muscles), workout_sessions!inner(started_at, deleted_at, ended_at)",
+      )
+      .is("workout_sessions.deleted_at", null)
+      .not("workout_sessions.ended_at", "is", null)
+      .gte("workout_sessions.started_at", start)
+      .lt("workout_sessions.started_at", endExclusive)
+      .limit(5000),
+  );
+
+  const entries: MuscleSetEntry[] = [];
+  for (const r of rows) {
+    const valida = countsTowardVolume({
+      weightKg: null,
+      reps: null,
+      setType: r.set_type,
+      completed: r.completed,
+    });
+    if (!r.exercises || !valida) {
+      continue;
+    }
+    const day = toISODate(new Date(r.workout_sessions.started_at));
+    entries.push({ muscle: r.exercises.primary_muscle, day, sets: 1 });
+    for (const m of r.exercises.secondary_muscles ?? [])
+      entries.push({ muscle: m, day, sets: 0.5 });
+  }
+  return entries;
+}
+
+/**
+ * Exercício próprio — para o aparelho da sua academia que não está no catálogo.
+ * Fica privado (`is_public = false`) e entra no mapa corporal pelo músculo
+ * principal.
+ */
+export async function createOwnExercise(
+  userId: string,
+  input: { name: string; primaryMuscle: Enums<"muscle_t">; equipment: Enums<"equipment_t"> },
+): Promise<string> {
+  const exercicio = unwrap(
+    "criar exercício",
+    await supabase
+      .from("exercises")
+      .insert({
+        owner_id: userId,
+        is_public: false,
+        name: input.name.trim(),
+        primary_muscle: input.primaryMuscle,
+        equipment: input.equipment,
+      })
+      .select("id")
+      .single(),
+  );
+  assertOk(
+    "registrar músculo do exercício",
+    await supabase
+      .from("exercise_muscles")
+      .insert({ exercise_id: exercicio.id, muscle: input.primaryMuscle, contribution: 1 }),
+  );
+  return exercicio.id;
 }

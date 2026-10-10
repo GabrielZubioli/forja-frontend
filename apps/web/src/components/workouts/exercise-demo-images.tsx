@@ -25,11 +25,14 @@ export function ExerciseDemo({
   name,
   className,
   autoPlay = true,
+  interactive = true,
 }: {
   images: readonly string[];
   name: string;
   className?: string;
   autoPlay?: boolean;
+  /** `false` dentro de outro botão: renderiza só a imagem, sem botão aninhado. */
+  interactive?: boolean;
 }) {
   const [frame, setFrame] = useState(0);
   const [failed, setFailed] = useState(false);
@@ -63,18 +66,19 @@ export function ExerciseDemo({
     );
   }
 
+  const Tag = interactive ? "button" : "span";
   return (
-    <button
-      type="button"
-      onClick={() => (temMultiplas ? setPlaying((p) => !p) : undefined)}
-      aria-label={
-        temMultiplas
+    <Tag
+      {...(interactive && {
+        type: "button" as const,
+        onClick: () => (temMultiplas ? setPlaying((p) => !p) : undefined),
+        "aria-label": temMultiplas
           ? `${playing ? "Pausar" : "Reproduzir"} demonstração de ${name}`
-          : `Demonstração de ${name}`
-      }
+          : `Demonstração de ${name}`,
+      })}
       className={cn(
         "relative block aspect-[4/3] w-full overflow-hidden rounded-xl bg-muted",
-        temMultiplas && "cursor-pointer",
+        interactive && temMultiplas && "cursor-pointer",
         className,
       )}
     >
@@ -108,6 +112,6 @@ export function ExerciseDemo({
           ))}
         </span>
       )}
-    </button>
+    </Tag>
   );
 }

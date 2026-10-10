@@ -1,44 +1,59 @@
-import { z } from "zod";
 import type { Muscle } from "./volume";
 
 /**
  * Recuperação muscular.
  *
  * Responde "o que dá para treinar hoje?" a partir de **quando** cada grupo foi
- * estimulado pela última vez e **quanto** volume levou. É o que permite ao app
- * recomendar a próxima divisão em vez de apenas seguir a sequência cegamente.
+ * estimulado e **quanto** volume levou. É o que permite ao app recomendar a
+ * próxima divisão em vez de apenas seguir a sequência cegamente.
  *
  * ## Modelo
  *
- * A síntese proteica muscular fica elevada por volta de 24–48h após o treino, e
- * o tempo até a recuperação completa cresce com o volume da sessão: 4 séries
- * pedem menos descanso que 12. Modelamos como:
+ * - **Estímulo em séries efetivas**, não tonelagem: a resposta de hipertrofia
+ *   acompanha séries duras, e 8 séries num músculo são ~uma sessão completa
+ *   (o platô por sessão). Cada sessão conta no máximo 12.
+ * - **Fadiga que decai com meia-vida própria por músculo.** Membros inferiores
+ *   recuperam mais devagar que os superiores (força em 10RM volta em 48–72h,
+ *   com agachamento mais lento que supino), então: braços, ombros e core 24h;
+ *   peito e costas 30h; pernas 48h.
+ * - **Treinos recentes se somam.** Um músculo treinado ontem e anteontem está
+ *   mais cansado que um treinado só ontem — o modelo anterior via apenas o
+ *   último treino.
  *
  * ```
- * horasNecessarias = BASE + POR_SERIE × seriesEfetivas   (limitado a MAX)
- * recuperacao      = min(1, horasDesdeOTreino / horasNecessarias)
+ * carga(t)  = Σ min(séries, 12)/8 × 2^(−horas desde o treino / meia-vida)
+ * pronto    quando carga ≤ −ln(0,75) ≈ 0,29  (fadiga 1 − e^(−carga) ≤ 25%)
  * ```
  *
- * É deliberadamente simples. Recuperação real depende de sono, calorias, idade,
- * proximidade da falha e experiência — variáveis que o app não mede. Um modelo
- * transparente e explicável vale mais aqui que um sofisticado e opaco: o número
- * serve para **orientar**, e a UI deixa claro que é estimativa.
+ * `ratio` é o progresso desde o último treino até ficar pronto (0 = acabou de
+ * treinar, 1 = pronto), que é o que a UI mostra. Como a soma de exponenciais
+ * com a mesma meia-vida decai como uma só, o tempo restante é exato.
+ *
+ * Continua sendo estimativa: sono, calorias, idade e proximidade da falha não
+ * são medidos. A UI deixa isso claro.
  */
 
-/** Horas mínimas de recuperação, mesmo após um estímulo leve. */
-const BASE_HOURS = 24;
-/** Horas adicionais por série efetiva. */
-const HOURS_PER_SET = 4;
-/** Teto: acima disso é mais provável que o problema não seja recuperação local. */
-const MAX_HOURS = 96;
-
-export const recoveryParamsSchema = z.object({
-  baseHours: z.number().positive().default(BASE_HOURS),
-  hoursPerSet: z.number().nonnegative().default(HOURS_PER_SET),
-  maxHours: z.number().positive().default(MAX_HOURS),
-});
-
-export type RecoveryParams = z.infer<typeof recoveryParamsSchema>;
+/** Meia-vida da fadiga, em horas, por músculo. */
+const HALF_LIFE_HOURS: Partial<Record<Muscle, number>> = {
+  chest: 30,
+  back: 30,
+  lats: 30,
+  traps: 30,
+  quads: 48,
+  hamstrings: 48,
+  glutes: 48,
+  calves: 48,
+  adductors: 48,
+  abductors: 48,
+};
+/** Braços, ombros, core e o resto. */
+const DEFAULT_HALF_LIFE = 24;
+/** Séries que equivalem a uma sessão completa num músculo. */
+const SETS_PER_SESSION = 8;
+/** Acima disso, mais séries na mesma sessão não somam fadiga. */
+const MAX_SETS_PER_SESSION = 12;
+/** Carga abaixo da qual o músculo está pronto: fadiga 1 − e^(−carga) ≤ 25%. */
+const READY_LOAD = -Math.log(0.75);
 
 /** Estímulo registrado num músculo, numa data. */
 export interface MuscleStimulus {
@@ -75,33 +90,36 @@ export interface MuscleRecovery {
 export function computeMuscleRecovery(
   stimuli: readonly MuscleStimulus[],
   now: Date = new Date(),
-  rawParams: Partial<RecoveryParams> = {},
 ): MuscleRecovery[] {
-  const params = recoveryParamsSchema.parse(rawParams);
-
-  // Só o estímulo mais recente de cada músculo importa: é ele que determina a
-  // fadiga corrente. Somar sessões antigas superestimaria a fadiga acumulada.
-  const latest = new Map<Muscle, { at: Date; sets: number }>();
+  // Séries por músculo e instante: exercícios da mesma sessão se somam.
+  const sessions = new Map<Muscle, Map<number, number>>();
 
   for (const stimulus of stimuli) {
     const at = stimulus.at instanceof Date ? stimulus.at : new Date(stimulus.at);
-    if (Number.isNaN(at.getTime())) continue;
-    if (at.getTime() > now.getTime()) continue; // registro no futuro: ignora
-
-    const current = latest.get(stimulus.muscle);
-    if (!current || at.getTime() > current.at.getTime()) {
-      latest.set(stimulus.muscle, { at, sets: Math.max(0, stimulus.sets) });
-    } else if (at.getTime() === current.at.getTime()) {
-      // Mesma sessão: acumula as séries daquele músculo.
-      current.sets += Math.max(0, stimulus.sets);
-    }
+    const ms = at.getTime();
+    if (Number.isNaN(ms) || ms > now.getTime()) continue; // inválido ou no futuro
+    const porInstante = sessions.get(stimulus.muscle) ?? new Map<number, number>();
+    porInstante.set(ms, (porInstante.get(ms) ?? 0) + Math.max(0, stimulus.sets));
+    sessions.set(stimulus.muscle, porInstante);
   }
 
   const result: MuscleRecovery[] = [];
 
-  for (const [muscle, { at, sets }] of latest) {
-    const hoursSince = (now.getTime() - at.getTime()) / 3_600_000;
-    const hoursNeeded = Math.min(params.maxHours, params.baseHours + params.hoursPerSet * sets);
+  for (const [muscle, porInstante] of sessions) {
+    const halfLife = HALF_LIFE_HOURS[muscle] ?? DEFAULT_HALF_LIFE;
+    const ultimo = Math.max(...porInstante.keys());
+    const lastSets = porInstante.get(ultimo) ?? 0;
+
+    // Carga logo após o último treino, somando o resíduo dos anteriores.
+    let carga = 0;
+    for (const [ms, sets] of porInstante) {
+      const horasAntes = (ultimo - ms) / 3_600_000;
+      carga +=
+        (Math.min(sets, MAX_SETS_PER_SESSION) / SETS_PER_SESSION) * 2 ** (-horasAntes / halfLife);
+    }
+
+    const hoursSince = (now.getTime() - ultimo) / 3_600_000;
+    const hoursNeeded = carga > READY_LOAD ? halfLife * Math.log2(carga / READY_LOAD) : 0;
     const ratio = hoursNeeded > 0 ? Math.min(1, hoursSince / hoursNeeded) : 1;
 
     result.push({
@@ -112,8 +130,8 @@ export function computeMuscleRecovery(
       hoursSince: Math.round(hoursSince),
       hoursNeeded: Math.round(hoursNeeded),
       hoursRemaining: Math.max(0, Math.round(hoursNeeded - hoursSince)),
-      lastTrainedAt: at,
-      lastSets: sets,
+      lastTrainedAt: new Date(ultimo),
+      lastSets,
     });
   }
 
