@@ -242,9 +242,16 @@ function AuthLayout() {
                     params={sessao ? { id: sessao.id } : undefined}
                     onClick={aoTocarTreinar}
                     aria-label={emTreino ? "Voltar ao treino" : "Treinar"}
-                    className="-mt-7 flex flex-col items-center gap-1 pb-2"
+                    className={cn(
+                      "flex flex-col items-center gap-1 pb-2",
+                      // O botão "gravando" é 12 px maior: sobe junto para a barra não crescer.
+                      sessao ? "-mt-10" : "-mt-7",
+                    )}
                   >
-                    <TrainFab sessao={sessao} />
+                    <TrainFab
+                      sessao={sessao}
+                      naSessao={pathname.startsWith("/workouts/session/")}
+                    />
                   </Link>
                 </li>
               );

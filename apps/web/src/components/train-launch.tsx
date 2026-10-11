@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { HandFist } from "lucide-react";
+import { Dumbbell } from "lucide-react";
 import { BrandSymbol } from "@/components/brand-logo";
 import { formatClock } from "@/lib/date";
 import { cn } from "@/lib/utils";
@@ -7,17 +7,20 @@ import { cn } from "@/lib/utils";
 /**
  * O botão central de treinar e a transição que ele dispara.
  *
- * Parado, é o símbolo da marca num círculo verde. Ao tocar, um painel verde
- * sobe do botão com um punho na borda, empurrando a tela para cima — e por
- * baixo dele a tela Treinar (do mesmo verde) já está carregando. Com um treino
- * aberto, vira um "gravando": quadradinho no lugar do símbolo e um anel que se
- * completa conforme o tempo previsto do treino passa.
+ * Parado, é o símbolo da marca num círculo verde. Ao tocar, um braço verde da
+ * largura da tela sobe do rodapé com o punho cerrado na ponta: o braço cobre
+ * a tela, o punho sai pelo topo e por baixo já está a tela Treinar, do mesmo
+ * verde — o punho só existe durante a transição.
+ *
+ * Com um treino aberto, o botão vira um "gravando": quadradinho de parar e um
+ * anel que se completa ao longo do tempo previsto. Dentro do treino, o
+ * quadradinho dá lugar a um halter subindo e descendo — "treinando".
  */
 
 type Fase = "subindo" | "saindo" | null;
 
-/** Duração da subida; a navegação acontece no meio dela, coberta pelo painel. */
-const SUBIDA_MS = 640;
+/** Duração da subida do braço; a navegação acontece no meio, coberta por ele. */
+const SUBIDA_MS = 820;
 
 export function useTrainLaunch(irParaTreinar: () => void) {
   const [fase, setFase] = useState<Fase>(null);
@@ -34,16 +37,16 @@ export function useTrainLaunch(irParaTreinar: () => void) {
     }
     setFase("subindo");
     timers.current = [
-      window.setTimeout(irParaTreinar, SUBIDA_MS * 0.6),
-      window.setTimeout(() => setFase("saindo"), SUBIDA_MS + 80),
-      window.setTimeout(() => setFase(null), SUBIDA_MS + 480),
+      window.setTimeout(irParaTreinar, SUBIDA_MS * 0.5),
+      window.setTimeout(() => setFase("saindo"), SUBIDA_MS + 40),
+      window.setTimeout(() => setFase(null), SUBIDA_MS + 400),
     ];
   }, [fase, irParaTreinar]);
 
   return { fase, lancar };
 }
 
-/** O painel verde com o punho, por cima de tudo durante a transição. */
+/** O braço verde com o punho na ponta, por cima de tudo durante a transição. */
 export function TrainLaunchOverlay({ fase }: { fase: Fase }) {
   if (!fase) return null;
   return (
@@ -54,23 +57,48 @@ export function TrainLaunchOverlay({ fase }: { fase: Fase }) {
       )}
       aria-hidden
     >
-      <div className="hf-sheet-up absolute inset-0 bg-[#01D798]">
-        {/* O punho vai na borda de cima do painel, como quem o empurra. */}
-        <div className="hf-fist-punch absolute left-1/2 top-0">
-          <span className="grid size-28 place-items-center rounded-full bg-[#01D798] shadow-[0_-12px_40px_-8px_rgba(1,215,152,0.6)]">
-            <HandFist className="size-14 text-[#020306]" strokeWidth={2.4} />
-          </span>
-        </div>
+      {/* Começa logo abaixo da tela e sobe a própria altura (punho + braço):
+          termina com o braço cobrindo a tela e o punho já acima dela. */}
+      <div className="hf-arm-up absolute inset-x-0 top-full">
+        <Punho className="hf-fist-flex relative z-10 block w-full" />
+        {/* O braço entra por baixo do punho: quando o soco inclina o punho,
+            não abre fresta na emenda. */}
+        <div className="-mt-16 h-[calc(100dvh+4rem)] bg-[#01D798]" />
       </div>
     </div>
+  );
+}
+
+/** Punho cerrado visto de frente, com a base emendando no braço (a tela). */
+function Punho({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 400 300" className={className} preserveAspectRatio="xMidYMax meet">
+      <path
+        fill="#01D798"
+        d="M0 300 V200 C0 150 20 118 52 108 C58 82 86 70 112 78 C122 52 156 42 184 52 C200 32 240 30 262 48 C288 36 330 44 342 72 C372 76 396 104 398 140 L400 300 Z"
+      />
+      <g fill="none" stroke="#020306" strokeOpacity="0.35" strokeWidth="7" strokeLinecap="round">
+        {/* Os vãos entre os dedos dobrados. */}
+        <path d="M112 80 C108 105 110 128 116 148" />
+        <path d="M186 54 C182 85 184 120 190 150" />
+        <path d="M262 50 C260 85 262 120 268 150" />
+        <path d="M342 74 C344 100 344 125 340 148" />
+        {/* A dobra dos dedos e o polegar cruzando por baixo. */}
+        <path d="M48 150 C150 170 260 170 360 150" />
+        <path d="M400 176 C340 170 262 186 206 210 C178 222 172 246 196 256 C258 252 330 238 400 232" />
+      </g>
+    </svg>
   );
 }
 
 /** O conteúdo do botão central da barra inferior. */
 export function TrainFab({
   sessao,
+  naSessao,
 }: {
   sessao: { startedAt: string; plannedSeconds: number } | null;
+  /** A pessoa está na tela do treino em andamento. */
+  naSessao: boolean;
 }) {
   if (!sessao) {
     return (
@@ -82,11 +110,31 @@ export function TrainFab({
       </>
     );
   }
-  return <Gravando startedAt={sessao.startedAt} plannedSeconds={sessao.plannedSeconds} />;
+  return (
+    <Gravando
+      startedAt={sessao.startedAt}
+      plannedSeconds={sessao.plannedSeconds}
+      treinando={naSessao}
+    />
+  );
 }
 
-/** Treino em andamento: quadradinho de parar e o anel do tempo, como numa gravação. */
-function Gravando({ startedAt, plannedSeconds }: { startedAt: string; plannedSeconds: number }) {
+/**
+ * Treino em andamento: o anel do tempo em volta do botão, como numa gravação.
+ *
+ * Tudo numa caixa de 76 px com posições absolutas e explícitas — o anel ocupa
+ * a caixa inteira e o botão fica 11 px para dentro de cada lado. Sem depender
+ * de alinhamento de grid, o anel não tem como sair do centro.
+ */
+function Gravando({
+  startedAt,
+  plannedSeconds,
+  treinando,
+}: {
+  startedAt: string;
+  plannedSeconds: number;
+  treinando: boolean;
+}) {
   const agora = useAgora(1000);
   const decorrido = Math.max(0, (agora - Date.parse(startedAt)) / 1000);
   const progresso = Math.min(1, decorrido / plannedSeconds);
@@ -96,8 +144,8 @@ function Gravando({ startedAt, plannedSeconds }: { startedAt: string; plannedSec
 
   return (
     <>
-      <span className="relative grid size-16 place-items-center">
-        <svg viewBox="0 0 76 76" className="absolute -inset-1.5 size-[76px] -rotate-90" aria-hidden>
+      <span className="relative block size-[76px]">
+        <svg viewBox="0 0 76 76" className="absolute inset-0 size-full -rotate-90" aria-hidden>
           <circle cx="38" cy="38" r={R} fill="none" stroke="var(--border)" strokeWidth="4" />
           <circle
             cx="38"
@@ -112,8 +160,16 @@ function Gravando({ startedAt, plannedSeconds }: { startedAt: string; plannedSec
             style={{ transition: "stroke-dashoffset 1s linear" }}
           />
         </svg>
-        <span className="grid size-[3.4rem] place-items-center rounded-full bg-warning shadow-lg shadow-warning/30 transition-transform active:scale-90">
-          <span className="size-5 rounded-[6px] bg-warning-foreground" />
+        <span className="absolute inset-[11px] grid place-items-center rounded-full bg-warning shadow-lg shadow-warning/30 transition-transform active:scale-90">
+          {treinando ? (
+            <Dumbbell
+              className="hf-lifting size-7 text-warning-foreground"
+              strokeWidth={2.5}
+              aria-hidden
+            />
+          ) : (
+            <span className="size-5 rounded-[6px] bg-warning-foreground" aria-hidden />
+          )}
         </span>
       </span>
       <span className="text-[12px] font-bold tabular-nums text-warning">
