@@ -25,7 +25,7 @@ export type CorLancamento = "verde" | "laranja";
 /** As cores das telas de destino — o braço tem que ser exatamente a mesma. */
 const COR: Record<CorLancamento, string> = {
   verde: "#01D798",
-  laranja: "var(--warning)",
+  laranja: "var(--treino)",
 };
 
 /** Disparado pelo quadradinho do botão central; a tela do treino o escuta. */
@@ -175,7 +175,7 @@ function Gravando({
             cy="38"
             r={R}
             fill="none"
-            stroke="var(--warning)"
+            stroke="var(--treino)"
             strokeWidth="4"
             strokeLinecap="round"
             strokeDasharray={C}
@@ -183,15 +183,15 @@ function Gravando({
             style={{ transition: "stroke-dashoffset 1s linear" }}
           />
         </svg>
-        <span className="absolute inset-[11px] grid place-items-center rounded-full bg-warning shadow-lg shadow-warning/30 transition-transform active:scale-90">
+        <span className="absolute inset-[11px] grid place-items-center rounded-full bg-(--treino) shadow-lg shadow-black/30 transition-transform active:scale-90">
           {naSessao ? (
-            <span className="size-5 rounded-[6px] bg-warning-foreground" aria-hidden />
+            <span className="size-5 rounded-[6px] bg-(--treino-ink)" aria-hidden />
           ) : (
             <BrandSymbol escuro className="hf-pulso w-8" />
           )}
         </span>
       </span>
-      <span className="text-[12px] font-bold tabular-nums text-warning">
+      <span className="text-[12px] font-bold tabular-nums text-(--treino)">
         {formatClock(decorrido)}
       </span>
       <span className="sr-only">

@@ -153,6 +153,9 @@
    ========================================================================== */
 
 :root {
+  /* Laranja do treino em andamento — o mesmo nos dois temas: tela, botão e punho. */
+  --treino: oklch(0.78 0.15 62);
+  --treino-ink: oklch(0.2 0.05 62);
   --radius: 1rem;
 
   /* ——— Escada de superfície ———
@@ -490,31 +493,42 @@
 
 @layer components {
   /*
-   * Treino em andamento: a tela inteira no laranja do botão "treinando".
+   * Tela do treino — tokens próprios (--t-*).
    *
-   * Em vez de reestilizar cada elemento da tela, os tokens mudam só dentro
-   * dela: o fundo vira laranja e o texto sobre ele fica escuro. Dentro dos
-   * cartões (que continuam escuros), os valores originais voltam — guardados
-   * no invólucro de fora (.hf-treino) antes de serem trocados no de dentro.
-   * Em `components`, para qualquer classe de texto explícita ainda vencer.
+   * A tela inteira lê só estes tokens. Fora de um treino em andamento (vendo
+   * o histórico) eles caem nas cores normais do tema; com o treino rolando
+   * (`.ao-vivo`), viram a paleta do treino: fundo laranja, tinta quase preta
+   * sobre ele, cartões escuros com texto claro e o laranja como único
+   * destaque. Uma cor de ação só — nada de verde misturado.
    */
-  .hf-treino {
-    --tt-foreground: var(--foreground);
-    --tt-muted-foreground: var(--muted-foreground);
-    background-color: var(--warning);
+  .tela-treino {
+    --t-page: var(--background);
+    --t-ink: var(--foreground);
+    --t-ink-soft: var(--muted-foreground);
+    --t-ink-faint: color-mix(in oklab, var(--foreground) 10%, transparent);
+    --t-surface: var(--card);
+    --t-raised: var(--elevated);
+    --t-on: var(--foreground);
+    --t-on-soft: var(--muted-foreground);
+    --t-accent: var(--primary);
+    --t-accent-fg: var(--primary-foreground);
+    --t-line: var(--border);
+    background-color: var(--t-page);
+    color: var(--t-ink);
   }
 
-  .hf-treino-in {
-    --background: var(--warning);
-    --foreground: var(--warning-foreground);
-    --muted-foreground: color-mix(in oklab, var(--warning-foreground) 72%, transparent);
-    color: var(--foreground);
-  }
-
-  .hf-treino-in :where(.bg-card, .bg-elevated, .bg-muted, .bg-popover, .bg-accent) {
-    --foreground: var(--tt-foreground);
-    --muted-foreground: var(--tt-muted-foreground);
-    color: var(--tt-foreground);
+  .tela-treino.ao-vivo {
+    --t-page: var(--treino);
+    --t-ink: var(--treino-ink);
+    --t-ink-soft: color-mix(in oklab, var(--treino-ink) 70%, transparent);
+    --t-ink-faint: color-mix(in oklab, var(--treino-ink) 13%, transparent);
+    --t-surface: oklch(0.205 0.028 60);
+    --t-raised: oklch(0.275 0.03 60);
+    --t-on: oklch(0.985 0.008 80);
+    --t-on-soft: color-mix(in oklab, oklch(0.985 0.008 80) 64%, transparent);
+    --t-accent: var(--treino);
+    --t-accent-fg: var(--treino-ink);
+    --t-line: color-mix(in oklab, oklch(0.985 0.008 80) 10%, transparent);
   }
 
   /*

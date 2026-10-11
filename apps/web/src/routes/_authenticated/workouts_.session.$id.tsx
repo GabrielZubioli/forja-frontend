@@ -9,8 +9,11 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Disc3,
   Equal,
+  History,
   Info,
+  Lightbulb,
   Minus,
   MoreHorizontal,
   PlayCircle,
@@ -18,6 +21,7 @@ import {
   Repeat,
   Sparkles,
   Trash2,
+  TrendingUp,
   Trophy,
   X,
 } from "lucide-react";
@@ -41,7 +45,6 @@ import {
 import { videoSearchUrl } from "@/data/exercise-media";
 import { SubstituteExerciseDialog } from "@/components/pickers/substitute-exercise-dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/date-picker";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -52,7 +55,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ConfirmButton } from "@/components/confirm-button";
 import { TERMINAR_TREINO_EVENT } from "@/components/train-launch";
 import {
   AlertDialog,
@@ -259,36 +261,51 @@ function SessionPage() {
   const exercicio = dados.exercises[atual];
   const pendentes = totais.total - totais.feitas;
 
+  const aoVivo = !terminado || celebrando;
+  const progresso = totais.total ? totais.feitas / totais.total : 0;
+  const ultimo = atual >= dados.exercises.length - 1;
+
   const botaoFinalizar = (
-    <span className="grid size-12 place-items-center rounded-full bg-card text-primary">
-      <Check className="size-6" strokeWidth={2.5} />
+    <span className="grid size-11 place-items-center rounded-full bg-(--t-ink) text-(--t-page) shadow-lg shadow-black/15 transition-transform active:scale-90">
+      <Check className="size-6" strokeWidth={2.75} />
     </span>
   );
 
   return (
-    // Treino em andamento: tela laranja (a cor do botão "treinando"), com os
-    // cartões escuros por cima — ver .hf-treino em styles.css.
-    <div className={cn(!terminado && "hf-treino -mb-28 min-h-dvh md:mb-0")}>
+    // A tela lê só os tokens --t-* (styles.css): com o treino rolando eles são
+    // a paleta laranja; vendo o histórico, as cores normais do tema.
+    <div className={cn("tela-treino -mb-28 min-h-dvh md:mb-0", aoVivo && "ao-vivo")}>
       <div
-        className={cn("mx-auto w-full max-w-3xl px-4 pb-28 md:px-8", !terminado && "hf-treino-in")}
+        className={cn(
+          "mx-auto w-full max-w-3xl px-4 md:px-8",
+          // Com o descanso na tela, o fim da página sobe para os botões não
+          // ficarem por baixo da barra dele.
+          descanso.remaining !== null && !terminado ? "pb-56" : "pb-32",
+        )}
       >
-        {/* Cabeçalho: sair, nome e tempo, menu, terminar. */}
-        <header className="sticky top-0 z-20 -mx-4 bg-background/95 px-4 pb-3 pt-4 backdrop-blur md:-mx-8 md:px-8">
+        {/* Cabeçalho: sair, nome e cronômetro, menu, terminar; e o progresso. */}
+        <header className="sticky top-0 z-20 -mx-4 bg-(--t-page)/92 px-4 pb-4 pt-4 backdrop-blur-md md:-mx-8 md:px-8">
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => void navigate({ to: "/dashboard" })}
               aria-label="Sair do treino (continua salvo)"
-              className="grid size-12 shrink-0 place-items-center rounded-full bg-card"
+              className="grid size-11 shrink-0 place-items-center rounded-full bg-(--t-ink-faint) text-(--t-ink) transition-transform active:scale-90"
             >
-              <X className="size-6" />
+              <X className="size-5" strokeWidth={2.5} />
             </button>
             <div className="min-w-0 flex-1 text-center">
-              <p className="truncate text-xl font-extrabold">
+              <p className="truncate text-xs font-bold uppercase tracking-[0.16em] text-(--t-ink-soft)">
                 {dados.name.replace(/^[A-Z]\s*—\s*/, "")}
               </p>
-              <p className="text-lg tabular-nums text-muted-foreground">
-                <Cronometro dados={dados} /> · {totais.feitas}/{totais.total} séries
+              <p className="mt-0.5 flex items-center justify-center gap-2 text-[1.75rem] font-extrabold leading-none tabular-nums text-(--t-ink)">
+                {!terminado && (
+                  <span className="relative flex size-2.5" aria-hidden>
+                    <span className="absolute inset-0 animate-ping rounded-full bg-(--t-ink) opacity-40" />
+                    <span className="relative size-2.5 rounded-full bg-(--t-ink)" />
+                  </span>
+                )}
+                <Cronometro dados={dados} />
               </p>
             </div>
             <DropdownMenu>
@@ -296,9 +313,9 @@ function SessionPage() {
                 <button
                   type="button"
                   aria-label="Mais opções do treino"
-                  className="grid size-12 shrink-0 place-items-center rounded-full bg-card"
+                  className="grid size-11 shrink-0 place-items-center rounded-full bg-(--t-ink-faint) text-(--t-ink) transition-transform active:scale-90"
                 >
-                  <MoreHorizontal className="size-6" />
+                  <MoreHorizontal className="size-5" strokeWidth={2.5} />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -317,37 +334,37 @@ function SessionPage() {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-            {!terminado &&
-              (pendentes === 0 ? (
-                <button
-                  type="button"
-                  onClick={() => finalizar.mutate()}
-                  disabled={finalizar.isPending || totais.feitas === 0}
-                  aria-label="Terminar treino"
-                  className="shrink-0 disabled:opacity-50"
-                >
-                  {botaoFinalizar}
-                </button>
-              ) : (
-                <ConfirmButton
-                  aria-label="Terminar treino"
-                  title="Terminar o treino agora?"
-                  description={`${pendentes} ${pendentes === 1 ? "série ainda não foi marcada" : "séries ainda não foram marcadas"} e ficarão de fora do registro.`}
-                  confirmLabel="Terminar"
-                  variant="ghost"
-                  className="size-12 shrink-0 rounded-full p-0"
-                  disabled={finalizar.isPending || totais.feitas === 0}
-                  onConfirm={() => finalizar.mutate()}
-                >
-                  {botaoFinalizar}
-                </ConfirmButton>
-              ))}
+            {!terminado && (
+              <button
+                type="button"
+                onClick={() => terminarPeloBotao.current()}
+                disabled={finalizar.isPending}
+                aria-label="Terminar treino"
+                className="shrink-0 disabled:opacity-50"
+              >
+                {botaoFinalizar}
+              </button>
+            )}
           </div>
-          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-card" aria-hidden>
+
+          <div className="mt-4 flex items-center gap-3">
             <div
-              className="h-full rounded-full bg-primary transition-[width]"
-              style={{ width: `${totais.total ? (totais.feitas / totais.total) * 100 : 0}%` }}
-            />
+              className="h-2 flex-1 overflow-hidden rounded-full bg-(--t-ink-faint)"
+              role="progressbar"
+              aria-label="Séries concluídas"
+              aria-valuemin={0}
+              aria-valuemax={totais.total}
+              aria-valuenow={totais.feitas}
+            >
+              <div
+                className="h-full rounded-full bg-(--t-ink) transition-[width] duration-700 ease-out"
+                style={{ width: `${progresso * 100}%` }}
+              />
+            </div>
+            <span className="shrink-0 text-sm font-bold tabular-nums text-(--t-ink)">
+              {totais.feitas}/{totais.total}
+              <span className="font-medium text-(--t-ink-soft)"> séries</span>
+            </span>
           </div>
         </header>
 
@@ -371,9 +388,9 @@ function SessionPage() {
         </AlertDialog>
 
         {terminado && (
-          <div className="mt-2 flex flex-wrap items-center gap-2 rounded-2xl bg-card p-3">
+          <div className="mt-2 flex flex-wrap items-center gap-2 rounded-2xl bg-(--t-surface) p-3 text-(--t-on)">
             <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">Data</span>
+              <span className="text-(--t-on-soft)">Data</span>
               <DatePicker
                 className="h-9 w-auto"
                 max={todayISO()}
@@ -407,20 +424,23 @@ function SessionPage() {
         )}
 
         {dados.exercises.length === 0 || !exercicio ? (
-          <div className="mt-6 rounded-[1.5rem] bg-card p-6 text-center">
+          <div className="mt-6 rounded-[1.75rem] bg-(--t-surface) p-6 text-center text-(--t-on)">
             <p className="text-lg font-semibold">Este treino está sem exercícios</p>
-            <p className="mt-1 text-muted-foreground">Adicione exercícios à rotina no Plano.</p>
-            <Button className="mt-4 rounded-full" onClick={() => void navigate({ to: "/plan" })}>
+            <p className="mt-1 text-(--t-on-soft)">Adicione exercícios à rotina no Plano.</p>
+            <button
+              type="button"
+              className="mt-4 rounded-full bg-(--t-accent) px-5 py-2.5 font-bold text-(--t-accent-fg)"
+              onClick={() => void navigate({ to: "/plan" })}
+            >
               Abrir o Plano
-            </Button>
+            </button>
           </div>
         ) : (
           <>
-            {/* Um número por exercício: preenchido quando todas as séries estão feitas.
-              O respiro (`p-1.5`) é para o anel do exercício atual — a rolagem
-              horizontal corta tudo que passa da borda da lista. */}
+            {/* Um número por exercício. O respiro (p-1.5) é para o atual, que
+                cresce — a rolagem horizontal corta o que passa da borda. */}
             <ol
-              className="-mx-1.5 mt-1.5 flex gap-2 overflow-x-auto p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              className="-mx-1.5 mt-2 flex gap-2 overflow-x-auto p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               aria-label="Exercícios do treino"
             >
               {dados.exercises.map((e, i) => (
@@ -431,16 +451,15 @@ function SessionPage() {
                     aria-label={`${i + 1}. ${e.name}${e.done ? " — feito" : ""}`}
                     aria-current={i === atual ? "step" : undefined}
                     className={cn(
-                      "grid size-9 shrink-0 place-items-center rounded-full text-sm font-bold tabular-nums transition-colors",
-                      i === atual && "ring-2 ring-primary ring-offset-2 ring-offset-background",
-                      e.done
-                        ? "bg-primary text-primary-foreground"
-                        : i === atual
-                          ? "bg-elevated"
-                          : "bg-card text-muted-foreground",
+                      "grid size-10 shrink-0 place-items-center rounded-full text-sm font-extrabold tabular-nums transition-all duration-300",
+                      i === atual
+                        ? "scale-110 bg-(--t-surface) text-(--t-on) shadow-lg shadow-black/20"
+                        : e.done
+                          ? "bg-(--t-ink) text-(--t-page)"
+                          : "bg-(--t-ink-faint) text-(--t-ink)",
                     )}
                   >
-                    {e.done ? <Check className="size-4" strokeWidth={3} /> : i + 1}
+                    {e.done && i !== atual ? <Check className="size-4" strokeWidth={3} /> : i + 1}
                   </button>
                 </li>
               ))}
@@ -473,24 +492,38 @@ function SessionPage() {
               onTrocar={(novoId) => trocar.mutateAsync({ de: exercicio.exerciseId, para: novoId })}
             />
 
-            <div className="mt-6 flex gap-3">
-              <Button
-                variant="secondary"
-                className="h-14 flex-1 rounded-2xl text-base"
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                className="flex h-14 flex-1 items-center justify-center gap-1 rounded-2xl border-2 border-(--t-ink)/25 font-bold text-(--t-ink) transition active:scale-[0.98] disabled:opacity-35"
                 onClick={() => setAtual((i) => Math.max(0, i - 1))}
                 disabled={atual === 0}
               >
-                <ChevronLeft className="mr-1 size-5" />
+                <ChevronLeft className="size-5" />
                 Anterior
-              </Button>
-              <Button
-                className="h-14 flex-1 rounded-2xl text-base font-bold"
-                onClick={() => setAtual((i) => Math.min(dados.exercises.length - 1, i + 1))}
-                disabled={atual >= dados.exercises.length - 1}
-              >
-                Próximo
-                <ChevronRight className="ml-1 size-5" />
-              </Button>
+              </button>
+              {ultimo && !terminado ? (
+                // No último exercício, o "Próximo" vira o fim do treino.
+                <button
+                  type="button"
+                  className="flex h-14 flex-[1.4] items-center justify-center gap-2 rounded-2xl bg-(--t-ink) font-extrabold text-(--t-page) shadow-lg shadow-black/20 transition active:scale-[0.98] disabled:opacity-50"
+                  onClick={() => terminarPeloBotao.current()}
+                  disabled={finalizar.isPending}
+                >
+                  <Check className="size-5" strokeWidth={3} />
+                  Terminar treino
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="flex h-14 flex-1 items-center justify-center gap-1 rounded-2xl bg-(--t-ink) font-extrabold text-(--t-page) shadow-lg shadow-black/20 transition active:scale-[0.98] disabled:opacity-35"
+                  onClick={() => setAtual((i) => Math.min(dados.exercises.length - 1, i + 1))}
+                  disabled={ultimo}
+                >
+                  Próximo
+                  <ChevronRight className="size-5" />
+                </button>
+              )}
             </div>
           </>
         )}
@@ -581,6 +614,7 @@ function ExercicioAtual({
     exercicio.sets.find((s) => !s.completed)?.weightKg ?? exercicio.suggestedWeightKg;
   const ultima = exercicio.lastTime;
   const pt = (n: number) => n.toLocaleString("pt-BR");
+  const feitas = exercicio.sets.filter((s) => s.completed).length;
 
   // Dica de progressão (dupla progressão sobre a última vez).
   const minReps = exercicio.repMin ?? exercicio.targetReps ?? 8;
@@ -599,140 +633,184 @@ function ExercicioAtual({
         )
       : null;
 
-  return (
-    <article className="mt-4">
-      <p className="text-lg text-muted-foreground">
-        Exercício {indice + 1} / {total}
-      </p>
-
-      <div className="mt-2 overflow-hidden rounded-[1.5rem] bg-white">
-        <ExerciseDemo images={exercicio.images} name={exercicio.name} className="aspect-square" />
-      </div>
-
-      <div className="mt-5 flex items-start gap-3">
-        <h1 className="min-w-0 flex-1 text-balance text-[2rem] font-extrabold leading-tight">
-          {exercicio.name}
-        </h1>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label={`Opções de ${exercicio.name}`}
-              className="grid size-12 shrink-0 place-items-center rounded-full bg-card"
-            >
-              <MoreHorizontal className="size-6" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>{exercicio.name}</DropdownMenuLabel>
-            <DropdownMenuItem onSelect={onDetalhe}>
-              <Info className="mr-2 size-4" />
-              Como executar
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <a
-                href={exercicio.videoUrl ?? videoSearchUrl(exercicio.name)}
-                target="_blank"
-                rel="noreferrer noopener"
-              >
-                <PlayCircle className="mr-2 size-4" />
-                Vídeo
-              </a>
-            </DropdownMenuItem>
-            {!somenteLeitura && (
-              <>
-                <DropdownMenuSeparator />
-                <SubstituteExerciseDialog
-                  currentExerciseId={exercicio.exerciseId}
-                  currentExerciseName={exercicio.name}
-                  primaryMuscle={exercicio.primaryMuscle}
-                  currentEquipment={exercicio.equipment}
-                  onSubstitute={async (alt) => {
-                    await onTrocar(alt.id);
-                  }}
-                  trigger={
-                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                      <Repeat className="mr-2 size-4" />
-                      Trocar exercício
-                    </DropdownMenuItem>
-                  }
-                />
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Chip>{label(MUSCLE_LABELS, exercicio.primaryMuscle)}</Chip>
-        <Chip>{label(EQUIPMENT_LABELS, exercicio.equipment)}</Chip>
-        {exercicio.bestKg ? <Chip>Melhor: {pt(exercicio.bestKg)} kg</Chip> : null}
-      </div>
-
-      {ultima && ultima.sets.length > 0 && (
-        <p className="mt-3 text-lg text-muted-foreground">
-          Última vez ({formatDate(ultima.date, "d MMM")}):{" "}
+  const dicas: { icon: typeof History; texto: ReactNode; destaque?: boolean }[] = [];
+  if (ultima && ultima.sets.length > 0) {
+    dicas.push({
+      icon: History,
+      texto: (
+        <>
+          <span className="font-semibold text-(--t-on)">
+            Última vez · {formatDate(ultima.date, "d MMM")}
+          </span>{" "}
           {ultima.sets
             .map(
               (s) =>
                 `${s.weightKg !== null ? `${pt(s.weightKg)}×` : ""}${s.reps ?? "–"}${s.rir !== null ? ` (RIR ${s.rir})` : ""}`,
             )
             .join(", ")}
-        </p>
-      )}
-
-      {exercicio.equipment === "barbell" && cargaAtual !== null && cargaAtual > 20 && (
-        <p className="mt-2 text-lg text-muted-foreground">
+        </>
+      ),
+    });
+  }
+  if (exercicio.equipment === "barbell" && cargaAtual !== null && cargaAtual > 20) {
+    dicas.push({
+      icon: Disc3,
+      texto: (
+        <>
           Barra 20 kg · {pt((cargaAtual - 20) / 2)} kg por lado
           {platesFor(cargaAtual).perSide.length > 0 &&
             ` (${platesFor(cargaAtual).perSide.map(pt).join(" + ")})`}
-        </p>
-      )}
+        </>
+      ),
+    });
+  }
+  if (sugestao && sugestao.weightKg > 0) {
+    dicas.push({
+      icon: sugestao.advanced ? TrendingUp : ArrowRight,
+      destaque: sugestao.advanced,
+      texto: sugestao.advanced
+        ? `Bateu o topo da faixa — suba para ${pt(sugestao.weightKg)} kg.`
+        : `Mantenha ${pt(sugestao.weightKg)} kg e busque ${sugestao.targetReps} repetições.`,
+    });
+  }
+  if (exercicio.notes) dicas.push({ icon: Lightbulb, texto: exercicio.notes });
 
-      {sugestao && sugestao.weightKg > 0 && (
-        <p
-          className={cn(
-            "mt-2 flex items-start gap-2 text-lg",
-            sugestao.advanced ? "text-primary" : "text-muted-foreground",
-          )}
-        >
-          {sugestao.advanced ? (
-            <ArrowUp className="mt-1 size-5 shrink-0" aria-hidden />
-          ) : (
-            <ArrowRight className="mt-1 size-5 shrink-0" aria-hidden />
-          )}
-          <span>
-            <span className="font-bold">Dupla progressão</span> ·{" "}
-            {sugestao.advanced
-              ? `Bateu o topo da faixa na última vez — ${pt(sugestao.weightKg)} kg agora.`
-              : `Mantenha ${pt(sugestao.weightKg)} kg e busque ${sugestao.targetReps} repetições.`}
+  return (
+    <article className="mt-3 animate-in fade-in slide-in-from-right-6 duration-500 ease-out">
+      {/* O exercício: demonstração, nome, etiquetas e dicas. */}
+      <div className="overflow-hidden rounded-[1.75rem] bg-(--t-surface) text-(--t-on) shadow-[0_24px_50px_-28px_rgba(0,0,0,0.55)]">
+        <div className="relative bg-white">
+          <ExerciseDemo images={exercicio.images} name={exercicio.name} className="aspect-[4/3]" />
+          <span className="absolute left-3 top-3 rounded-full bg-(--t-surface)/85 px-3 py-1 text-xs font-bold uppercase tracking-wider text-(--t-on) backdrop-blur">
+            {indice + 1} de {total}
           </span>
-        </p>
-      )}
+        </div>
 
-      {exercicio.notes && (
-        <p className="mt-2 flex items-start gap-2 text-muted-foreground">
-          <Sparkles className="mt-1 size-4 shrink-0" aria-hidden />
-          {exercicio.notes}
-        </p>
-      )}
+        <div className="p-5">
+          <div className="flex items-start gap-3">
+            <h1 className="min-w-0 flex-1 text-balance text-[1.7rem] font-extrabold leading-tight">
+              {exercicio.name}
+            </h1>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={`Opções de ${exercicio.name}`}
+                  className="grid size-11 shrink-0 place-items-center rounded-full bg-(--t-raised) transition-transform active:scale-90"
+                >
+                  <MoreHorizontal className="size-5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>{exercicio.name}</DropdownMenuLabel>
+                <DropdownMenuItem onSelect={onDetalhe}>
+                  <Info className="mr-2 size-4" />
+                  Como executar
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <a
+                    href={exercicio.videoUrl ?? videoSearchUrl(exercicio.name)}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                  >
+                    <PlayCircle className="mr-2 size-4" />
+                    Vídeo
+                  </a>
+                </DropdownMenuItem>
+                {!somenteLeitura && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <SubstituteExerciseDialog
+                      currentExerciseId={exercicio.exerciseId}
+                      currentExerciseName={exercicio.name}
+                      primaryMuscle={exercicio.primaryMuscle}
+                      currentEquipment={exercicio.equipment}
+                      onSubstitute={async (alt) => {
+                        await onTrocar(alt.id);
+                      }}
+                      trigger={
+                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                          <Repeat className="mr-2 size-4" />
+                          Trocar exercício
+                        </DropdownMenuItem>
+                      }
+                    />
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
 
-      {/* A tabela de séries. */}
-      <div className="mt-5 rounded-[1.5rem] bg-card p-4">
-        <div className="mb-3 grid grid-cols-[1.75rem_1.5fr_1fr_3rem_2.75rem] items-center gap-1.5 text-center text-xs uppercase tracking-wide text-muted-foreground">
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Chip>{label(MUSCLE_LABELS, exercicio.primaryMuscle)}</Chip>
+            <Chip>{label(EQUIPMENT_LABELS, exercicio.equipment)}</Chip>
+            {exercicio.bestKg ? (
+              <Chip destaque>
+                <Trophy className="size-3.5" aria-hidden />
+                {pt(exercicio.bestKg)} kg
+              </Chip>
+            ) : null}
+          </div>
+
+          {dicas.length > 0 && (
+            <ul className="mt-4 space-y-2.5 border-t border-(--t-line) pt-4">
+              {dicas.map((d, i) => (
+                <li key={i} className="flex items-start gap-3 text-[0.95rem] leading-snug">
+                  <span
+                    className={cn(
+                      "mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg",
+                      d.destaque
+                        ? "bg-(--t-accent) text-(--t-accent-fg)"
+                        : "bg-(--t-raised) text-(--t-accent)",
+                    )}
+                    aria-hidden
+                  >
+                    <d.icon className="size-4" strokeWidth={2.5} />
+                  </span>
+                  <span
+                    className={d.destaque ? "font-semibold text-(--t-on)" : "text-(--t-on-soft)"}
+                  >
+                    {d.texto}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      {/* As séries. */}
+      <div className="mt-3 rounded-[1.75rem] bg-(--t-surface) p-4 text-(--t-on) shadow-[0_24px_50px_-28px_rgba(0,0,0,0.55)]">
+        <div className="mb-3 flex items-baseline justify-between px-1">
+          <h2 className="text-lg font-extrabold">Séries</h2>
+          <span className="text-sm font-semibold tabular-nums text-(--t-on-soft)">
+            {feitas} de {exercicio.sets.length} feitas
+          </span>
+        </div>
+        <div className="mb-2 grid grid-cols-[2rem_1.5fr_1fr_3rem_2.75rem] items-center gap-1.5 px-1.5 text-center text-[11px] font-bold uppercase tracking-wider text-(--t-on-soft)">
           <span />
           <span>Carga (kg)</span>
           <span>Reps</span>
           <span>RIR</span>
           <span />
         </div>
-        <ul className="space-y-2.5">
+        <ul className="space-y-1.5">
           {exercicio.sets.map((set) => (
             <li
               key={set.id}
-              className="grid grid-cols-[1.75rem_1.5fr_1fr_3rem_2.75rem] items-center gap-1.5"
+              className={cn(
+                "grid grid-cols-[2rem_1.5fr_1fr_3rem_2.75rem] items-center gap-1.5 rounded-2xl p-1.5 transition-colors duration-300",
+                set.completed && "bg-(--t-accent)/12",
+              )}
             >
-              <span className="grid size-7 place-items-center rounded-full bg-elevated text-sm tabular-nums text-muted-foreground">
+              <span
+                className={cn(
+                  "grid size-8 place-items-center rounded-full text-sm font-bold tabular-nums transition-colors duration-300",
+                  set.completed
+                    ? "bg-(--t-accent) text-(--t-accent-fg)"
+                    : "bg-(--t-raised) text-(--t-on-soft)",
+                )}
+              >
                 {set.setIndex}
               </span>
               <Passo
@@ -756,8 +834,8 @@ function ExercicioAtual({
                     type="button"
                     aria-label={`RIR da série ${set.setIndex}${set.rir !== null ? `: ${set.rir}` : ""}`}
                     className={cn(
-                      "h-12 rounded-xl bg-elevated text-base tabular-nums",
-                      set.rir === null ? "text-muted-foreground" : "font-bold text-foreground",
+                      "h-12 rounded-xl bg-(--t-raised) text-base tabular-nums transition-colors",
+                      set.rir === null ? "text-(--t-on-soft)" : "font-bold text-(--t-on)",
                     )}
                   >
                     {set.rir === null ? "RIR" : set.rir >= 4 ? "4+" : set.rir}
@@ -790,32 +868,36 @@ function ExercicioAtual({
                 aria-pressed={set.completed}
                 aria-label={`${set.completed ? "Desmarcar" : "Concluir"} a série ${set.setIndex}`}
                 className={cn(
-                  "grid size-11 place-items-center rounded-full border-2 transition-colors",
+                  "grid size-11 place-items-center rounded-full border-2 transition-all duration-200 active:scale-90",
                   set.completed
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-muted-foreground/50",
+                    ? "animate-pop border-transparent bg-(--t-accent) text-(--t-accent-fg)"
+                    : "border-(--t-accent)/55 text-transparent hover:border-(--t-accent)",
                 )}
               >
-                {set.completed && <Check className="size-6" strokeWidth={3} />}
+                <Check className="size-6" strokeWidth={3} />
               </button>
             </li>
           ))}
         </ul>
         {!somenteLeitura && (
           <div className="mt-3 flex gap-2">
-            <Button variant="ghost" className="flex-1 text-primary" onClick={onMaisSerie}>
-              <Plus className="mr-1.5 size-4" aria-hidden />
+            <button
+              type="button"
+              className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl font-bold text-(--t-accent) transition-colors hover:bg-(--t-raised)"
+              onClick={onMaisSerie}
+            >
+              <Plus className="size-4" strokeWidth={2.75} aria-hidden />
               Série
-            </Button>
+            </button>
             {exercicio.sets.length > 1 && (
-              <Button
-                variant="ghost"
-                className="flex-1 text-muted-foreground"
+              <button
+                type="button"
+                className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl font-semibold text-(--t-on-soft) transition-colors hover:bg-(--t-raised)"
                 onClick={() => onMenosSerie(exercicio.sets.at(-1)!.id)}
               >
-                <Minus className="mr-1.5 size-4" aria-hidden />
+                <Minus className="size-4" strokeWidth={2.75} aria-hidden />
                 Série
-              </Button>
+              </button>
             )}
           </div>
         )}
@@ -824,9 +906,16 @@ function ExercicioAtual({
   );
 }
 
-function Chip({ children }: { children: ReactNode }) {
+function Chip({ children, destaque = false }: { children: ReactNode; destaque?: boolean }) {
   return (
-    <span className="rounded-lg bg-elevated px-3 py-1.5 text-base text-muted-foreground">
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium",
+        destaque
+          ? "border-(--t-accent)/50 text-(--t-accent)"
+          : "border-(--t-line) text-(--t-on-soft)",
+      )}
+    >
       {children}
     </span>
   );
@@ -858,13 +947,13 @@ function Passo({
   };
 
   return (
-    <div className="flex h-12 items-center rounded-xl bg-elevated">
+    <div className="flex h-12 items-center rounded-xl bg-(--t-raised) text-(--t-on)">
       <button
         type="button"
         onClick={() => ajustar(-passo)}
         disabled={desabilitado || !valor}
         aria-label={`Diminuir ${rotulo.toLowerCase()}`}
-        className="grid h-full w-7 shrink-0 place-items-center disabled:opacity-30"
+        className="grid h-full w-7 shrink-0 place-items-center text-(--t-on-soft) transition-colors hover:text-(--t-on) active:scale-90 disabled:opacity-30"
       >
         <Minus className="size-4" />
       </button>
@@ -887,7 +976,7 @@ function Passo({
             }
             if (n !== valor) onChange(n === null ? null : inteiro ? Math.round(n) : n);
           }}
-          className="w-full min-w-0 bg-transparent text-center text-base font-semibold tabular-nums outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+          className="w-full min-w-0 bg-transparent text-center text-base font-bold tabular-nums outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
         />
       </label>
       <button
@@ -895,7 +984,7 @@ function Passo({
         onClick={() => ajustar(passo)}
         disabled={desabilitado}
         aria-label={`Aumentar ${rotulo.toLowerCase()}`}
-        className="grid h-full w-7 shrink-0 place-items-center disabled:opacity-30"
+        className="grid h-full w-7 shrink-0 place-items-center text-(--t-on-soft) transition-colors hover:text-(--t-on) active:scale-90 disabled:opacity-30"
       >
         <Plus className="size-4" />
       </button>
@@ -967,75 +1056,96 @@ function CompletionOverlay({
   records: string[];
   onClose: () => void;
 }) {
+  // Entram em sequência: o selo, o título, os números, a comparação, o botão.
+  const entra = (i: number) => ({
+    className: "animate-in fade-in slide-in-from-bottom-3 fill-mode-backwards duration-500",
+    style: { animationDelay: `${150 + i * 110}ms` },
+  });
+  const numeros = [
+    { rotulo: "Tempo", valor: formatDuration(durationSeconds) },
+    { rotulo: "Volume", valor: `${Math.round(volumeKg).toLocaleString("pt-BR")} kg` },
+    ...(kcal !== null ? [{ rotulo: "Gasto", valor: `~${kcal} kcal` }] : []),
+  ];
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-background/90 p-6 backdrop-blur-sm"
+      className="fixed inset-0 z-50 overflow-y-auto bg-(--t-page) p-6 text-(--t-ink)"
       role="alertdialog"
       aria-labelledby="treino-concluido"
     >
-      <div className="w-full max-w-sm text-center">
+      <div className="mx-auto flex min-h-full w-full max-w-sm flex-col justify-center py-6 text-center">
         <span
-          className="mx-auto grid size-24 animate-in place-items-center rounded-full bg-primary text-primary-foreground zoom-in-50 duration-500"
+          className="animate-pop mx-auto grid size-28 place-items-center rounded-full bg-(--t-ink) text-(--t-page) shadow-2xl shadow-black/25"
           aria-hidden
         >
-          <Check className="size-12" strokeWidth={3} />
+          <Check className="size-14" strokeWidth={3} />
         </span>
 
-        <h2 id="treino-concluido" className="mt-6 text-2xl font-bold tracking-tight">
-          Treino concluído!
-        </h2>
-        <p className="mt-1.5 text-sm text-muted-foreground">Treino salvo com sucesso.</p>
-
-        <div className="mt-6 grid grid-cols-2 gap-3">
-          <div className="rounded-2xl bg-muted/60 p-4">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Tempo</p>
-            <p className="mt-1 text-xl font-bold tabular-nums">{formatDuration(durationSeconds)}</p>
-          </div>
-          <div className="rounded-2xl bg-muted/60 p-4">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Volume</p>
-            <p className="mt-1 text-xl font-bold tabular-nums">
-              {Math.round(volumeKg).toLocaleString("pt-BR")} kg
-            </p>
-          </div>
-          {kcal !== null && (
-            <div className="col-span-2 rounded-2xl bg-muted/60 p-4">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                Gasto estimado
-              </p>
-              <p className="mt-1 text-xl font-bold tabular-nums">~{kcal} kcal</p>
-            </div>
-          )}
+        <div {...entra(1)}>
+          <h2 id="treino-concluido" className="mt-7 text-[2.25rem] font-extrabold leading-none">
+            Treino concluído!
+          </h2>
+          <p className="mt-2 font-medium text-(--t-ink-soft)">Salvo no seu histórico.</p>
         </div>
 
-        <ComparisonList comparisons={comparisons} />
+        <div
+          className={cn(
+            "mt-7 grid gap-2.5",
+            numeros.length === 3 ? "grid-cols-3" : "grid-cols-2",
+            entra(2).className,
+          )}
+          style={entra(2).style}
+        >
+          {numeros.map((n) => (
+            <div key={n.rotulo} className="rounded-2xl bg-(--t-surface) px-2 py-4 text-(--t-on)">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-(--t-on-soft)">
+                {n.rotulo}
+              </p>
+              <p className="mt-1 text-lg font-extrabold tabular-nums">{n.valor}</p>
+            </div>
+          ))}
+        </div>
+
+        <div {...entra(3)}>
+          <ComparisonList comparisons={comparisons} />
+        </div>
 
         {records.length > 0 && (
-          <div className="mt-4 rounded-2xl border border-primary/30 bg-primary/5 p-4 text-left">
-            <p className="flex items-center gap-2 text-sm font-semibold">
-              <Trophy className="size-4 shrink-0 text-primary" aria-hidden />
+          <div
+            className={cn(
+              "mt-3 rounded-2xl bg-(--t-surface) p-4 text-left text-(--t-on)",
+              entra(4).className,
+            )}
+            style={entra(4).style}
+          >
+            <p className="flex items-center gap-2 font-bold">
+              <Trophy className="size-5 shrink-0 text-(--t-accent)" aria-hidden />
               {records.length === 1 ? "Novo recorde pessoal" : "Novos recordes pessoais"}
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">{records.join(", ")}</p>
+            <p className="mt-1 text-sm text-(--t-on-soft)">{records.join(", ")}</p>
           </div>
         )}
 
-        <Button
-          size="lg"
-          className="mt-6 h-14 w-full rounded-2xl text-base font-semibold"
+        <button
+          type="button"
+          className={cn(
+            "mt-7 h-14 w-full rounded-2xl bg-(--t-ink) text-lg font-extrabold text-(--t-page) shadow-lg shadow-black/20 transition active:scale-[0.98]",
+            entra(5).className,
+          )}
+          style={entra(5).style}
           onClick={onClose}
         >
           Ver meu progresso
-        </Button>
+        </button>
       </div>
     </div>
   );
 }
 
 const TREND = {
-  up: { icon: ArrowUp, text: "subiu", className: "text-success" },
-  same: { icon: Equal, text: "igual", className: "text-muted-foreground" },
-  down: { icon: ArrowDown, text: "caiu", className: "text-muted-foreground" },
-  new: { icon: Sparkles, text: "primeira vez", className: "text-primary" },
+  up: { icon: ArrowUp, text: "subiu", className: "text-(--t-accent)" },
+  same: { icon: Equal, text: "igual", className: "text-(--t-on-soft)" },
+  down: { icon: ArrowDown, text: "caiu", className: "text-(--t-on-soft)" },
+  new: { icon: Sparkles, text: "primeira vez", className: "text-(--t-accent)" },
 } as const;
 
 /** Hoje × última vez, por exercício. Queda não é vermelha: dia ruim faz parte. */
@@ -1049,18 +1159,22 @@ function ComparisonList({ comparisons }: { comparisons: ExerciseComparison[] }) 
         : `${s.reps} reps`
       : "—";
   return (
-    <div className="mt-4 rounded-2xl bg-muted/60 p-4 text-left">
-      <p className="text-xs uppercase tracking-wider text-muted-foreground">
+    <div className="mt-3 rounded-2xl bg-(--t-surface) p-4 text-left text-(--t-on)">
+      <p className="text-[11px] font-bold uppercase tracking-wider text-(--t-on-soft)">
         Comparado à última vez
       </p>
-      <ul className="mt-2 space-y-1.5">
+      <ul className="mt-2.5 space-y-2">
         {comMelhor.map((c) => {
           const t = TREND[c.trend];
           return (
-            <li key={c.exerciseId} className="flex items-center gap-2 text-sm">
-              <t.icon className={cn("size-4 shrink-0", t.className)} aria-hidden />
-              <span className="min-w-0 flex-1 truncate">{c.name}</span>
-              <span className="shrink-0 tabular-nums text-muted-foreground">
+            <li key={c.exerciseId} className="flex items-center gap-2.5 text-sm">
+              <t.icon
+                className={cn("size-4 shrink-0", t.className)}
+                strokeWidth={2.5}
+                aria-hidden
+              />
+              <span className="min-w-0 flex-1 truncate font-medium">{c.name}</span>
+              <span className="shrink-0 tabular-nums text-(--t-on-soft)">
                 {serie(c.best)}
                 <span className="sr-only"> — {t.text}</span>
               </span>

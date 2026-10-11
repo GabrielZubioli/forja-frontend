@@ -176,7 +176,7 @@ function AuthLayout() {
             onClick={aoTocarTreinar}
             className={cn(
               "mb-2 flex items-center justify-center gap-2 rounded-full px-3 py-2.5 text-sm font-bold transition-colors",
-              emTreino ? "bg-warning text-warning-foreground" : "bg-[#01D798] text-[#020306]",
+              emTreino ? "bg-(--treino) text-(--treino-ink)" : "bg-[#01D798] text-[#020306]",
             )}
           >
             {emTreino ? (
