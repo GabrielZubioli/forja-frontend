@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -53,6 +53,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmButton } from "@/components/confirm-button";
+import { TERMINAR_TREINO_EVENT } from "@/components/train-launch";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ErrorState } from "@/components/query-boundary";
 import { ExerciseDemo } from "@/components/workouts/exercise-demo-images";
 import { ExerciseDetailSheet } from "@/components/workouts/exercise-detail-sheet";
@@ -207,6 +218,30 @@ function SessionPage() {
     return { feitas: sets.filter((s) => s.completed).length, total: sets.length };
   }, [dados]);
 
+  // O quadradinho do botão central termina o treino: o mesmo fluxo do ✓ do
+  // cabeçalho — direto se tudo foi marcado, com confirmação se há pendentes.
+  const [confirmarFim, setConfirmarFim] = useState(false);
+  const estadoFim = useRef({ terminado, feitas: totais.feitas, total: totais.total });
+  estadoFim.current = { terminado, feitas: totais.feitas, total: totais.total };
+  const terminarPeloBotao = useRef(() => {});
+  terminarPeloBotao.current = () => {
+    const { terminado: fim, feitas, total } = estadoFim.current;
+    if (fim || finalizar.isPending) return;
+    if (feitas === 0) {
+      toast("Marque ao menos uma série para terminar", {
+        description: "Ou descarte o treino no menu ⋯ do topo.",
+      });
+      return;
+    }
+    if (total - feitas > 0) setConfirmarFim(true);
+    else finalizar.mutate();
+  };
+  useEffect(() => {
+    const ouvir = () => terminarPeloBotao.current();
+    window.addEventListener(TERMINAR_TREINO_EVENT, ouvir);
+    return () => window.removeEventListener(TERMINAR_TREINO_EVENT, ouvir);
+  }, []);
+
   // Exercício atual dentro dos limites quando a lista muda (troca, remoção).
   useEffect(() => {
     if (dados && atual >= dados.exercises.length) setAtual(Math.max(0, dados.exercises.length - 1));
@@ -310,6 +345,23 @@ function SessionPage() {
           />
         </div>
       </header>
+
+      <AlertDialog open={confirmarFim} onOpenChange={setConfirmarFim}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Terminar o treino agora?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendentes}{" "}
+              {pendentes === 1 ? "série ainda não foi marcada" : "séries ainda não foram marcadas"}{" "}
+              e ficarão de fora do registro.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continuar treinando</AlertDialogCancel>
+            <AlertDialogAction onClick={() => finalizar.mutate()}>Terminar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {terminado && (
         <div className="mt-2 flex flex-wrap items-center gap-2 rounded-2xl bg-card p-3">

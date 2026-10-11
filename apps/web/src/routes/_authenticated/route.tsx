@@ -25,7 +25,12 @@ import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/data/query-keys";
 import { fetchOpenSession } from "@/data/workout-session";
 import { BrandSymbol } from "@/components/brand-logo";
-import { TrainFab, TrainLaunchOverlay, useTrainLaunch } from "@/components/train-launch";
+import {
+  TERMINAR_TREINO_EVENT,
+  TrainFab,
+  TrainLaunchOverlay,
+  useTrainLaunch,
+} from "@/components/train-launch";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -114,8 +119,19 @@ function AuthLayout() {
   const { fase, lancar } = useTrainLaunch(
     useCallback(() => void navigate({ to: "/train" }), [navigate]),
   );
-  /** Treinar: com treino aberto vai direto a ele; senão, a transição do punho. */
+  /** Está na tela do próprio treino em andamento: o botão vira "terminar". */
+  const naSessao = Boolean(sessao) && pathname === `/workouts/session/${sessao?.id}`;
+  /**
+   * Treinar: sem treino, a transição do punho; com treino, vai a ele; dentro
+   * dele, termina — a tela do treino escuta o evento e roda o mesmo fluxo do ✓
+   * (confirma se houver séries pendentes).
+   */
   const aoTocarTreinar = (e: React.MouseEvent) => {
+    if (naSessao) {
+      e.preventDefault();
+      window.dispatchEvent(new Event(TERMINAR_TREINO_EVENT));
+      return;
+    }
     if (emTreino || pathname === "/train") return;
     e.preventDefault();
     lancar();
@@ -241,17 +257,16 @@ function AuthLayout() {
                     to={sessao ? "/workouts/session/$id" : "/train"}
                     params={sessao ? { id: sessao.id } : undefined}
                     onClick={aoTocarTreinar}
-                    aria-label={emTreino ? "Voltar ao treino" : "Treinar"}
+                    aria-label={
+                      naSessao ? "Terminar treino" : emTreino ? "Voltar ao treino" : "Treinar"
+                    }
                     className={cn(
                       "flex flex-col items-center gap-1 pb-2",
                       // O botão "gravando" é 12 px maior: sobe junto para a barra não crescer.
                       sessao ? "-mt-10" : "-mt-7",
                     )}
                   >
-                    <TrainFab
-                      sessao={sessao}
-                      naSessao={pathname.startsWith("/workouts/session/")}
-                    />
+                    <TrainFab sessao={sessao} naSessao={naSessao} />
                   </Link>
                 </li>
               );

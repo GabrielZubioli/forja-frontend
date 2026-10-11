@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Dumbbell } from "lucide-react";
 import { BrandSymbol } from "@/components/brand-logo";
 import { formatClock } from "@/lib/date";
 import { cn } from "@/lib/utils";
@@ -13,11 +12,15 @@ import { cn } from "@/lib/utils";
  * verde — o punho só existe durante a transição.
  *
  * Com um treino aberto, o botão vira um "gravando": quadradinho de parar e um
- * anel que se completa ao longo do tempo previsto. Dentro do treino, o
- * quadradinho dá lugar a um halter subindo e descendo — "treinando".
+ * anel que se completa ao longo do tempo previsto. Fora da tela do treino, o
+ * centro mostra um braço erguendo um halter ("treinando"); dentro dela, um
+ * quadradinho de parar — tocar nele termina o treino.
  */
 
 type Fase = "subindo" | "saindo" | null;
+
+/** Disparado pelo quadradinho do botão central; a tela do treino o escuta. */
+export const TERMINAR_TREINO_EVENT = "habitualfit:terminar-treino";
 
 /** Duração da subida do braço; a navegação acontece no meio, coberta por ele. */
 const SUBIDA_MS = 820;
@@ -97,7 +100,7 @@ export function TrainFab({
   naSessao,
 }: {
   sessao: { startedAt: string; plannedSeconds: number } | null;
-  /** A pessoa está na tela do treino em andamento. */
+  /** A pessoa está na tela do treino em andamento (o botão vira "terminar"). */
   naSessao: boolean;
 }) {
   if (!sessao) {
@@ -114,7 +117,7 @@ export function TrainFab({
     <Gravando
       startedAt={sessao.startedAt}
       plannedSeconds={sessao.plannedSeconds}
-      treinando={naSessao}
+      naSessao={naSessao}
     />
   );
 }
@@ -129,11 +132,11 @@ export function TrainFab({
 function Gravando({
   startedAt,
   plannedSeconds,
-  treinando,
+  naSessao,
 }: {
   startedAt: string;
   plannedSeconds: number;
-  treinando: boolean;
+  naSessao: boolean;
 }) {
   const agora = useAgora(1000);
   const decorrido = Math.max(0, (agora - Date.parse(startedAt)) / 1000);
@@ -161,14 +164,10 @@ function Gravando({
           />
         </svg>
         <span className="absolute inset-[11px] grid place-items-center rounded-full bg-warning shadow-lg shadow-warning/30 transition-transform active:scale-90">
-          {treinando ? (
-            <Dumbbell
-              className="hf-lifting size-7 text-warning-foreground"
-              strokeWidth={2.5}
-              aria-hidden
-            />
-          ) : (
+          {naSessao ? (
             <span className="size-5 rounded-[6px] bg-warning-foreground" aria-hidden />
+          ) : (
+            <BracoHalter className="size-9 text-warning-foreground" />
           )}
         </span>
       </span>
@@ -176,9 +175,58 @@ function Gravando({
         {formatClock(decorrido)}
       </span>
       <span className="sr-only">
-        Treino em andamento, {Math.round(progresso * 100)}% do tempo previsto
+        {naSessao ? "Terminar o treino. " : "Treino em andamento. "}
+        {Math.round(progresso * 100)}% do tempo previsto
       </span>
     </>
+  );
+}
+
+/**
+ * Um braço erguendo um halter acima da cabeça, em loop. O braço gira no ombro
+ * e o antebraço sobe junto, na vertical, com o halter na mão.
+ */
+function BracoHalter({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <g transform="translate(2.2 -1.5)">
+        <circle cx="5" cy="19" r="3.2" fill="currentColor" stroke="none" />
+        <g className="hf-press-braco">
+          <path d="M5 19 H12" strokeWidth="4.2" />
+        </g>
+        <g className="hf-press-antebraco">
+          <path d="M12 19 V12.5" strokeWidth="3.6" />
+          <circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none" />
+          <path d="M8 12 H16" strokeWidth="1.8" />
+          <rect
+            x="6.6"
+            y="9.4"
+            width="2.4"
+            height="5.2"
+            rx="0.8"
+            fill="currentColor"
+            stroke="none"
+          />
+          <rect
+            x="15"
+            y="9.4"
+            width="2.4"
+            height="5.2"
+            rx="0.8"
+            fill="currentColor"
+            stroke="none"
+          />
+        </g>
+      </g>
+    </svg>
   );
 }
 
