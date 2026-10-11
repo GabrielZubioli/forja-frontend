@@ -650,43 +650,22 @@
     }
   }
 
-  /* Treinando: o braço gira no ombro e o antebraço sobe junto com o halter
-     (desenvolvimento acima da cabeça). As translações acompanham o arco do
-     cotovelo: 25° → (−0,7; −3), 50° → (−2,5; −5,4). */
-  @keyframes hf-press-braco {
+  /* Treinando: o símbolo da marca respira — pulso curto e lento, sutil o
+     bastante para não disputar atenção com a tela. */
+  @keyframes hf-pulso {
     0%,
     100% {
-      transform: rotate(0deg);
+      transform: scale(1);
+      opacity: 1;
     }
     50% {
-      transform: rotate(-50deg);
+      transform: scale(1.08);
+      opacity: 0.85;
     }
   }
 
-  @keyframes hf-press-antebraco {
-    0%,
-    100% {
-      transform: translate(0, 0);
-    }
-    25%,
-    75% {
-      transform: translate(-0.7px, -3px);
-    }
-    50% {
-      transform: translate(-2.5px, -5.4px);
-    }
-  }
-
-  /* Origem na ponta esquerda do segmento (o ombro), na caixa do próprio
-     traço — independe de onde o desenho foi posicionado no ícone. */
-  .hf-press-braco {
-    transform-box: fill-box;
-    transform-origin: 0% 50%;
-    animation: hf-press-braco 1.2s ease-in-out infinite;
-  }
-
-  .hf-press-antebraco {
-    animation: hf-press-antebraco 1.2s ease-in-out infinite;
+  .hf-pulso {
+    animation: hf-pulso 2.4s ease-in-out infinite;
   }
 
   .hf-arm-up {
@@ -702,8 +681,7 @@
     .animate-float,
     .animate-breathe,
     .animate-orbit,
-    .hf-press-braco,
-    .hf-press-antebraco {
+    .hf-pulso {
       animation: none;
     }
   }
