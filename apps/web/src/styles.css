@@ -625,6 +625,43 @@
     animation: hf-orbit 3.2s linear infinite;
   }
 
+  /* Botão Treinar: o painel verde sobe do botão com o punho na borda. */
+  @keyframes hf-sheet-up {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  /* O punho sobe colado na borda do painel e, quando o painel chega ao topo,
+     segue o soco para fora da tela. */
+  @keyframes hf-fist-punch {
+    0% {
+      transform: translate(-50%, -50%) scale(0.55) rotate(-16deg);
+    }
+    30% {
+      transform: translate(-50%, -62%) scale(1.15) rotate(6deg);
+    }
+    62% {
+      transform: translate(-50%, -50%) scale(1) rotate(0deg);
+      opacity: 1;
+    }
+    100% {
+      transform: translate(-50%, -220%) scale(0.8);
+      opacity: 0;
+    }
+  }
+
+  .hf-sheet-up {
+    animation: hf-sheet-up 640ms cubic-bezier(0.22, 0.9, 0.24, 1) both;
+  }
+
+  .hf-fist-punch {
+    animation: hf-fist-punch 1000ms cubic-bezier(0.3, 0.8, 0.4, 1) both;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .animate-float,
     .animate-breathe,

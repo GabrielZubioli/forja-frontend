@@ -637,6 +637,40 @@ const OPEN_SESSION_HOURS = 6;
  * Só os iniciados nas últimas horas: uma sessão esquecida aberta ontem não
  * pode prender o app em "treino em andamento".
  */
+/**
+ * O treino em andamento, com o que o botão central precisa para o anel de
+ * progresso: quando começou e quanto deve durar. A duração prevista é a mesma
+ * conta do Plano ("~51 min"): por série, o descanso dela mais ~35 s de execução.
+ */
+export async function fetchOpenSession(): Promise<{
+  id: string;
+  startedAt: string;
+  plannedSeconds: number;
+} | null> {
+  const desde = new Date(Date.now() - OPEN_SESSION_HOURS * 3_600_000).toISOString();
+  const row = unwrapMaybe(
+    "procurar treino em andamento",
+    await supabase
+      .from("workout_sessions")
+      .select("id, started_at, workout_sets(rest_seconds)")
+      .is("ended_at", null)
+      .is("deleted_at", null)
+      .gte("started_at", desde)
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  );
+  if (!row) return null;
+  const series = row.workout_sets ?? [];
+  const plannedSeconds = series.reduce((t, s) => t + num(s.rest_seconds, 90) + 35, 0);
+  return {
+    id: row.id,
+    startedAt: row.started_at,
+    // Sem séries ainda: uma hora, para o anel andar de forma plausível.
+    plannedSeconds: plannedSeconds > 0 ? plannedSeconds : 3600,
+  };
+}
+
 export async function fetchOpenSessionId(): Promise<string | null> {
   const desde = new Date(Date.now() - OPEN_SESSION_HOURS * 3_600_000).toISOString();
   const row = unwrapMaybe(

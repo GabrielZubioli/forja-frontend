@@ -5,11 +5,17 @@ import { cn } from "@/lib/utils";
  * original) e ficam em `public/brand/`.
  */
 
-/** O símbolo — o "H" com a pessoa —, sem o nome. */
-export function BrandSymbol({ className }: { className?: string }) {
+/** O símbolo — o "H" com a pessoa —, sem o nome. Escuro para usar sobre o verde. */
+export function BrandSymbol({
+  className,
+  escuro = false,
+}: {
+  className?: string;
+  escuro?: boolean;
+}) {
   return (
     <img
-      src="/brand/habitual-fit-simbolo.svg"
+      src={escuro ? "/brand/habitual-fit-simbolo-preto.svg" : "/brand/habitual-fit-simbolo.svg"}
       alt=""
       aria-hidden
       width={424}

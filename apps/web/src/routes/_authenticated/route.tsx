@@ -12,7 +12,6 @@ import {
   BookOpen,
   CalendarDays,
   ChevronRight,
-  Dumbbell,
   HeartPulse,
   Home,
   List,
@@ -24,7 +23,9 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/data/query-keys";
-import { fetchOpenSessionId } from "@/data/workout-session";
+import { fetchOpenSession } from "@/data/workout-session";
+import { BrandSymbol } from "@/components/brand-logo";
+import { TrainFab, TrainLaunchOverlay, useTrainLaunch } from "@/components/train-launch";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -38,7 +39,7 @@ import { CommandPalette, CommandPaletteTrigger } from "@/components/command-pale
 import { CoachIcon } from "@/components/coach/coach-icon";
 import { SETTINGS_SECTIONS } from "@/components/profile/settings-sections";
 import { cn } from "@/lib/utils";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { BrandLogo } from "@/components/brand-logo";
 
@@ -105,10 +106,20 @@ function AuthLayout() {
 
   const isActive = (to: string) => pathname === to || pathname.startsWith(`${to}/`);
   const sessaoAberta = useQuery({
-    queryKey: [...queryKeys.workouts.all, "open-session"],
-    queryFn: fetchOpenSessionId,
+    queryKey: [...queryKeys.workouts.all, "open-session-info"],
+    queryFn: fetchOpenSession,
   });
-  const emTreino = Boolean(sessaoAberta.data) || pathname.startsWith("/workouts/session/");
+  const sessao = sessaoAberta.data ?? null;
+  const emTreino = Boolean(sessao);
+  const { fase, lancar } = useTrainLaunch(
+    useCallback(() => void navigate({ to: "/train" }), [navigate]),
+  );
+  /** Treinar: com treino aberto vai direto a ele; senão, a transição do punho. */
+  const aoTocarTreinar = (e: React.MouseEvent) => {
+    if (emTreino || pathname === "/train") return;
+    e.preventDefault();
+    lancar();
+  };
   const [menuAberto, setMenuAberto] = useState(false);
   const menuAtivo = [...SECONDARY_NAV.map((i) => i.to), "/settings"].some(isActive);
 
@@ -137,15 +148,19 @@ function AuthLayout() {
 
         <nav className="flex-1 space-y-1 px-3" aria-label="Navegação principal">
           <Link
-            to="/train"
+            to={sessao ? "/workouts/session/$id" : "/train"}
+            params={sessao ? { id: sessao.id } : undefined}
+            onClick={aoTocarTreinar}
             className={cn(
               "mb-2 flex items-center justify-center gap-2 rounded-full px-3 py-2.5 text-sm font-bold transition-colors",
-              emTreino
-                ? "bg-warning text-warning-foreground"
-                : "bg-primary text-primary-foreground",
+              emTreino ? "bg-warning text-warning-foreground" : "bg-[#01D798] text-[#020306]",
             )}
           >
-            <Dumbbell className="size-4" aria-hidden />
+            {emTreino ? (
+              <span className="size-3 rounded-[3px] bg-current" aria-hidden />
+            ) : (
+              <BrandSymbol escuro className="w-5" />
+            )}
             {emTreino ? "Voltar ao treino" : "Treinar"}
           </Link>
           {NAV_ITEMS.map((item) => {
@@ -223,28 +238,13 @@ function AuthLayout() {
               return (
                 <li key="treinar" className="flex justify-center">
                   <Link
-                    to="/train"
+                    to={sessao ? "/workouts/session/$id" : "/train"}
+                    params={sessao ? { id: sessao.id } : undefined}
+                    onClick={aoTocarTreinar}
                     aria-label={emTreino ? "Voltar ao treino" : "Treinar"}
                     className="-mt-7 flex flex-col items-center gap-1 pb-2"
                   >
-                    <span
-                      className={cn(
-                        "grid size-16 place-items-center rounded-full shadow-lg transition-colors",
-                        emTreino
-                          ? "bg-warning text-warning-foreground shadow-warning/30"
-                          : "bg-primary text-primary-foreground shadow-primary/30",
-                      )}
-                    >
-                      <Dumbbell className="size-7" aria-hidden />
-                    </span>
-                    <span
-                      className={cn(
-                        "text-[12px] font-bold",
-                        emTreino ? "text-warning" : "text-primary",
-                      )}
-                    >
-                      {emTreino ? "Treino" : "Treinar"}
-                    </span>
+                    <TrainFab sessao={sessao} />
                   </Link>
                 </li>
               );
@@ -349,6 +349,7 @@ function AuthLayout() {
       </main>
 
       <CommandPalette />
+      <TrainLaunchOverlay fase={fase} />
     </div>
   );
 }
