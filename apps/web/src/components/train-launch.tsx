@@ -19,45 +19,65 @@ import { cn } from "@/lib/utils";
 
 type Fase = "subindo" | "saindo" | null;
 
+/** Verde: abrir a tela Treinar. Laranja: voltar ao treino em andamento. */
+export type CorLancamento = "verde" | "laranja";
+
+/** As cores das telas de destino — o braço tem que ser exatamente a mesma. */
+const COR: Record<CorLancamento, string> = {
+  verde: "#01D798",
+  laranja: "var(--warning)",
+};
+
 /** Disparado pelo quadradinho do botão central; a tela do treino o escuta. */
 export const TERMINAR_TREINO_EVENT = "habitualfit:terminar-treino";
 
 /** Duração da subida do braço; a navegação acontece no meio, coberta por ele. */
 const SUBIDA_MS = 820;
 
-export function useTrainLaunch(irParaTreinar: () => void) {
+export function useTrainLaunch() {
   const [fase, setFase] = useState<Fase>(null);
+  const [cor, setCor] = useState<CorLancamento>("verde");
   const timers = useRef<number[]>([]);
 
   useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
 
-  const lancar = useCallback(() => {
-    if (fase) return;
-    // Quem pediu menos movimento vai direto, sem a encenação.
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      irParaTreinar();
-      return;
-    }
-    setFase("subindo");
-    timers.current = [
-      window.setTimeout(irParaTreinar, SUBIDA_MS * 0.5),
-      window.setTimeout(() => setFase("saindo"), SUBIDA_MS + 40),
-      window.setTimeout(() => setFase(null), SUBIDA_MS + 400),
-    ];
-  }, [fase, irParaTreinar]);
+  const lancar = useCallback(
+    (ir: () => void, corDoDestino: CorLancamento) => {
+      if (fase) return;
+      // Quem pediu menos movimento vai direto, sem a encenação.
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        ir();
+        return;
+      }
+      setCor(corDoDestino);
+      setFase("subindo");
+      timers.current = [
+        window.setTimeout(ir, SUBIDA_MS * 0.5),
+        window.setTimeout(() => setFase("saindo"), SUBIDA_MS + 40),
+        window.setTimeout(() => setFase(null), SUBIDA_MS + 400),
+      ];
+    },
+    [fase],
+  );
 
-  return { fase, lancar };
+  return { fase, cor, lancar };
 }
 
-/** O braço verde com o punho na ponta, por cima de tudo durante a transição. */
-export function TrainLaunchOverlay({ fase }: { fase: Fase }) {
+/**
+ * O braço com o punho na ponta, durante a transição.
+ *
+ * Fica **atrás** da barra inferior (z-30 < z-40 da barra): a tela troca, a
+ * navegação continua no lugar.
+ */
+export function TrainLaunchOverlay({ fase, cor }: { fase: Fase; cor: CorLancamento }) {
   if (!fase) return null;
   return (
     <div
       className={cn(
-        "pointer-events-none fixed inset-0 z-[70] overflow-hidden transition-opacity duration-300 ease-out",
+        "pointer-events-none fixed inset-0 z-30 overflow-hidden transition-opacity duration-300 ease-out",
         fase === "saindo" && "opacity-0",
       )}
+      style={{ color: COR[cor] }}
       aria-hidden
     >
       {/* Começa logo abaixo da tela e sobe a própria altura (punho + braço):
@@ -66,7 +86,7 @@ export function TrainLaunchOverlay({ fase }: { fase: Fase }) {
         <Punho className="hf-fist-flex relative z-10 block w-full" />
         {/* O braço entra por baixo do punho: quando o soco inclina o punho,
             não abre fresta na emenda. */}
-        <div className="-mt-16 h-[calc(100dvh+4rem)] bg-[#01D798]" />
+        <div className="-mt-16 h-[calc(100dvh+4rem)] bg-current" />
       </div>
     </div>
   );
@@ -77,7 +97,7 @@ function Punho({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 400 300" className={className} preserveAspectRatio="xMidYMax meet">
       <path
-        fill="#01D798"
+        fill="currentColor"
         d="M0 300 V200 C0 150 20 118 52 108 C58 82 86 70 112 78 C122 52 156 42 184 52 C200 32 240 30 262 48 C288 36 330 44 342 72 C372 76 396 104 398 140 L400 300 Z"
       />
       <g fill="none" stroke="#020306" strokeOpacity="0.35" strokeWidth="7" strokeLinecap="round">

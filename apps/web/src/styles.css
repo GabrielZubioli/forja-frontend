@@ -490,6 +490,34 @@
 
 @layer components {
   /*
+   * Treino em andamento: a tela inteira no laranja do botão "treinando".
+   *
+   * Em vez de reestilizar cada elemento da tela, os tokens mudam só dentro
+   * dela: o fundo vira laranja e o texto sobre ele fica escuro. Dentro dos
+   * cartões (que continuam escuros), os valores originais voltam — guardados
+   * no invólucro de fora (.hf-treino) antes de serem trocados no de dentro.
+   * Em `components`, para qualquer classe de texto explícita ainda vencer.
+   */
+  .hf-treino {
+    --tt-foreground: var(--foreground);
+    --tt-muted-foreground: var(--muted-foreground);
+    background-color: var(--warning);
+  }
+
+  .hf-treino-in {
+    --background: var(--warning);
+    --foreground: var(--warning-foreground);
+    --muted-foreground: color-mix(in oklab, var(--warning-foreground) 72%, transparent);
+    color: var(--foreground);
+  }
+
+  .hf-treino-in :where(.bg-card, .bg-elevated, .bg-muted, .bg-popover, .bg-accent) {
+    --foreground: var(--tt-foreground);
+    --muted-foreground: var(--tt-muted-foreground);
+    color: var(--tt-foreground);
+  }
+
+  /*
    * Superfície de cartão — o gesto visual mais repetido do app.
    *
    * Existe como classe, e não só como conjunto de utilitários, porque estava

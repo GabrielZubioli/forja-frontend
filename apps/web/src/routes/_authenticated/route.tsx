@@ -44,7 +44,7 @@ import { CommandPalette, CommandPaletteTrigger } from "@/components/command-pale
 import { CoachIcon } from "@/components/coach/coach-icon";
 import { SETTINGS_SECTIONS } from "@/components/profile/settings-sections";
 import { cn } from "@/lib/utils";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { BrandLogo } from "@/components/brand-logo";
 
@@ -116,9 +116,7 @@ function AuthLayout() {
   });
   const sessao = sessaoAberta.data ?? null;
   const emTreino = Boolean(sessao);
-  const { fase, lancar } = useTrainLaunch(
-    useCallback(() => void navigate({ to: "/train" }), [navigate]),
-  );
+  const { fase, cor, lancar } = useTrainLaunch();
   /** Está na tela do próprio treino em andamento: o botão vira "terminar". */
   const naSessao = Boolean(sessao) && pathname === `/workouts/session/${sessao?.id}`;
   /**
@@ -132,9 +130,18 @@ function AuthLayout() {
       window.dispatchEvent(new Event(TERMINAR_TREINO_EVENT));
       return;
     }
-    if (emTreino || pathname === "/train") return;
+    if (sessao) {
+      // Volta ao treino em andamento: o mesmo punho, em laranja.
+      e.preventDefault();
+      lancar(
+        () => void navigate({ to: "/workouts/session/$id", params: { id: sessao.id } }),
+        "laranja",
+      );
+      return;
+    }
+    if (pathname === "/train") return;
     e.preventDefault();
-    lancar();
+    lancar(() => void navigate({ to: "/train" }), "verde");
   };
   const [menuAberto, setMenuAberto] = useState(false);
   const menuAtivo = [...SECONDARY_NAV.map((i) => i.to), "/settings"].some(isActive);
@@ -150,7 +157,7 @@ function AuthLayout() {
       </a>
 
       {/* Barra lateral (desktop) */}
-      <aside className="fixed inset-y-0 left-0 hidden w-60 flex-col border-r border-border bg-sidebar md:flex">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-border bg-sidebar md:flex">
         <div className="flex items-center justify-between gap-2 px-5 py-5">
           <Link to="/dashboard" className="flex items-center" aria-label="Habitual Fit — início">
             <BrandLogo className="h-9" />
@@ -371,7 +378,7 @@ function AuthLayout() {
       </main>
 
       <CommandPalette />
-      <TrainLaunchOverlay fase={fase} />
+      <TrainLaunchOverlay fase={fase} cor={cor} />
     </div>
   );
 }

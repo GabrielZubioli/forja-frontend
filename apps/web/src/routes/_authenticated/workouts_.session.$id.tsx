@@ -266,246 +266,254 @@ function SessionPage() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 pb-28 md:px-8">
-      {/* Cabeçalho: sair, nome e tempo, menu, terminar. */}
-      <header className="sticky top-0 z-20 -mx-4 bg-background/95 px-4 pb-3 pt-4 backdrop-blur md:-mx-8 md:px-8">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void navigate({ to: "/dashboard" })}
-            aria-label="Sair do treino (continua salvo)"
-            className="grid size-12 shrink-0 place-items-center rounded-full bg-card"
-          >
-            <X className="size-6" />
-          </button>
-          <div className="min-w-0 flex-1 text-center">
-            <p className="truncate text-xl font-extrabold">
-              {dados.name.replace(/^[A-Z]\s*—\s*/, "")}
-            </p>
-            <p className="text-lg tabular-nums text-muted-foreground">
-              <Cronometro dados={dados} /> · {totais.feitas}/{totais.total} séries
-            </p>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-label="Mais opções do treino"
-                className="grid size-12 shrink-0 place-items-center rounded-full bg-card"
-              >
-                <MoreHorizontal className="size-6" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {terminado ? (
-                <DropdownMenuItem onSelect={() => setEditando((v) => !v)}>
-                  {editando ? "Parar de editar" : "Corrigir cargas e séries"}
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem
-                  onSelect={() => descartar.mutate()}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="mr-2 size-4" />
-                  Descartar treino
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {!terminado &&
-            (pendentes === 0 ? (
-              <button
-                type="button"
-                onClick={() => finalizar.mutate()}
-                disabled={finalizar.isPending || totais.feitas === 0}
-                aria-label="Terminar treino"
-                className="shrink-0 disabled:opacity-50"
-              >
-                {botaoFinalizar}
-              </button>
-            ) : (
-              <ConfirmButton
-                aria-label="Terminar treino"
-                title="Terminar o treino agora?"
-                description={`${pendentes} ${pendentes === 1 ? "série ainda não foi marcada" : "séries ainda não foram marcadas"} e ficarão de fora do registro.`}
-                confirmLabel="Terminar"
-                variant="ghost"
-                className="size-12 shrink-0 rounded-full p-0"
-                disabled={finalizar.isPending || totais.feitas === 0}
-                onConfirm={() => finalizar.mutate()}
-              >
-                {botaoFinalizar}
-              </ConfirmButton>
-            ))}
-        </div>
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-card" aria-hidden>
-          <div
-            className="h-full rounded-full bg-primary transition-[width]"
-            style={{ width: `${totais.total ? (totais.feitas / totais.total) * 100 : 0}%` }}
-          />
-        </div>
-      </header>
-
-      <AlertDialog open={confirmarFim} onOpenChange={setConfirmarFim}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Terminar o treino agora?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {pendentes}{" "}
-              {pendentes === 1 ? "série ainda não foi marcada" : "séries ainda não foram marcadas"}{" "}
-              e ficarão de fora do registro.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Continuar treinando</AlertDialogCancel>
-            <AlertDialogAction onClick={() => finalizar.mutate()}>Terminar</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {terminado && (
-        <div className="mt-2 flex flex-wrap items-center gap-2 rounded-2xl bg-card p-3">
+    // Treino em andamento: tela laranja (a cor do botão "treinando"), com os
+    // cartões escuros por cima — ver .hf-treino em styles.css.
+    <div className={cn(!terminado && "hf-treino -mb-28 min-h-dvh md:mb-0")}>
+      <div
+        className={cn("mx-auto w-full max-w-3xl px-4 pb-28 md:px-8", !terminado && "hf-treino-in")}
+      >
+        {/* Cabeçalho: sair, nome e tempo, menu, terminar. */}
+        <header className="sticky top-0 z-20 -mx-4 bg-background/95 px-4 pb-3 pt-4 backdrop-blur md:-mx-8 md:px-8">
           <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">Data</span>
-            <DatePicker
-              className="h-9 w-auto"
-              max={todayISO()}
-              value={toISODate(new Date(dados.startedAt))}
-              disabled={mudarData.isPending}
-              onChange={(v) => mudarData.mutate(v)}
-              aria-label="Data do treino"
-            />
-          </div>
-          {editando ? (
-            <Button
-              size="sm"
-              className="ml-auto rounded-full"
-              onClick={() => salvarEdicao.mutate()}
-              disabled={salvarEdicao.isPending}
+            <button
+              type="button"
+              onClick={() => void navigate({ to: "/dashboard" })}
+              aria-label="Sair do treino (continua salvo)"
+              className="grid size-12 shrink-0 place-items-center rounded-full bg-card"
             >
-              <Check className="mr-1.5 size-4" />
-              {salvarEdicao.isPending ? "Salvando…" : "Concluir edição"}
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              variant="secondary"
-              className="ml-auto rounded-full"
-              onClick={() => setEditando(true)}
-            >
-              Corrigir cargas e séries
-            </Button>
-          )}
-        </div>
-      )}
-
-      {dados.exercises.length === 0 || !exercicio ? (
-        <div className="mt-6 rounded-[1.5rem] bg-card p-6 text-center">
-          <p className="text-lg font-semibold">Este treino está sem exercícios</p>
-          <p className="mt-1 text-muted-foreground">Adicione exercícios à rotina no Plano.</p>
-          <Button className="mt-4 rounded-full" onClick={() => void navigate({ to: "/plan" })}>
-            Abrir o Plano
-          </Button>
-        </div>
-      ) : (
-        <>
-          {/* Um número por exercício: preenchido quando todas as séries estão feitas.
-              O respiro (`p-1.5`) é para o anel do exercício atual — a rolagem
-              horizontal corta tudo que passa da borda da lista. */}
-          <ol
-            className="-mx-1.5 mt-1.5 flex gap-2 overflow-x-auto p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            aria-label="Exercícios do treino"
-          >
-            {dados.exercises.map((e, i) => (
-              <li key={`${e.position}-${e.exerciseId}`}>
+              <X className="size-6" />
+            </button>
+            <div className="min-w-0 flex-1 text-center">
+              <p className="truncate text-xl font-extrabold">
+                {dados.name.replace(/^[A-Z]\s*—\s*/, "")}
+              </p>
+              <p className="text-lg tabular-nums text-muted-foreground">
+                <Cronometro dados={dados} /> · {totais.feitas}/{totais.total} séries
+              </p>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  onClick={() => setAtual(i)}
-                  aria-label={`${i + 1}. ${e.name}${e.done ? " — feito" : ""}`}
-                  aria-current={i === atual ? "step" : undefined}
-                  className={cn(
-                    "grid size-9 shrink-0 place-items-center rounded-full text-sm font-bold tabular-nums transition-colors",
-                    i === atual && "ring-2 ring-primary ring-offset-2 ring-offset-background",
-                    e.done
-                      ? "bg-primary text-primary-foreground"
-                      : i === atual
-                        ? "bg-elevated"
-                        : "bg-card text-muted-foreground",
-                  )}
+                  aria-label="Mais opções do treino"
+                  className="grid size-12 shrink-0 place-items-center rounded-full bg-card"
                 >
-                  {e.done ? <Check className="size-4" strokeWidth={3} /> : i + 1}
+                  <MoreHorizontal className="size-6" />
                 </button>
-              </li>
-            ))}
-          </ol>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {terminado ? (
+                  <DropdownMenuItem onSelect={() => setEditando((v) => !v)}>
+                    {editando ? "Parar de editar" : "Corrigir cargas e séries"}
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    onSelect={() => descartar.mutate()}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="mr-2 size-4" />
+                    Descartar treino
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {!terminado &&
+              (pendentes === 0 ? (
+                <button
+                  type="button"
+                  onClick={() => finalizar.mutate()}
+                  disabled={finalizar.isPending || totais.feitas === 0}
+                  aria-label="Terminar treino"
+                  className="shrink-0 disabled:opacity-50"
+                >
+                  {botaoFinalizar}
+                </button>
+              ) : (
+                <ConfirmButton
+                  aria-label="Terminar treino"
+                  title="Terminar o treino agora?"
+                  description={`${pendentes} ${pendentes === 1 ? "série ainda não foi marcada" : "séries ainda não foram marcadas"} e ficarão de fora do registro.`}
+                  confirmLabel="Terminar"
+                  variant="ghost"
+                  className="size-12 shrink-0 rounded-full p-0"
+                  disabled={finalizar.isPending || totais.feitas === 0}
+                  onConfirm={() => finalizar.mutate()}
+                >
+                  {botaoFinalizar}
+                </ConfirmButton>
+              ))}
+          </div>
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-card" aria-hidden>
+            <div
+              className="h-full rounded-full bg-primary transition-[width]"
+              style={{ width: `${totais.total ? (totais.feitas / totais.total) * 100 : 0}%` }}
+            />
+          </div>
+        </header>
 
-          <ExercicioAtual
-            key={`${exercicio.position}-${exercicio.exerciseId}`}
-            exercicio={exercicio}
-            indice={atual}
-            total={dados.exercises.length}
-            somenteLeitura={somenteLeitura}
-            onSerie={(setId, patch) => serie.mutate({ setId, patch })}
-            onConcluir={(set, feito) => {
-              serie.mutate({
-                setId: set.id,
-                patch: {
-                  completed: feito,
-                  // Concluir sem ter digitado usa o que estava na tela.
-                  ...(feito && set.weightKg === null
-                    ? { weight_kg: exercicio.suggestedWeightKg }
-                    : {}),
-                  ...(feito && set.reps === null ? { reps: exercicio.targetReps } : {}),
-                },
-              });
-              if (feito && !terminado) descanso.start(set.restSeconds ?? exercicio.restSeconds);
-            }}
-            onMaisSerie={() => maisSerie.mutate(exercicio)}
-            onMenosSerie={(setId) => menosSerie.mutate(setId)}
-            onDetalhe={() => setDetalhe(exercicio.exerciseId)}
-            onTrocar={(novoId) => trocar.mutateAsync({ de: exercicio.exerciseId, para: novoId })}
-          />
+        <AlertDialog open={confirmarFim} onOpenChange={setConfirmarFim}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Terminar o treino agora?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {pendentes}{" "}
+                {pendentes === 1
+                  ? "série ainda não foi marcada"
+                  : "séries ainda não foram marcadas"}{" "}
+                e ficarão de fora do registro.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Continuar treinando</AlertDialogCancel>
+              <AlertDialogAction onClick={() => finalizar.mutate()}>Terminar</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
-          <div className="mt-6 flex gap-3">
-            <Button
-              variant="secondary"
-              className="h-14 flex-1 rounded-2xl text-base"
-              onClick={() => setAtual((i) => Math.max(0, i - 1))}
-              disabled={atual === 0}
-            >
-              <ChevronLeft className="mr-1 size-5" />
-              Anterior
-            </Button>
-            <Button
-              className="h-14 flex-1 rounded-2xl text-base font-bold"
-              onClick={() => setAtual((i) => Math.min(dados.exercises.length - 1, i + 1))}
-              disabled={atual >= dados.exercises.length - 1}
-            >
-              Próximo
-              <ChevronRight className="ml-1 size-5" />
+        {terminado && (
+          <div className="mt-2 flex flex-wrap items-center gap-2 rounded-2xl bg-card p-3">
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">Data</span>
+              <DatePicker
+                className="h-9 w-auto"
+                max={todayISO()}
+                value={toISODate(new Date(dados.startedAt))}
+                disabled={mudarData.isPending}
+                onChange={(v) => mudarData.mutate(v)}
+                aria-label="Data do treino"
+              />
+            </div>
+            {editando ? (
+              <Button
+                size="sm"
+                className="ml-auto rounded-full"
+                onClick={() => salvarEdicao.mutate()}
+                disabled={salvarEdicao.isPending}
+              >
+                <Check className="mr-1.5 size-4" />
+                {salvarEdicao.isPending ? "Salvando…" : "Concluir edição"}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="ml-auto rounded-full"
+                onClick={() => setEditando(true)}
+              >
+                Corrigir cargas e séries
+              </Button>
+            )}
+          </div>
+        )}
+
+        {dados.exercises.length === 0 || !exercicio ? (
+          <div className="mt-6 rounded-[1.5rem] bg-card p-6 text-center">
+            <p className="text-lg font-semibold">Este treino está sem exercícios</p>
+            <p className="mt-1 text-muted-foreground">Adicione exercícios à rotina no Plano.</p>
+            <Button className="mt-4 rounded-full" onClick={() => void navigate({ to: "/plan" })}>
+              Abrir o Plano
             </Button>
           </div>
-        </>
-      )}
+        ) : (
+          <>
+            {/* Um número por exercício: preenchido quando todas as séries estão feitas.
+              O respiro (`p-1.5`) é para o anel do exercício atual — a rolagem
+              horizontal corta tudo que passa da borda da lista. */}
+            <ol
+              className="-mx-1.5 mt-1.5 flex gap-2 overflow-x-auto p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              aria-label="Exercícios do treino"
+            >
+              {dados.exercises.map((e, i) => (
+                <li key={`${e.position}-${e.exerciseId}`}>
+                  <button
+                    type="button"
+                    onClick={() => setAtual(i)}
+                    aria-label={`${i + 1}. ${e.name}${e.done ? " — feito" : ""}`}
+                    aria-current={i === atual ? "step" : undefined}
+                    className={cn(
+                      "grid size-9 shrink-0 place-items-center rounded-full text-sm font-bold tabular-nums transition-colors",
+                      i === atual && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+                      e.done
+                        ? "bg-primary text-primary-foreground"
+                        : i === atual
+                          ? "bg-elevated"
+                          : "bg-card text-muted-foreground",
+                    )}
+                  >
+                    {e.done ? <Check className="size-4" strokeWidth={3} /> : i + 1}
+                  </button>
+                </li>
+              ))}
+            </ol>
 
-      {!terminado && <RestTimerBar timer={descanso} />}
+            <ExercicioAtual
+              key={`${exercicio.position}-${exercicio.exerciseId}`}
+              exercicio={exercicio}
+              indice={atual}
+              total={dados.exercises.length}
+              somenteLeitura={somenteLeitura}
+              onSerie={(setId, patch) => serie.mutate({ setId, patch })}
+              onConcluir={(set, feito) => {
+                serie.mutate({
+                  setId: set.id,
+                  patch: {
+                    completed: feito,
+                    // Concluir sem ter digitado usa o que estava na tela.
+                    ...(feito && set.weightKg === null
+                      ? { weight_kg: exercicio.suggestedWeightKg }
+                      : {}),
+                    ...(feito && set.reps === null ? { reps: exercicio.targetReps } : {}),
+                  },
+                });
+                if (feito && !terminado) descanso.start(set.restSeconds ?? exercicio.restSeconds);
+              }}
+              onMaisSerie={() => maisSerie.mutate(exercicio)}
+              onMenosSerie={(setId) => menosSerie.mutate(setId)}
+              onDetalhe={() => setDetalhe(exercicio.exerciseId)}
+              onTrocar={(novoId) => trocar.mutateAsync({ de: exercicio.exerciseId, para: novoId })}
+            />
 
-      {celebrando && (
-        <CompletionOverlay
-          durationSeconds={finalizar.data?.durationSeconds ?? dados.durationSeconds}
-          volumeKg={finalizar.data?.volumeKg ?? dados.totalVolumeKg}
-          kcal={finalizar.data?.kcal ?? null}
-          comparisons={finalizar.data?.comparisons ?? []}
-          records={recordes}
-          onClose={() => void navigate({ to: "/stats" })}
+            <div className="mt-6 flex gap-3">
+              <Button
+                variant="secondary"
+                className="h-14 flex-1 rounded-2xl text-base"
+                onClick={() => setAtual((i) => Math.max(0, i - 1))}
+                disabled={atual === 0}
+              >
+                <ChevronLeft className="mr-1 size-5" />
+                Anterior
+              </Button>
+              <Button
+                className="h-14 flex-1 rounded-2xl text-base font-bold"
+                onClick={() => setAtual((i) => Math.min(dados.exercises.length - 1, i + 1))}
+                disabled={atual >= dados.exercises.length - 1}
+              >
+                Próximo
+                <ChevronRight className="ml-1 size-5" />
+              </Button>
+            </div>
+          </>
+        )}
+
+        {!terminado && <RestTimerBar timer={descanso} />}
+
+        {celebrando && (
+          <CompletionOverlay
+            durationSeconds={finalizar.data?.durationSeconds ?? dados.durationSeconds}
+            volumeKg={finalizar.data?.volumeKg ?? dados.totalVolumeKg}
+            kcal={finalizar.data?.kcal ?? null}
+            comparisons={finalizar.data?.comparisons ?? []}
+            records={recordes}
+            onClose={() => void navigate({ to: "/stats" })}
+          />
+        )}
+
+        <ExerciseDetailSheet
+          exerciseId={detalhe}
+          open={detalhe !== null}
+          onOpenChange={(aberto) => !aberto && setDetalhe(null)}
         />
-      )}
-
-      <ExerciseDetailSheet
-        exerciseId={detalhe}
-        open={detalhe !== null}
-        onOpenChange={(aberto) => !aberto && setDetalhe(null)}
-      />
+      </div>
     </div>
   );
 }

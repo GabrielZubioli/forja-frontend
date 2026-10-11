@@ -73,6 +73,11 @@ function TrainPage() {
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
+  /** Só o botão tocado mostra que está abrindo; os outros ficam como estão. */
+  const abrindo = (templateId: string) => comecar.isPending && comecar.variables === templateId;
+  const iniciar = (templateId: string) => {
+    if (!comecar.isPending) comecar.mutate(templateId);
+  };
 
   if (aberto.isPending || aberto.data || rotina.isPending || feitos.isPending) {
     return (
@@ -145,8 +150,8 @@ function TrainPage() {
               >
                 <button
                   type="button"
-                  onClick={() => comecar.mutate(t.id)}
-                  disabled={comecar.isPending}
+                  onClick={() => iniciar(t.id)}
+                  aria-busy={abrindo(t.id)}
                   className="flex w-full items-center gap-4 rounded-[1.75rem] bg-[#020306] p-5 text-left text-white shadow-[0_18px_40px_-18px_rgba(2,3,6,0.7)] transition-transform active:scale-[0.98] disabled:opacity-70"
                 >
                   <RoutineIcon
@@ -163,7 +168,7 @@ function TrainPage() {
                     </span>
                   </span>
                   <span className="grid size-14 shrink-0 place-items-center rounded-full bg-[#01D798] text-[#020306]">
-                    {comecar.isPending && comecar.variables === t.id ? (
+                    {abrindo(t.id) ? (
                       <Loader2 className="size-6 animate-spin" aria-hidden />
                     ) : (
                       <Play className="ml-0.5 size-6 fill-current" aria-hidden />
@@ -222,12 +227,17 @@ function TrainPage() {
                 </span>
                 <button
                   type="button"
-                  onClick={() => comecar.mutate(t.id)}
-                  disabled={comecar.isPending || t.exerciseCount === 0}
-                  className="shrink-0 rounded-full bg-[#01D798] px-4 py-2 font-bold text-[#020306] transition-transform active:scale-95 disabled:opacity-50"
+                  onClick={() => iniciar(t.id)}
+                  aria-busy={abrindo(t.id)}
+                  disabled={t.exerciseCount === 0}
+                  className="grid min-w-[6.5rem] shrink-0 place-items-center rounded-full bg-[#01D798] px-4 py-2 font-bold text-[#020306] transition-transform active:scale-95 disabled:opacity-50"
                   aria-label={`Começar ${splitDisplayName(t.name)}`}
                 >
-                  Começar
+                  {abrindo(t.id) ? (
+                    <Loader2 className="size-5 animate-spin" aria-hidden />
+                  ) : (
+                    "Começar"
+                  )}
                 </button>
               </li>
             ))}
