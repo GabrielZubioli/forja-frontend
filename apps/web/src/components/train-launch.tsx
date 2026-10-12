@@ -82,11 +82,19 @@ export function TrainLaunchOverlay({ fase, cor }: { fase: Fase; cor: CorLancamen
     >
       {/* Começa logo abaixo da tela e sobe a própria altura (punho + braço):
           termina com o braço cobrindo a tela e o punho já acima dela. */}
-      <div className="hf-arm-up absolute inset-x-0 top-full mx-auto w-[92vw] max-w-md">
+      <div className="hf-arm-up absolute inset-x-0 top-full">
         <Punho className="hf-fist-flex relative z-10 block w-full" />
-        {/* O antebraço continua abaixo do desenho, na mesma largura e posição
-            em que ele termina (24,1% a 93,6% da largura do punho). */}
-        <div className="-mt-1 ml-[23.4%] h-[calc(100dvh+4rem)] w-[71%] bg-current" />
+        {/* Abaixo do desenho o antebraço (23,4% a 94,4% da largura) se abre
+            até a tela toda — o braço em perspectiva vira a própria tela. */}
+        <svg
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          className="-mt-1 block h-[28vh] w-full"
+          aria-hidden
+        >
+          <path d="M23.4 0 L94.4 0 C97 30 100 60 100 100 L0 100 C0 60 18 30 23.4 0 Z" fill="currentColor" />
+        </svg>
+        <div className="-mt-px h-[calc(100dvh+4rem)] bg-current" />
       </div>
     </div>
   );

@@ -54,12 +54,19 @@ export function BodyMap({
   showLegend = true,
   showToggle = true,
   size = "md",
+  recorte,
 }: {
   muscles: readonly MuscleIntensity[];
   className?: string;
   showLegend?: boolean;
   showToggle?: boolean;
   size?: "sm" | "md" | "lg";
+  /**
+   * Enquadra só uma região do corpo, numa vista fixa: `box` = [x, y, largura,
+   * altura] nas coordenadas da vista (724 × 1448). O SVG passa a preencher o
+   * contêiner.
+   */
+  recorte?: { view: BodyView; box: readonly [number, number, number, number] };
 }) {
   /** Intensidade por grupo desenhável, já resolvendo os apelidos. */
   const corDoGrupo = useMemo(() => {
@@ -92,7 +99,10 @@ export function BodyMap({
 
   const [escolhida, setEscolhida] = useState<BodyView | null>(null);
   // Enquanto o usuário não escolher, a vista acompanha o treino selecionado.
-  const view = escolhida ?? vistaSugerida;
+  const view = recorte?.view ?? escolhida ?? vistaSugerida;
+  const viewBox = recorte
+    ? `${(view === "back" ? 724 : 0) + recorte.box[0]} ${recorte.box[1]} ${recorte.box[2]} ${recorte.box[3]}`
+    : VIEW_BOX[view];
 
   const destacados = [...porGrupo.entries()].sort((a, b) => b[1] - a[1]);
 
@@ -100,10 +110,10 @@ export function BodyMap({
 
   return (
     <div className={cn("flex flex-col items-center", className)}>
-      <div className="relative">
+      <div className={cn("relative", recorte && "size-full")}>
         <svg
-          viewBox={VIEW_BOX[view]}
-          className={cn("w-auto", altura)}
+          viewBox={viewBox}
+          className={cn(recorte ? "size-full" : cn("w-auto", altura))}
           role="img"
           aria-label={
             destacados.length > 0

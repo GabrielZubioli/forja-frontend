@@ -142,32 +142,65 @@ export function distributeMeals({
 
   const somaPesos = ativos.reduce((sum, s) => sum + SLOT_WEIGHT[s], 0);
 
-  // Desloca a grade padrão para a janela real de vigília do usuário.
-  const padraoInicio = DEFAULT_MINUTES.breakfast;
-  const padraoFim = DEFAULT_MINUTES.supper;
-  const inicio = wakeMinutes ?? padraoInicio;
-  const fim = sleepMinutes ?? padraoFim + 30;
-  const janelaPadrao = padraoFim - padraoInicio;
-  const janelaReal = Math.max(60, fim - 30 - inicio);
-  const escala = janelaReal / janelaPadrao;
+  // Janela de vigília. Dormir depois da meia-noite (00:30) é o fim do mesmo
+  // dia, não o começo — sem isto a janela virava 1 h e todas as refeições
+  // caíam entre 7h e 8h.
+  const acorda = wakeMinutes ?? DEFAULT_MINUTES.breakfast;
+  let dorme = sleepMinutes ?? 23 * 60;
+  if (dorme <= acorda) dorme += 24 * 60;
 
-  return ativos.map((slot) => {
-    let minutes = Math.round(inicio + (DEFAULT_MINUTES[slot] - padraoInicio) * escala);
+  // A grade padrão desliza com a hora de acordar, com limite: quem acorda às
+  // 11h almoça mais tarde, mas não às 16h.
+  const desloc = Math.max(-60, Math.min(180, acorda - DEFAULT_MINUTES.breakfast));
+  const ancorado = (slot: MealSlot) =>
+    workoutMinutes != null && (slot === "pre_workout" || slot === "post_workout");
 
-    // Pré e pós-treino são âncoras absolutas: 60 min antes e 45 min depois. O
-    // valor deles está na relação com o treino, não no relógio.
-    if (workoutMinutes !== undefined && workoutMinutes !== null) {
-      if (slot === "pre_workout") minutes = Math.max(0, workoutMinutes - 60);
-      if (slot === "post_workout") minutes = Math.min(24 * 60 - 1, workoutMinutes + 45);
+  const minutos = ativos.map((slot) => {
+    if (ancorado(slot)) {
+      // Pré e pós-treino são âncoras absolutas: 60 min antes e 45 min depois.
+      return slot === "pre_workout" ? workoutMinutes! - 60 : workoutMinutes! + 45;
     }
-
-    return {
-      slot,
-      share: SLOT_WEIGHT[slot] / somaPesos,
-      minutes: Math.max(0, Math.min(24 * 60 - 1, minutes)),
-    };
+    const [de, ate] = FAIXA[slot];
+    let m = Math.max(de, Math.min(ate, DEFAULT_MINUTES[slot] + desloc));
+    if (slot === "breakfast") m = Math.max(m, acorda + 30);
+    return m;
   });
+
+  // Folga mínima entre refeições seguidas (as âncoras do treino ficam onde estão).
+  for (let i = 1; i < ativos.length; i++) {
+    if (ancorado(ativos[i]!)) continue;
+    minutos[i] = Math.max(minutos[i]!, minutos[i - 1]! + INTERVALO_MIN);
+  }
+  // A última refeição termina 1 h antes de dormir: se passou, puxa as de trás
+  // para trás, mantendo a folga.
+  const limite = Math.min(24 * 60 - 1, dorme - 60);
+  for (let i = ativos.length - 1; i >= 0; i--) {
+    if (ancorado(ativos[i]!)) continue;
+    const teto = i === ativos.length - 1 ? limite : minutos[i + 1]! - INTERVALO_MIN;
+    if (minutos[i]! > teto) minutos[i] = teto;
+  }
+
+  return ativos.map((slot, i) => ({
+    slot,
+    share: SLOT_WEIGHT[slot] / somaPesos,
+    minutes: Math.max(0, Math.min(24 * 60 - 1, Math.round(minutos[i]!))),
+  }));
 }
+
+/** Período razoável de cada refeição (minutos desde 0h): o horário nunca sai dele. */
+const FAIXA: Record<MealSlot, [number, number]> = {
+  breakfast: [6 * 60, 10 * 60 + 30],
+  morning_snack: [9 * 60, 11 * 60 + 30],
+  lunch: [11 * 60 + 30, 14 * 60 + 30],
+  afternoon_snack: [15 * 60, 17 * 60 + 30],
+  pre_workout: [0, 24 * 60 - 1],
+  post_workout: [0, 24 * 60 - 1],
+  dinner: [18 * 60 + 30, 21 * 60 + 30],
+  supper: [21 * 60, 23 * 60 + 30],
+};
+
+/** Intervalo mínimo entre duas refeições seguidas. */
+const INTERVALO_MIN = 90;
 
 /** `480` → `"08:00"`. Formato aceito pela coluna `TIME` do Postgres. */
 export function minutesToTime(minutes: number): string {

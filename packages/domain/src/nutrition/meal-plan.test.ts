@@ -268,6 +268,31 @@ describe("distributeMeals", () => {
     expect(meals.find((m) => m.slot === "post_workout")!.minutes).toBe(treino + 45);
   });
 
+  it("quem dorme depois da meia-noite não tem as refeições espremidas", () => {
+    const slots = ["breakfast", "lunch", "afternoon_snack", "dinner"] as const;
+    const m = distributeMeals({ slots, wakeMinutes: 7 * 60, sleepMinutes: 30 });
+    const min = m.map((x) => x.minutes);
+    for (let i = 1; i < min.length; i++) expect(min[i]! - min[i - 1]!).toBeGreaterThanOrEqual(90);
+    expect(min[1]).toBeGreaterThanOrEqual(11 * 60 + 30); // almoço no horário de almoço
+  });
+
+  it("cada refeição fica no seu período e com folga entre elas", () => {
+    const slots = ["breakfast", "morning_snack", "lunch", "afternoon_snack", "dinner", "supper"] as const;
+    const m = distributeMeals({ slots, wakeMinutes: 6 * 60, sleepMinutes: 22 * 60 + 30 });
+    const por = Object.fromEntries(m.map((x) => [x.slot, x.minutes]));
+    expect(por.lunch).toBeGreaterThanOrEqual(11 * 60 + 30);
+    expect(por.lunch).toBeLessThanOrEqual(14 * 60 + 30);
+    expect(por.dinner).toBeGreaterThanOrEqual(18 * 60 + 30);
+    expect(por.supper).toBeLessThanOrEqual(22 * 60 + 30 - 60); // 1h antes de dormir
+    const min = m.map((x) => x.minutes);
+    for (let i = 1; i < min.length; i++) expect(min[i]! - min[i - 1]!).toBeGreaterThanOrEqual(90);
+  });
+
+  it("o café vem depois de acordar", () => {
+    const m = distributeMeals({ slots: ["breakfast", "lunch", "dinner"], wakeMinutes: 9 * 60 });
+    expect(m[0]!.minutes).toBeGreaterThanOrEqual(9 * 60 + 30);
+  });
+
   it("mantém os horários dentro do dia", () => {
     const meals = distributeMeals({
       slots: ["pre_workout", "post_workout"],

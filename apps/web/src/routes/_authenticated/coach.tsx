@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ArrowUp, Loader2, Lock, User, Zap } from "lucide-react";
 import { COACH_FAQ, answerFaq, type FaqKey } from "@/data/coach-faq";
@@ -30,20 +30,34 @@ export const Route = createFileRoute("/_authenticated/coach")({
 function CoachPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
 
-  const fimDaLista = useRef<HTMLDivElement>(null);
+  const lista = useRef<HTMLDivElement>(null);
+  const barra = useRef<HTMLDivElement>(null);
+  const [altura, setAltura] = useState<number>();
 
   /**
-   * Rola até a última mensagem.
-   *
-   * Antes isto chamava `scrollTo` no contêiner da lista — que **nunca rolava**,
-   * porque ele não tem altura limitada: quem rola é a janela. `scrollHeight`
-   * era igual a `clientHeight`, a chamada não fazia nada, e a resposta do
-   * treinador aparecia fora da área visível. Rolar um elemento-âncora para a
-   * vista funciona independentemente de qual ancestral é o contêiner de
-   * rolagem.
+   * A conversa rola sozinha, numa área que termina exatamente onde começa a
+   * barra fixa (perguntas rápidas + campo). Assim nenhuma mensagem passa por
+   * baixo dela. A altura acompanha a barra e a tela.
    */
+  useLayoutEffect(() => {
+    const medir = () => {
+      const topo = lista.current?.getBoundingClientRect().top;
+      const fim = barra.current?.getBoundingClientRect().top;
+      if (topo !== undefined && fim !== undefined) setAltura(Math.max(160, fim - topo - 8));
+    };
+    medir();
+    const obs = new ResizeObserver(medir);
+    if (barra.current) obs.observe(barra.current);
+    window.addEventListener("resize", medir);
+    return () => {
+      obs.disconnect();
+      window.removeEventListener("resize", medir);
+    };
+  }, []);
+
+  // Nova mensagem: rola a conversa (não a página) até o fim.
   useEffect(() => {
-    fimDaLista.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    lista.current?.scrollTo({ top: lista.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
   /** Pergunta pronta: a resposta sai dos dados da pessoa, sem IA. */
@@ -72,8 +86,12 @@ function CoachPage() {
       <PageHeader title="Treinador" description="Tire dúvidas sobre treino e alimentação." />
 
       <PageBody>
-        <div className="flex flex-col pb-48">
-          <div className="flex-1 space-y-4 pb-4">
+        <div>
+          <div
+            ref={lista}
+            className="space-y-4 overflow-y-auto overscroll-contain pb-4 [scrollbar-width:none]"
+            style={{ height: altura }}
+          >
             {messages.length === 0 ? (
               <Welcome onPick={perguntar} />
             ) : (
@@ -89,10 +107,6 @@ function CoachPage() {
                 </div>
               </div>
             )}
-
-            {/* Âncora do auto-scroll. Um elemento de altura zero no fim da lista
-                é o alvo mais confiável: não depende de qual ancestral rola. */}
-            <div ref={fimDaLista} aria-hidden />
           </div>
 
           {/*
@@ -100,7 +114,9 @@ function CoachPage() {
             o campo de pergunta livre — bloqueado por enquanto, porque o
             treinador responde com os seus dados, sem IA.
           */}
-          <div className="fixed inset-x-0 bottom-(--acima-da-barra) z-30 bg-background/80 px-4 pb-2 pt-2 backdrop-blur-xl md:bottom-0 md:pl-64 md:pr-8">
+          <div
+            ref={barra}
+            className="fixed inset-x-0 bottom-(--acima-da-barra) z-30 bg-background/80 px-4 pb-2 pt-2 backdrop-blur-xl md:bottom-0 md:pl-64 md:pr-8">
             <div className="mx-auto max-w-3xl">
               {messages.length > 0 && (
                 <div className="-mx-4 mb-2 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">

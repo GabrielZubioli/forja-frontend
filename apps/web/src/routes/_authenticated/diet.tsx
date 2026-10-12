@@ -27,7 +27,7 @@ import {
   substituteEntry,
   type DayEntry,
 } from "@/data/diet-day";
-import { ensureActiveMealPlan, setMealLabel } from "@/data/meal-plans";
+import { ensureActiveMealPlan, setMealLabel, setMealTime } from "@/data/meal-plans";
 import { addRecipeToMeal, type RecipeSummary } from "@/data/recipes";
 import {
   Dialog,
@@ -277,6 +277,15 @@ function DietPage() {
     onError: (e) => toast.error(errorMessage(e)),
   });
 
+  const mudarHorario = useMutation({
+    mutationFn: async ({ slot, hora }: { slot: MealValue; hora: string }) => {
+      if (!plan.data) throw new Error("O plano alimentar ainda está carregando.");
+      await setMealTime(plan.data.id, slot, hora, MEALS.findIndex((m) => m.key === slot));
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: queryKeys.diet.activePlan() }),
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+
   return (
     <>
       <PageHeader
@@ -341,7 +350,7 @@ function DietPage() {
                   size={200}
                 />
               </div>
-              <div className="mt-6 grid grid-cols-2 gap-x-5 gap-y-4">
+              <div className="mt-7 grid grid-cols-4 gap-2">
                 <MacroLinha
                   nome="Proteína"
                   valor={totaisConsumidos.proteinG}
@@ -349,7 +358,7 @@ function DietPage() {
                   cor={MACRO_COLORS.protein}
                 />
                 <MacroLinha
-                  nome="Carboidrato"
+                  nome="Carbo"
                   valor={totaisConsumidos.carbsG}
                   meta={num(profile.data?.carbs_g_target)}
                   cor={MACRO_COLORS.carbs}
@@ -390,6 +399,7 @@ function DietPage() {
                 slot={slot}
                 nome={nomeDe(slot)}
                 onRename={(nome) => renomear.mutateAsync({ slot, nome })}
+                onChangeTime={(hora) => mudarHorario.mutate({ slot, hora })}
                 date={date}
                 items={rows.filter((r) => r.slot === slot)}
                 targetTime={plan.data?.meals.find((m) => m.slot === slot)?.targetTime ?? null}
@@ -441,6 +451,7 @@ function MealCard({
   slot,
   nome,
   onRename,
+  onChangeTime,
   date,
   items,
   targetTime,
@@ -455,6 +466,7 @@ function MealCard({
   /** Nome exibido: o dado pela pessoa ou o padrão do horário. */
   nome: string;
   onRename: (nome: string) => Promise<void>;
+  onChangeTime: (hora: string) => void;
   date: string;
   items: DayEntry[];
   targetTime: string | null;
@@ -572,15 +584,14 @@ function MealCard({
               )}
             </h3>
             <p className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-              {targetTime && (
-                <span className="inline-flex items-center gap-1 tabular-nums">
-                  <Clock className="size-3" aria-hidden />
-                  {targetTime.slice(0, 5)}
-                </span>
-              )}
+              <HorarioRefeicao
+                valor={targetTime?.slice(0, 5) ?? ""}
+                nome={nome}
+                onSalvar={onChangeTime}
+              />
               {fechada && <span>{items.length} {items.length === 1 ? "alimento" : "alimentos"}</span>}
               {items.length > 0 && (
-                <span className="rounded-full bg-primary/15 px-2 py-0.5 font-bold tabular-nums text-primary">
+                <span className="whitespace-nowrap rounded-full bg-primary/15 px-2 py-0.5 font-bold tabular-nums text-primary">
                   {Math.round(totals.kcal)} kcal · P {Math.round(totals.proteinG)} g
                 </span>
               )}
@@ -976,34 +987,73 @@ function RenomearRefeicao({
   );
 }
 
-/** Um macro do dia: anel pequeno com o percentual, nome e gramas contra a meta. */
+/**
+ * Um macro do dia: anel grosso com o percentual no centro, o nome e as
+ * gramas contra a meta logo abaixo. Os quatro lado a lado leem como um painel.
+ */
 function MacroLinha({ nome, valor, meta, cor }: { nome: string; valor: number; meta: number; cor: string }) {
-  const r = 18;
+  const r = 26;
   const c = 2 * Math.PI * r;
   const pct = meta > 0 ? Math.min(1, valor / meta) : 0;
   return (
-    <div className="flex items-center gap-3">
-      <svg viewBox="0 0 44 44" className="size-11 shrink-0 -rotate-90" aria-hidden>
-        <circle cx="22" cy="22" r={r} fill="none" stroke={cor} strokeOpacity={0.18} strokeWidth="5" />
-        <circle
-          cx="22"
-          cy="22"
-          r={r}
-          fill="none"
-          stroke={cor}
-          strokeWidth="5"
-          strokeLinecap="round"
-          strokeDasharray={c}
-          strokeDashoffset={c * (1 - pct)}
-          className="transition-[stroke-dashoffset] duration-700"
-        />
-      </svg>
-      <div className="min-w-0">
-        <p className="truncate text-sm font-semibold">{nome}</p>
-        <p className="text-xs tabular-nums text-muted-foreground">
-          <span className="font-bold text-foreground">{Math.round(valor)}</span> / {Math.round(meta)} g
-        </p>
+    <div className="flex min-w-0 flex-col items-center text-center">
+      <div className="relative size-16">
+        <svg viewBox="0 0 64 64" className="size-full -rotate-90" aria-hidden>
+          <circle cx="32" cy="32" r={r} fill="none" stroke={cor} strokeOpacity={0.16} strokeWidth="9" />
+          <circle
+            cx="32"
+            cy="32"
+            r={r}
+            fill="none"
+            stroke={cor}
+            strokeWidth="9"
+            strokeLinecap="round"
+            strokeDasharray={c}
+            strokeDashoffset={c * (1 - pct)}
+            className="transition-[stroke-dashoffset] duration-700"
+          />
+        </svg>
+        <span className="absolute inset-0 grid place-items-center text-xs font-extrabold tabular-nums">
+          {Math.round(pct * 100)}%
+        </span>
       </div>
+      <p className="mt-1.5 w-full truncate text-xs font-semibold">{nome}</p>
+      <p className="text-[11px] tabular-nums text-muted-foreground">
+        <span className="font-bold text-foreground">{Math.round(valor)}</span>/{Math.round(meta)}g
+      </p>
     </div>
+  );
+}
+
+/**
+ * Horário da refeição, editável no lugar: tocar abre o seletor de hora do
+ * próprio celular. Grava ao terminar de escolher (no blur), não a cada giro
+ * da roleta do iPhone.
+ */
+function HorarioRefeicao({
+  valor,
+  nome,
+  onSalvar,
+}: {
+  valor: string;
+  nome: string;
+  onSalvar: (hora: string) => void;
+}) {
+  const [hora, setHora] = useState(valor);
+  useEffect(() => setHora(valor), [valor]);
+  return (
+    <label className="inline-flex cursor-pointer items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 tabular-nums transition-colors hover:bg-muted">
+      <Clock className="size-3" aria-hidden />
+      <input
+        type="time"
+        value={hora}
+        onChange={(e) => setHora(e.target.value)}
+        onBlur={() => {
+          if (/^d{2}:d{2}$/.test(hora) && hora !== valor) onSalvar(hora);
+        }}
+        aria-label={`Horário de ${nome.toLowerCase()}`}
+        className="w-[3.4rem] cursor-pointer bg-transparent text-xs outline-none [&::-webkit-calendar-picker-indicator]:hidden"
+      />
+    </label>
   );
 }

@@ -4,6 +4,7 @@ import { ensureFoodCatalog } from "@/data/local-catalog";
 import { loadPlanningInputs } from "@/data/planning-profile";
 import { todayISO } from "@/lib/date";
 import {
+  distributeMeals,
   generateMealPlan,
   minutesToTime,
   selectMealSlots,
@@ -577,7 +578,9 @@ export async function ensureActiveMealPlan(
   options: { force?: boolean } = {},
 ): Promise<ActiveMealPlan | null> {
   const atual = await fetchActiveMealPlan();
-  if (!options.force && atual && planoUtilizavel(atual)) return atual;
+  if (!options.force && atual && planoUtilizavel(atual)) {
+    return (await corrigirHorarios(userId, atual)) ? fetchActiveMealPlan() : atual;
+  }
 
   // Sem catálogo não há o que prescrever: semeia a base local antes de tentar.
   await ensureFoodCatalog(userId);
@@ -614,6 +617,41 @@ export async function ensureActiveMealPlan(
   await limparDiasVazios(userId);
 
   return fetchActiveMealPlan();
+}
+
+/**
+ * Planos criados antes da correção da distribuição tinham as refeições
+ * espremidas (7:00, 7:21, 7:33…) — quem dormia depois da meia-noite ganhava
+ * uma janela de 1 h. Se duas refeições seguidas estão a menos de 1 h, os
+ * horários são recalculados pela regra nova, com a rotina da pessoa.
+ */
+async function corrigirHorarios(userId: string, plano: ActiveMealPlan): Promise<boolean> {
+  const comHora = plano.meals
+    .map((m) => ({ m, min: timeToMinutes(m.targetTime) }))
+    .filter((x): x is { m: (typeof plano.meals)[number]; min: number } => x.min !== undefined)
+    .sort((a, b) => a.min - b.min);
+  const espremido = comHora.some((x, i) => i > 0 && x.min - comHora[i - 1]!.min < 60);
+  if (!espremido) return false;
+
+  const { answers, workoutTime } = await loadPlanningInputs(userId);
+  const novos = distributeMeals({
+    slots: plano.meals.map((m) => m.slot),
+    wakeMinutes: timeToMinutes(answers.wakeTime),
+    sleepMinutes: timeToMinutes(answers.sleepTime),
+    workoutMinutes: timeToMinutes(workoutTime),
+  });
+  for (const n of novos) {
+    const meal = plano.meals.find((m) => m.slot === n.slot);
+    if (!meal) continue;
+    assertOk(
+      "ajustar horário da refeição",
+      await supabase
+        .from("meal_plan_meals")
+        .update({ target_time: minutesToTime(n.minutes) })
+        .eq("id", meal.id),
+    );
+  }
+  return true;
 }
 
 /** Um plano vale se a maioria das refeições tem alimento. */
@@ -749,5 +787,34 @@ export async function setMealLabel(
   assertOk(
     "criar refeição",
     await supabase.from("meal_plan_meals").insert({ plan_id: planId, slot, position, label: nome }),
+  );
+}
+
+/** Muda o horário de uma refeição do plano ativo (cria a refeição se ainda não existe). */
+export async function setMealTime(
+  planId: string,
+  slot: MealSlot,
+  time: string,
+  position: number,
+): Promise<void> {
+  const existente = unwrapMaybe(
+    "buscar refeição",
+    await supabase
+      .from("meal_plan_meals")
+      .select("id")
+      .eq("plan_id", planId)
+      .eq("slot", slot)
+      .maybeSingle(),
+  );
+  if (existente) {
+    assertOk(
+      "mudar horário da refeição",
+      await supabase.from("meal_plan_meals").update({ target_time: time }).eq("id", existente.id),
+    );
+    return;
+  }
+  assertOk(
+    "criar refeição",
+    await supabase.from("meal_plan_meals").insert({ plan_id: planId, slot, position, target_time: time }),
   );
 }

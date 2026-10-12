@@ -47,18 +47,18 @@ export const Route = createFileRoute("/_authenticated/exercises")({
 
 /** Grupos musculares da navegação: cada um junta os músculos do catálogo que fazem parte dele. */
 const GRUPOS = [
-  { key: "peito", nome: "Peito", musculos: ["chest"] },
-  { key: "costas", nome: "Costas", musculos: ["back", "lats", "lower_back"] },
-  { key: "ombros", nome: "Ombros", musculos: ["shoulders", "front_delts", "side_delts", "rear_delts"] },
-  { key: "biceps", nome: "Bíceps", musculos: ["biceps"] },
-  { key: "triceps", nome: "Tríceps", musculos: ["triceps"] },
-  { key: "antebraco", nome: "Antebraço", musculos: ["forearms"] },
-  { key: "abdomen", nome: "Abdômen", musculos: ["abs", "core", "obliques"] },
-  { key: "quadriceps", nome: "Quadríceps", musculos: ["quads"] },
-  { key: "posterior", nome: "Posterior de coxa", musculos: ["hamstrings"] },
-  { key: "gluteos", nome: "Glúteos", musculos: ["glutes", "abductors", "adductors"] },
-  { key: "panturrilhas", nome: "Panturrilhas", musculos: ["calves"] },
-  { key: "trapezio", nome: "Trapézio e pescoço", musculos: ["traps", "neck"] },
+  { key: "peito", nome: "Peito", musculos: ["chest"], recorte: { view: "front" as const, box: [150, 215, 424, 318] as const } },
+  { key: "costas", nome: "Costas", musculos: ["back", "lats", "lower_back"], recorte: { view: "back" as const, box: [110, 190, 504, 378] as const } },
+  { key: "ombros", nome: "Ombros", musculos: ["shoulders", "front_delts", "side_delts", "rear_delts"], recorte: { view: "front" as const, box: [90, 170, 544, 408] as const } },
+  { key: "biceps", nome: "Bíceps", musculos: ["biceps"], recorte: { view: "front" as const, box: [30, 230, 664, 498] as const } },
+  { key: "triceps", nome: "Tríceps", musculos: ["triceps"], recorte: { view: "back" as const, box: [30, 230, 664, 498] as const } },
+  { key: "antebraco", nome: "Antebraço", musculos: ["forearms"], recorte: { view: "front" as const, box: [10, 430, 704, 528] as const } },
+  { key: "abdomen", nome: "Abdômen", musculos: ["abs", "core", "obliques"], recorte: { view: "front" as const, box: [140, 370, 444, 333] as const } },
+  { key: "quadriceps", nome: "Quadríceps", musculos: ["quads"], recorte: { view: "front" as const, box: [110, 690, 504, 378] as const } },
+  { key: "posterior", nome: "Posterior de coxa", musculos: ["hamstrings"], recorte: { view: "back" as const, box: [110, 740, 504, 378] as const } },
+  { key: "gluteos", nome: "Glúteos", musculos: ["glutes", "abductors", "adductors"], recorte: { view: "back" as const, box: [140, 600, 444, 333] as const } },
+  { key: "panturrilhas", nome: "Panturrilhas", musculos: ["calves"], recorte: { view: "back" as const, box: [140, 1000, 444, 333] as const } },
+  { key: "trapezio", nome: "Trapézio e pescoço", musculos: ["traps", "neck"], recorte: { view: "back" as const, box: [130, 110, 464, 348] as const } },
   { key: "cardio", nome: "Cardio e corpo todo", musculos: ["cardio", "full_body"] },
 ] as const;
 
@@ -254,13 +254,16 @@ function AbaMusculos({ porMusculo }: { porMusculo?: Map<string, number> }) {
                 search={{ grupo: g.key }}
                 className="flex h-full flex-col items-center rounded-[1.25rem] bg-card p-3 text-center transition-colors hover:bg-elevated active:scale-[0.98]"
               >
-                <BodyMap
-                  muscles={g.musculos.map((m) => ({ muscle: m, intensity: 1 }))}
-                  size="sm"
-                  showLegend={false}
-                  showToggle={false}
-                  className="pointer-events-none h-28 [&_svg]:h-28"
-                />
+                {/* A região do grupo, aproximada (costas da cintura para cima etc.). */}
+                <span className="block aspect-[4/3] w-full overflow-hidden rounded-xl bg-elevated">
+                  <BodyMap
+                    muscles={g.musculos.map((m) => ({ muscle: m, intensity: 1 }))}
+                    showLegend={false}
+                    showToggle={false}
+                    recorte={"recorte" in g ? g.recorte : undefined}
+                    className="pointer-events-none size-full"
+                  />
+                </span>
                 <span className="mt-2 font-bold leading-tight">{g.nome}</span>
                 <span className="text-xs text-muted-foreground">
                   {n === null ? "…" : `${n} ${n === 1 ? "exercício" : "exercícios"}`}

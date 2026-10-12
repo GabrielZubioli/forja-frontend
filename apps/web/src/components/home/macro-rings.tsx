@@ -55,7 +55,7 @@ export function CalorieRing({
   /** Versão pequena (Início): só o restante no centro. */
   compacto?: boolean;
 }) {
-  const stroke = compacto ? 9 : 12;
+  const stroke = compacto ? 10 : 20;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
 
