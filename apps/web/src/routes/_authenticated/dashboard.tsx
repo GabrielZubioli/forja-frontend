@@ -95,9 +95,9 @@ function Home() {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 pb-8 pt-6 md:px-8 md:pt-8">
-      <header className="mb-6">
+      <header className="mb-6 flex flex-col items-center text-center">
         <h1>
-          <BrandLogo className="h-12" />
+          <BrandLogo className="h-12 justify-center" />
         </h1>
         <p className="mt-2 text-lg text-muted-foreground first-letter:uppercase">
           {formatLongDate(today).toLowerCase()}

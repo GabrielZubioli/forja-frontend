@@ -20,7 +20,6 @@ import {
   type SettingsSection,
 } from "@/components/profile/settings-sections";
 import { ProfileSection } from "@/components/profile/profile-section";
-import { AppearanceSection } from "@/components/profile/appearance-section";
 import { Dumbbell, HeartPulse, Info, LogOut, Palette, Target, Utensils } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -570,18 +569,6 @@ function SettingsPage() {
                       onSave={() => savePreferences.mutate()}
                     />
                   </div>
-                </ProfileSection>
-              )}
-
-              {mostra("aparencia") && (
-                <ProfileSection
-                  defaultOpen={secao === "aparencia"}
-                  icon={<Palette />}
-                  title="Aparência"
-                  description="A escolha fica salva neste aparelho."
-                  summary="Claro, escuro ou automático"
-                >
-                  <AppearanceSection />
                 </ProfileSection>
               )}
 

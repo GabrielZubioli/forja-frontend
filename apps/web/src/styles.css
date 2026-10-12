@@ -163,35 +163,35 @@
      ≤ 0.009). Cinza puro ao lado de um jade saturado parece sujo; um cinza
      levemente esverdeado parece intencional. É sutil de propósito: nenhum
      desses valores deve ser reconhecível como "verde". */
-  --background: oklch(0.982 0.004 168); /* #f6faf8 */
-  --surface: oklch(0.962 0.006 168); /* #eef3f1 — painéis recuados */
+  --background: oklch(0.966 0.018 165); /* menta — os cartões brancos se destacam do fundo */
+  --surface: oklch(0.94 0.02 165); /* painéis recuados */
   --card: oklch(1 0 0); /* #ffffff */
-  --elevated: oklch(1 0 0); /* branco + sombra: no claro a elevação é sombra */
+  --elevated: oklch(0.958 0.02 165); /* dentro dos cartões brancos: campos, chips, botões */
   --popover: oklch(1 0 0);
 
-  --foreground: oklch(0.205 0.016 168); /* 17.8:1 sobre card */
+  --foreground: oklch(0.19 0.02 168); /* 18:1 sobre card */
   --card-foreground: oklch(0.205 0.016 168);
   --popover-foreground: oklch(0.205 0.016 168);
 
   /* Três níveis de texto, não dois. `muted-foreground` é o rótulo legível
      (4.5:1 em qualquer superfície); `subtle-foreground` é o texto de apoio
      grande — nunca usar em corpo de texto pequeno. */
-  --muted-foreground: oklch(0.536 0.013 168); /* 5.1:1 card · 4.6:1 surface */
+  --muted-foreground: oklch(0.47 0.02 168); /* 5.1:1 card · 4.6:1 surface */
   --subtle-foreground: oklch(0.445 0.014 168); /* 7.5:1 — legendas de destaque */
 
-  --muted: oklch(0.962 0.006 168);
-  --accent: oklch(0.955 0.033 162); /* tinta jade quase branca */
+  --muted: oklch(0.945 0.02 165);
+  --accent: oklch(0.935 0.05 162); /* tinta jade */
   --accent-foreground: oklch(0.42 0.09 162);
 
-  --border: oklch(0.898 0.009 168);
+  --border: oklch(0.872 0.02 165);
   --divider: oklch(0.932 0.007 168); /* mais leve que border: separa, não delimita */
-  --input: oklch(0.898 0.009 168);
+  --input: oklch(0.872 0.02 165);
 
   /* ——— Marca: Jade ———
      `--primary` é escuro o bastante para carregar texto branco (4.57:1). O
      jade vivo mora em `--primary-vivid`, usado onde não há texto por cima:
      ícones, indicadores, traço de gráfico, anel de foco. */
-  --primary: oklch(0.538 0.115 162); /* #0c8259 — branco 4.81:1, fundo 4.58:1 */
+  --primary: oklch(0.51 0.11 162); /* branco 5.3:1 · fundo menta ≥ 4.5:1 */
   --primary-foreground: oklch(1 0 0);
   --primary-hover: oklch(0.502 0.107 162); /* #0b7651 */
   --primary-active: oklch(0.452 0.097 162); /* #066645 */
@@ -201,10 +201,10 @@
   --primary-dark: oklch(0.38 0.082 162);
   --primary-glow: oklch(0.648 0.138 162);
 
-  --secondary: oklch(0.962 0.006 168);
+  --secondary: oklch(0.945 0.02 165);
   --secondary-foreground: oklch(0.28 0.016 168);
 
-  --ring: oklch(0.636 0.136 162); /* 3.2:1 sobre o fundo — foco visível */
+  --ring: oklch(0.6 0.13 162); /* ≥ 3:1 sobre o fundo menta — foco visível */
   /* Halo de seleção. Precisa ser um token próprio porque `box-shadow` não
      aceita opacidade separada da cor: `var(--primary)/0.2` não é CSS válido. */
   --primary-ring: oklch(0.636 0.136 162 / 0.22);
@@ -241,7 +241,7 @@
   --chart-5: oklch(0.62 0.165 340); /* magenta */
 
   /* ——— Navegação ——— */
-  --sidebar: oklch(0.972 0.005 168);
+  --sidebar: oklch(0.99 0.007 165);
   --sidebar-foreground: oklch(0.33 0.014 168);
   --sidebar-primary: oklch(0.538 0.115 162);
   --sidebar-primary-foreground: oklch(1 0 0);
