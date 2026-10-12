@@ -487,13 +487,9 @@ function SequenciaCard() {
   return (
     <Link
       to="/workouts/calendar"
-      className="relative flex items-center gap-4 overflow-hidden rounded-[1.5rem] border border-primary/30 bg-linear-to-br from-primary/25 via-card to-card p-5 transition-colors"
+      className="relative flex items-center gap-4 overflow-hidden rounded-[1.5rem] border border-primary/30 bg-card p-5 transition-colors"
     >
-      <span
-        className="hf-halo pointer-events-none absolute -left-10 -top-10 size-36 rounded-full bg-primary/30 blur-2xl"
-        aria-hidden
-      />
-      <span className="relative grid size-12 shrink-0 place-items-center rounded-2xl bg-[#01D798] text-[#020306] shadow-lg shadow-[#01D798]/30">
+      <span className="relative grid size-12 shrink-0 place-items-center rounded-2xl bg-[#01D798] text-[#020306]">
         <Flame className="size-6" aria-hidden />
       </span>
       <span className="relative min-w-0 flex-1">

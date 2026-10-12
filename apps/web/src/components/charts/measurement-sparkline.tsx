@@ -30,7 +30,7 @@ export default function MeasurementSparkline({ data }: { data: readonly Measurem
       >
         <defs>
           <linearGradient id={gradiente} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.5} />
+            <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.25} />
             <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
           </linearGradient>
         </defs>

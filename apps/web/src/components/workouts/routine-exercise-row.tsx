@@ -24,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmButton } from "@/components/confirm-button";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ExerciseDemo } from "@/components/workouts/exercise-demo-images";
 import { ExercisePicker } from "@/components/pickers/exercise-picker";
 import { EQUIPMENT_LABELS, label } from "@/lib/labels";
@@ -50,6 +51,7 @@ export function RoutineExerciseRow({
   onChanged: () => void | Promise<unknown>;
 }) {
   const [expandido, setExpandido] = useState(false);
+  const [confirmarRemocao, setConfirmarRemocao] = useState(false);
 
   const salvar = useMutation({
     mutationFn: (patch: Parameters<typeof updateTemplateItem>[1]) =>
@@ -163,6 +165,14 @@ export function RoutineExerciseRow({
                         </DropdownMenuItem>
                       }
                     />
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onSelect={() => setConfirmarRemocao(true)}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="mr-2 size-4" />
+                      Remover do plano
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -236,6 +246,15 @@ export function RoutineExerciseRow({
           )}
         </CardContent>
       </Card>
+      <ConfirmDialog
+        open={confirmarRemocao}
+        onOpenChange={setConfirmarRemocao}
+        title="Remover do plano?"
+        description={`“${exercise.name}” sai desta rotina. Seu histórico de séries continua salvo.`}
+        confirmLabel="Remover"
+        destructive
+        onConfirm={() => remover.mutate()}
+      />
     </li>
   );
 }

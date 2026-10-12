@@ -5,8 +5,6 @@ import { queryKeys } from "@/data/query-keys";
 import { assertOk, errorMessage, num, unwrapMaybe } from "@/data/supabase-helpers";
 import { PageBody, PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChipGroup, ChipRadio } from "@/components/ui/chip-group";
 import { ErrorState } from "@/components/query-boundary";
@@ -19,8 +17,25 @@ import {
   isSettingsSection,
   type SettingsSection,
 } from "@/components/profile/settings-sections";
-import { ProfileSection } from "@/components/profile/profile-section";
-import { Dumbbell, HeartPulse, Info, LogOut, Palette, Target, Utensils } from "lucide-react";
+import { MACRO_COLORS } from "@/components/home/macro-rings";
+import {
+  Award,
+  CalendarDays,
+  Clock,
+  Crosshair,
+  Droplet,
+  Dumbbell,
+  HeartPulse,
+  Info,
+  LogOut,
+  MapPin,
+  Minus,
+  Plus,
+  ShieldCheck,
+  Target,
+  Utensils,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -298,282 +313,195 @@ function SettingsPage() {
   }
 
   const carregando = profile.isPending;
+  const editaPreferencias = mostra("treino") || mostra("alimentacao") || mostra("saude");
 
   return (
     <>
       <PageHeader title={titulo} />
       <PageBody>
-        {/* `key`: trocar de seção pelo Menu remonta a tela, para a seção abrir já aberta. */}
-        <div key={secao ?? "todas"} className="space-y-3">
+        {/* `key`: trocar de seção pelo Menu remonta a tela. */}
+        <div key={secao ?? "todas"} className={cn("space-y-8", prefsTouched && "pb-24")}>
           {carregando ? (
             <div className="space-y-3">
               {[0, 1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-[4.5rem] w-full rounded-xl" />
+                <Skeleton key={i} className="h-24 w-full rounded-[1.25rem]" />
               ))}
             </div>
           ) : (
             <>
               {mostra("metas") && (
-                <ProfileSection
-                  defaultOpen={secao === "metas"}
+                <Secao
                   icon={<Target />}
                   title="Metas nutricionais"
                   description="Calculadas a partir dos seus dados e do objetivo."
-                  summary={
-                    profile.data?.daily_kcal_target
-                      ? `${Math.round(num(profile.data.daily_kcal_target))} kcal por dia`
-                      : "Ainda não calculadas"
-                  }
+                  sozinha={Boolean(secao)}
                 >
-                  <div className="space-y-4">
-                    {latestWeight.isPending ? (
-                      <div className="grid grid-cols-2 gap-3">
-                        {[0, 1, 2, 3, 4, 5].map((i) => (
-                          <Skeleton key={i} className="h-16 w-full rounded-lg" />
-                        ))}
-                      </div>
-                    ) : !preview ? (
+                  {latestWeight.isPending ? (
+                    <Skeleton className="h-48 w-full rounded-[1.25rem]" />
+                  ) : !preview ? (
+                    <Cartao>
                       <MissingDataNotice
                         hasWeight={Boolean(weightKg)}
                         hasHeight={Boolean(form.height_cm)}
                         hasBirthDate={Boolean(form.birth_date)}
                       />
-                    ) : (
-                      <>
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                          <Stat label="TMB (Mifflin)" value={`${preview.bmr} kcal`} />
-                          <Stat label="Gasto diário" value={`${preview.tdee} kcal`} />
-                          <Stat label="Meta calórica" value={`${preview.kcal} kcal`} highlight />
-                          <Stat label="Proteína" value={`${preview.protein_g} g`} />
-                          <Stat label="Carboidrato" value={`${preview.carbs_g} g`} />
-                          <Stat label="Gordura" value={`${preview.fat_g} g`} />
-                          <Stat label="Fibra" value={`${preview.fiber_g} g`} />
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          Calculado com seu último peso registrado ({weightKg} kg) pela equação de
-                          Mifflin-St Jeor, ajustada pelo nível de atividade e pelo objetivo.
-                        </p>
-                      </>
-                    )}
+                    </Cartao>
+                  ) : (
+                    <MetasResumo preview={preview} pesoKg={weightKg} />
+                  )}
 
-                    <p className="flex gap-2 rounded-lg border border-info/25 bg-info-soft/50 p-3 text-xs text-muted-foreground">
-                      <Info className="mt-px size-4 shrink-0 text-info" aria-hidden />
-                      <span>
-                        Esta é a estimativa por <b>fórmula</b>, que depende do nível de atividade
-                        que você declarou. Abaixo, a estimativa a partir dos seus dados reais —
-                        registre o peso em{" "}
-                        <Link
-                          to="/body"
-                          className="text-primary underline-offset-2 hover:underline"
-                        >
-                          Progresso
-                        </Link>{" "}
-                        e o que come em{" "}
-                        <Link
-                          to="/diet"
-                          className="text-primary underline-offset-2 hover:underline"
-                        >
-                          Dieta
-                        </Link>{" "}
-                        para destravá-la.
-                      </span>
-                    </p>
+                  <p className="flex gap-2.5 rounded-[1.25rem] border border-border p-4 text-sm text-muted-foreground">
+                    <Info className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+                    <span>
+                      Esta é a estimativa por <b className="text-foreground">fórmula</b>, que
+                      depende do nível de atividade declarado. Abaixo, a estimativa pelos seus
+                      dados reais — registre o peso em{" "}
+                      <Link to="/body" className="font-semibold text-primary">
+                        Progresso
+                      </Link>{" "}
+                      e o que come em{" "}
+                      <Link to="/diet" className="font-semibold text-primary">
+                        Dieta
+                      </Link>{" "}
+                      para destravá-la.
+                    </span>
+                  </p>
 
-                    <AdaptiveGoalsCard
-                      goal={form.goal}
-                      fallbackTdee={preview?.tdee ?? 0}
-                      currentKcalTarget={num(profile.data?.daily_kcal_target)}
-                      onApply={(kcal) => applyAdaptive.mutate(kcal)}
-                      isApplying={applyAdaptive.isPending}
-                    />
-                  </div>
-                </ProfileSection>
+                  <AdaptiveGoalsCard
+                    goal={form.goal}
+                    fallbackTdee={preview?.tdee ?? 0}
+                    currentKcalTarget={num(profile.data?.daily_kcal_target)}
+                    onApply={(kcal) => applyAdaptive.mutate(kcal)}
+                    isApplying={applyAdaptive.isPending}
+                  />
+                </Secao>
               )}
 
               {mostra("treino") && (
-                <ProfileSection
-                  defaultOpen={secao === "treino"}
+                <Secao
                   icon={<Dumbbell />}
                   title="Treino"
                   description="Define como os próximos planos são montados."
-                  summary={
-                    [
-                      prefs.days_per_week ? `${prefs.days_per_week}× por semana` : null,
-                      DURATION_OPTIONS.find((o) => o.value === prefs.session_duration)?.minutes ??
-                        null,
-                      PLACE_OPTIONS.find((o) => o.value === prefs.training_place)?.label ?? null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ") || "Não informado"
-                  }
+                  sozinha={Boolean(secao)}
                 >
-                  <div className="space-y-5">
-                    <Group label="Experiência">
-                      <ChipRadio
-                        label="Experiência"
-                        options={EXPERIENCE_OPTIONS.map((o) => ({
-                          value: o.value,
-                          label: o.label,
-                        }))}
-                        value={prefs.experience_level}
-                        onChange={(v) => updatePref("experience_level", v)}
-                      />
-                    </Group>
-
-                    <Group label="Dias por semana">
-                      <ChipRadio
-                        label="Dias por semana"
-                        options={DAYS_PER_WEEK_OPTIONS.map((d) => ({
-                          value: String(d),
-                          label: `${d}×`,
-                        }))}
-                        value={prefs.days_per_week ? String(prefs.days_per_week) : null}
-                        onChange={(v) => updatePref("days_per_week", Number(v))}
-                      />
-                    </Group>
-
-                    <Group label="Tempo por sessão">
-                      <ChipRadio
-                        label="Tempo por sessão"
-                        options={DURATION_OPTIONS.map((o) => ({
-                          value: o.value,
-                          label: `${o.label} · ${o.minutes}`,
-                        }))}
-                        value={prefs.session_duration}
-                        onChange={(v) => updatePref("session_duration", v)}
-                      />
-                    </Group>
-
-                    <Group label="Onde você treina">
-                      <ChipRadio
-                        label="Onde você treina"
-                        options={PLACE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
-                        value={prefs.training_place}
-                        onChange={(v) => updatePref("training_place", v)}
-                      />
-                    </Group>
-
-                    <Group label="Equipamentos disponíveis">
-                      <ChipGroup
-                        label="Equipamentos disponíveis"
-                        options={EQUIPMENT_OPTIONS}
-                        selected={prefs.equipment_available}
-                        onChange={(v) => updatePref("equipment_available", v)}
-                      />
-                    </Group>
-
-                    <Group label="Foco">
-                      <ChipRadio
-                        label="Foco"
-                        options={FOCUS_OPTIONS}
-                        value={prefs.focus_area}
-                        onChange={(v) => updatePref("focus_area", v)}
-                      />
-                    </Group>
-
-                    <SavePreferences
-                      disabled={!prefsTouched}
-                      loading={savePreferences.isPending}
-                      onSave={() => savePreferences.mutate()}
+                  <Cartao titulo="Dias por semana" icone={<CalendarDays />}>
+                    <NumeroPicker
+                      label="Dias por semana"
+                      options={[...DAYS_PER_WEEK_OPTIONS]}
+                      value={prefs.days_per_week}
+                      onChange={(v) => updatePref("days_per_week", v)}
+                      sufixo="×"
                     />
-                  </div>
-                </ProfileSection>
+                  </Cartao>
+
+                  <Cartao titulo="Experiência" icone={<Award />}>
+                    <ChipRadio
+                      label="Experiência"
+                      options={EXPERIENCE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                      value={prefs.experience_level}
+                      onChange={(v) => updatePref("experience_level", v)}
+                    />
+                  </Cartao>
+
+                  <Cartao titulo="Tempo por sessão" icone={<Clock />}>
+                    <ChipRadio
+                      label="Tempo por sessão"
+                      options={DURATION_OPTIONS.map((o) => ({
+                        value: o.value,
+                        label: `${o.label} · ${o.minutes}`,
+                      }))}
+                      value={prefs.session_duration}
+                      onChange={(v) => updatePref("session_duration", v)}
+                    />
+                  </Cartao>
+
+                  <Cartao titulo="Onde você treina" icone={<MapPin />}>
+                    <ChipRadio
+                      label="Onde você treina"
+                      options={PLACE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                      value={prefs.training_place}
+                      onChange={(v) => updatePref("training_place", v)}
+                    />
+                  </Cartao>
+
+                  <Cartao
+                    titulo="Equipamentos disponíveis"
+                    icone={<Dumbbell />}
+                    contador={prefs.equipment_available.length}
+                  >
+                    <ChipGroup
+                      label="Equipamentos disponíveis"
+                      options={EQUIPMENT_OPTIONS}
+                      selected={prefs.equipment_available}
+                      onChange={(v) => updatePref("equipment_available", v)}
+                    />
+                  </Cartao>
+
+                  <Cartao titulo="Foco" icone={<Crosshair />}>
+                    <ChipRadio
+                      label="Foco"
+                      options={FOCUS_OPTIONS}
+                      value={prefs.focus_area}
+                      onChange={(v) => updatePref("focus_area", v)}
+                    />
+                  </Cartao>
+                </Secao>
               )}
 
               {mostra("alimentacao") && (
-                <ProfileSection
-                  defaultOpen={secao === "alimentacao"}
+                <Secao
                   icon={<Utensils />}
                   title="Alimentação"
-                  description="Quantas refeições o cardápio deve montar e a meta de água."
-                  summary={
-                    [
-                      prefs.meals_per_day ? `${prefs.meals_per_day} refeições` : null,
-                      prefs.water_ml_target
-                        ? `${(prefs.water_ml_target / 1000).toFixed(1)} L`
-                        : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ") || "Não informado"
-                  }
+                  description="Quantas refeições o cardápio monta e quanto de água beber."
+                  sozinha={Boolean(secao)}
                 >
-                  <div className="space-y-5">
-                    <Group label="Refeições por dia">
-                      <ChipRadio
-                        label="Refeições por dia"
-                        options={MEALS_PER_DAY_OPTIONS.map((n) => ({
-                          value: String(n),
-                          label: String(n),
-                        }))}
-                        value={prefs.meals_per_day ? String(prefs.meals_per_day) : null}
-                        onChange={(v) => updatePref("meals_per_day", Number(v))}
-                      />
-                    </Group>
-
-                    <Field
-                      label="Meta de água (ml)"
-                      htmlFor="p-water"
-                      hint="Deixe em branco para o app estimar pelo seu peso."
-                    >
-                      <Input
-                        id="p-water"
-                        type="number"
-                        inputMode="numeric"
-                        min={500}
-                        max={8000}
-                        step={100}
-                        value={prefs.water_ml_target ?? ""}
-                        onChange={(e) =>
-                          updatePref(
-                            "water_ml_target",
-                            e.target.value ? Number(e.target.value) : null,
-                          )
-                        }
-                      />
-                    </Field>
-
-                    <SavePreferences
-                      disabled={!prefsTouched}
-                      loading={savePreferences.isPending}
-                      onSave={() => savePreferences.mutate()}
+                  <Cartao titulo="Refeições por dia" icone={<Utensils />}>
+                    <NumeroPicker
+                      label="Refeições por dia"
+                      options={[...MEALS_PER_DAY_OPTIONS]}
+                      value={prefs.meals_per_day}
+                      onChange={(v) => updatePref("meals_per_day", v)}
                     />
-                  </div>
-                </ProfileSection>
+                  </Cartao>
+
+                  <Cartao titulo="Meta de água" icone={<Droplet />}>
+                    <AguaStepper
+                      value={prefs.water_ml_target}
+                      onChange={(v) => updatePref("water_ml_target", v)}
+                    />
+                  </Cartao>
+                </Secao>
               )}
 
               {mostra("saude") && (
-                <ProfileSection
-                  defaultOpen={secao === "saude"}
+                <Secao
                   icon={<HeartPulse />}
                   title="Saúde"
                   description="Exercícios que carregam as regiões marcadas saem dos planos gerados."
-                  summary={
-                    prefs.injuries.length > 0
-                      ? `${prefs.injuries.length} região(ões) a preservar`
-                      : "Nenhuma restrição"
-                  }
+                  sozinha={Boolean(secao)}
                 >
-                  <div className="space-y-5">
-                    <Group label="Regiões a preservar">
-                      <ChipGroup
-                        label="Regiões a preservar"
-                        options={INJURY_OPTIONS}
-                        selected={prefs.injuries}
-                        onChange={(v) => updatePref("injuries", v)}
-                      />
-                    </Group>
-
-                    <SavePreferences
-                      disabled={!prefsTouched}
-                      loading={savePreferences.isPending}
-                      onSave={() => savePreferences.mutate()}
+                  <Cartao
+                    titulo="Regiões a preservar"
+                    icone={<ShieldCheck />}
+                    contador={prefs.injuries.length}
+                  >
+                    <ChipGroup
+                      label="Regiões a preservar"
+                      options={INJURY_OPTIONS}
+                      selected={prefs.injuries}
+                      onChange={(v) => updatePref("injuries", v)}
                     />
-                  </div>
-                </ProfileSection>
+                  </Cartao>
+                  <p className="flex gap-2.5 rounded-[1.25rem] border border-border p-4 text-sm text-muted-foreground">
+                    <Info className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+                    O app não substitui orientação médica. Em caso de dor durante um exercício,
+                    pare e procure um profissional.
+                  </p>
+                </Secao>
               )}
 
               {mostra("conta") && (
-                <>
+                <div className="space-y-3">
                   <ImportDataCard />
                   <ExportDataCard />
                   <DeleteAccountCard />
@@ -585,45 +513,255 @@ function SettingsPage() {
                     <LogOut className="mr-1.5 size-4" aria-hidden />
                     Sair da conta
                   </Button>
-                </>
+                </div>
               )}
             </>
           )}
         </div>
+
+        {/*
+          Um só botão de salvar, preso acima da barra inferior e visível só
+          quando há mudança: as três seções gravam na mesma linha de `profiles`.
+        */}
+        {editaPreferencias && prefsTouched && (
+          <div className="fixed inset-x-0 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-30 px-4 animate-in fade-in slide-in-from-bottom-3 duration-300 md:bottom-6 md:left-auto md:right-6 md:w-96">
+            <Button
+              className="h-13 w-full rounded-2xl text-base font-bold"
+              onClick={() => savePreferences.mutate()}
+              loading={savePreferences.isPending}
+            >
+              Salvar alterações
+            </Button>
+          </div>
+        )}
       </PageBody>
     </>
   );
 }
 
-/**
- * Botão de salvar das seções de preferências.
- *
- * As três seções gravam pela **mesma** mutação, porque escrevem na mesma linha
- * de `profiles`. Repetir o botão em cada uma é proposital: quem mudou algo em
- * "Treino" não deveria precisar rolar até outra seção para salvar.
- */
-function SavePreferences({
-  disabled,
-  loading,
-  onSave,
+/** Cabeçalho de uma seção: ícone em verde sólido, título e o porquê dela. */
+function Secao({
+  icon,
+  title,
+  description,
+  sozinha,
+  children,
 }: {
-  disabled: boolean;
-  loading: boolean;
-  onSave: () => void;
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  /** Aberta pelo Menu: o título da página já diz o nome, então só a descrição. */
+  sozinha: boolean;
+  children: React.ReactNode;
 }) {
   return (
-    <Button className="w-full" onClick={onSave} disabled={disabled} loading={loading}>
-      Salvar preferências
-    </Button>
+    <section className="space-y-3">
+      <div className="flex items-center gap-3.5 px-1">
+        <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground [&_svg]:size-6">
+          {icon}
+        </span>
+        <div className="min-w-0">
+          {!sozinha && <h2 className="text-xl font-extrabold">{title}</h2>}
+          <p className={cn("text-muted-foreground", sozinha ? "text-[15px]" : "text-sm")}>
+            {description}
+          </p>
+        </div>
+      </div>
+      {children}
+    </section>
   );
 }
 
-function Group({ label: groupLabel, children }: { label: string; children: React.ReactNode }) {
+function Cartao({
+  titulo,
+  icone,
+  contador,
+  children,
+}: {
+  titulo?: string;
+  icone?: React.ReactNode;
+  contador?: number;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="space-y-2">
-      <p className="text-sm font-medium">{groupLabel}</p>
+    <div className="rounded-[1.25rem] bg-card p-4">
+      {titulo && (
+        <p className="mb-3 flex items-center gap-2 font-bold [&_svg]:size-4 [&_svg]:text-primary">
+          {icone}
+          {titulo}
+          {contador ? (
+            <span className="ml-auto rounded-full bg-primary/15 px-2 py-0.5 text-xs font-bold text-primary">
+              {contador}
+            </span>
+          ) : null}
+        </p>
+      )}
       {children}
     </div>
+  );
+}
+
+/** Escolha de um número pequeno (dias, refeições) em círculos grandes. */
+function NumeroPicker({
+  label: rotulo,
+  options,
+  value,
+  onChange,
+  sufixo = "",
+}: {
+  label: string;
+  options: number[];
+  value: number | null;
+  onChange: (v: number) => void;
+  sufixo?: string;
+}) {
+  return (
+    <div role="radiogroup" aria-label={rotulo} className="flex justify-between gap-2">
+      {options.map((n) => (
+        <button
+          key={n}
+          type="button"
+          role="radio"
+          aria-checked={value === n}
+          onClick={() => onChange(n)}
+          className={cn(
+            "grid aspect-square w-full max-w-14 place-items-center rounded-full border-2 text-lg font-extrabold tabular-nums transition-colors",
+            value === n
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border text-muted-foreground hover:border-primary/50",
+          )}
+        >
+          {n}
+          {sufixo}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Meta de água em passos de 250 ml; vazio = o app estima pelo peso. */
+function AguaStepper({
+  value,
+  onChange,
+}: {
+  value: number | null;
+  onChange: (v: number | null) => void;
+}) {
+  const atual = value ?? 2500;
+  const mudar = (d: number) => onChange(Math.min(8000, Math.max(500, atual + d)));
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => mudar(-250)}
+          className="grid size-12 place-items-center rounded-full border-2 border-border text-xl font-bold hover:border-primary/50"
+          aria-label="Menos 250 ml"
+        >
+          <Minus className="size-5" />
+        </button>
+        <p className="text-center">
+          <span className="block text-4xl font-extrabold tabular-nums">
+            {value === null ? "Auto" : `${(value / 1000).toLocaleString("pt-BR")} L`}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {value === null ? "estimada pelo seu peso" : `${Math.round(value / 250)} copos de 250 ml`}
+          </span>
+        </p>
+        <button
+          type="button"
+          onClick={() => mudar(250)}
+          className="grid size-12 place-items-center rounded-full bg-primary text-primary-foreground"
+          aria-label="Mais 250 ml"
+        >
+          <Plus className="size-5" />
+        </button>
+      </div>
+      {value !== null && (
+        <button
+          type="button"
+          onClick={() => onChange(null)}
+          className="mt-3 w-full text-center text-sm font-semibold text-primary"
+        >
+          Deixar o app estimar
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * As metas do dia: a calórica em destaque e a divisão dos macros numa barra
+ * proporcional às calorias que cada um fornece (proteína e carbo 4 kcal/g,
+ * gordura 9 kcal/g) — dá para ver de relance de onde vem a energia.
+ */
+function MetasResumo({
+  preview,
+  pesoKg,
+}: {
+  preview: NonNullable<ReturnType<typeof targetsFor>>;
+  pesoKg: number;
+}) {
+  const partes = [
+    { nome: "Proteína", g: preview.protein_g, kcal: preview.protein_g * 4, cor: MACRO_COLORS.protein },
+    { nome: "Carboidrato", g: preview.carbs_g, kcal: preview.carbs_g * 4, cor: MACRO_COLORS.carbs },
+    { nome: "Gordura", g: preview.fat_g, kcal: preview.fat_g * 9, cor: MACRO_COLORS.fat },
+  ];
+  const total = Math.max(1, partes.reduce((n, p) => n + p.kcal, 0));
+  return (
+    <>
+      <div className="rounded-[1.25rem] bg-primary p-5 text-primary-foreground">
+        <p className="text-xs font-bold uppercase tracking-[0.14em] opacity-75">Meta diária</p>
+        <p className="mt-1 flex items-baseline gap-1.5">
+          <span className="text-5xl font-extrabold leading-none tabular-nums">
+            {preview.kcal.toLocaleString("pt-BR")}
+          </span>
+          <span className="text-lg font-bold opacity-75">kcal</span>
+        </p>
+        <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+          <div className="rounded-xl bg-black/10 px-3 py-2">
+            <p className="text-[11px] font-bold uppercase opacity-75">Metabolismo basal</p>
+            <p className="font-extrabold tabular-nums">{preview.bmr.toLocaleString("pt-BR")} kcal</p>
+          </div>
+          <div className="rounded-xl bg-black/10 px-3 py-2">
+            <p className="text-[11px] font-bold uppercase opacity-75">Gasto diário</p>
+            <p className="font-extrabold tabular-nums">{preview.tdee.toLocaleString("pt-BR")} kcal</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-[1.25rem] bg-card p-4">
+        <p className="mb-3 font-bold">De onde vêm as calorias</p>
+        <div className="flex h-3 gap-1 overflow-hidden rounded-full">
+          {partes.map((p) => (
+            <span
+              key={p.nome}
+              className="h-full rounded-full"
+              style={{ width: `${(p.kcal / total) * 100}%`, background: p.cor }}
+            />
+          ))}
+        </div>
+        <ul className="mt-4 grid grid-cols-3 gap-2">
+          {partes.map((p) => (
+            <li key={p.nome}>
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                <span className="size-2 rounded-full" style={{ background: p.cor }} aria-hidden />
+                {p.nome}
+              </p>
+              <p className="mt-0.5 text-xl font-extrabold tabular-nums">{p.g} g</p>
+              <p className="text-[11px] text-muted-foreground tabular-nums">
+                {Math.round((p.kcal / total) * 100)}% das kcal
+              </p>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-4 border-t border-border pt-3 text-xs text-muted-foreground">
+          Fibra: <b className="text-foreground">{preview.fiber_g} g</b> · calculado com seu último
+          peso ({pesoKg} kg) pela equação de Mifflin-St Jeor, ajustada pela atividade e pelo
+          objetivo.
+        </p>
+      </div>
+    </>
   );
 }
 
@@ -658,55 +796,6 @@ function MissingDataNotice({
           <Link to="/body">Registrar peso</Link>
         </Button>
       )}
-    </div>
-  );
-}
-
-function Field({
-  label: fieldLabel,
-  htmlFor,
-  hint,
-  error,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  hint?: string;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label htmlFor={htmlFor}>{fieldLabel}</Label>
-      {children}
-      {error ? (
-        <p className="text-xs text-destructive">{error}</p>
-      ) : hint ? (
-        <p className="text-xs text-muted-foreground">{hint}</p>
-      ) : null}
-    </div>
-  );
-}
-
-function Stat({
-  label: statLabel,
-  value,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  highlight?: boolean;
-}) {
-  return (
-    <div
-      className={
-        highlight
-          ? "rounded-lg border border-primary/30 bg-primary-soft/50 p-3"
-          : "rounded-lg border border-border p-3"
-      }
-    >
-      <p className="text-xs uppercase tracking-wider text-muted-foreground">{statLabel}</p>
-      <p className="mt-1 text-lg font-bold tabular-nums">{value}</p>
     </div>
   );
 }

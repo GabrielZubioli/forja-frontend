@@ -97,10 +97,10 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <Card className="border border-dashed border-primary/35 bg-linear-to-b from-primary/10 to-card">
+    <Card className="border border-dashed border-primary/35 bg-card">
       <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
         {icon && (
-          <span className="animate-pop grid size-14 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/30">
+          <span className="animate-pop grid size-14 place-items-center rounded-2xl bg-primary text-primary-foreground">
             {icon}
           </span>
         )}

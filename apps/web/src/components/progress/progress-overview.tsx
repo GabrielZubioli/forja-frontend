@@ -247,9 +247,9 @@ export function ProgressOverview() {
       )}
 
       {!medida && (
-        <Card className="border border-dashed border-primary/35 bg-linear-to-b from-primary/10 to-card">
+        <Card className="border border-dashed border-primary/35 bg-card">
           <CardContent className="p-4 text-center">
-            <span className="mx-auto grid size-11 place-items-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/30">
+            <span className="mx-auto grid size-11 place-items-center rounded-xl bg-primary text-primary-foreground">
               <Ruler className="size-5" aria-hidden />
             </span>
             <p className="mt-2 text-sm font-medium">Registre suas medidas</p>
@@ -290,7 +290,7 @@ function StatCard({
       className={cn(
         "rounded-[1.25rem] p-3.5 animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards duration-500",
         destaque
-          ? "bg-[#01D798] text-[#020306] shadow-lg shadow-[#01D798]/25"
+          ? "bg-[#01D798] text-[#020306]"
           : "border border-primary/20 bg-card",
       )}
     >
@@ -372,7 +372,7 @@ function GoalCard({
           aria-valuemax={100}
         >
           <div
-            className="hf-cresce h-full rounded-full shadow-[0_0_10px_var(--primary)]"
+            className="hf-cresce h-full rounded-full"
             style={{ width: `${pct}%`, background: "var(--gradient-primary)" }}
           />
         </div>

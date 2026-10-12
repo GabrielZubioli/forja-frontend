@@ -107,13 +107,9 @@ function StatsPage() {
       <PageBody>
         {/* Herói: a semana atual contra a meta e as últimas 12 semanas. */}
         <section
-          className="relative overflow-hidden rounded-[1.75rem] border border-primary/30 bg-linear-to-br from-primary/25 via-card to-card p-5 animate-in fade-in zoom-in-95 duration-500"
+          className="relative overflow-hidden rounded-[1.75rem] border border-primary/30 bg-card p-5 animate-in fade-in zoom-in-95 duration-500"
           aria-label="Constância"
         >
-          <span
-            className="hf-halo pointer-events-none absolute -right-20 -top-20 size-56 rounded-full bg-primary/35 blur-3xl"
-            aria-hidden
-          />
           <div className="relative flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">
@@ -133,7 +129,7 @@ function StatsPage() {
                 </p>
               )}
             </div>
-            <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-[#01D798] px-3 py-1.5 text-sm font-extrabold text-[#020306] shadow-lg shadow-[#01D798]/30">
+            <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-[#01D798] px-3 py-1.5 text-sm font-extrabold text-[#020306]">
               <Flame className="size-4" aria-hidden />
               {rotina.isPending ? "…" : sequencia} {sequencia === 1 ? "semana" : "semanas"}
             </span>
@@ -147,7 +143,7 @@ function StatsPage() {
               aria-label="Meta da semana"
             >
               <div
-                className="hf-cresce h-full rounded-full bg-linear-to-r from-primary/70 to-primary shadow-[0_0_12px_var(--primary)]"
+                className="hf-cresce h-full rounded-full bg-primary"
                 style={{ width: `${Math.min(100, (estaSemana / meta) * 100)}%` }}
               />
             </div>
@@ -208,7 +204,7 @@ function Titulo({ children, id }: { children: ReactNode; id?: string }) {
   return (
     <h2 id={id} className="mb-3 mt-7 flex items-center gap-2 px-1 text-lg font-bold">
       <span
-        className="h-5 w-1.5 rounded-full bg-primary shadow-[0_0_10px_var(--primary)]"
+        className="h-5 w-1.5 rounded-full bg-primary"
         aria-hidden
       />
       {children}
@@ -236,7 +232,7 @@ function Numero({
       className={cn(
         "rounded-[1.25rem] p-3.5 animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards duration-500",
         solido
-          ? "bg-[#01D798] text-[#020306] shadow-lg shadow-[#01D798]/25"
+          ? "bg-[#01D798] text-[#020306]"
           : "border border-primary/20 bg-card",
       )}
       style={{ animationDelay: `${120 + indice * 80}ms` }}
@@ -396,7 +392,7 @@ function MusculosCard() {
                     </span>
                     <span className="mt-2.5 block h-1.5 overflow-hidden rounded-full bg-primary/10">
                       <span
-                        className="hf-cresce block h-full rounded-full bg-linear-to-r from-primary/60 to-primary"
+                        className="hf-cresce block h-full rounded-full bg-primary"
                         style={{
                           width: `${(r.e1rm / maxRecorde) * 100}%`,
                           animationDelay: `${150 + i * 40}ms`,
@@ -514,7 +510,7 @@ function Abas<T extends string | number>({
           className={cn(
             "flex-1 rounded-xl py-2.5 text-[15px] font-medium transition-all duration-300",
             value === o.value
-              ? "bg-primary font-bold text-primary-foreground shadow-md shadow-primary/30"
+              ? "bg-primary font-bold text-primary-foreground"
               : "text-muted-foreground hover:text-foreground",
           )}
         >

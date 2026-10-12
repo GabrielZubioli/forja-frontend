@@ -66,13 +66,9 @@ export default function WeightChart({
             visível através dele. Área sólida esconderia o eixo.
           */}
           <linearGradient id={gradiente} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.45} />
-            <stop offset="60%" stopColor="var(--chart-1)" stopOpacity={0.12} />
+            <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.2} />
             <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
           </linearGradient>
-          <filter id={`${gradiente}-glow`} x="-10%" y="-30%" width="120%" height="160%">
-            <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="var(--chart-1)" floodOpacity="0.55" />
-          </filter>
         </defs>
 
         <CartesianGrid {...CHART_GRID} />
@@ -128,7 +124,6 @@ export default function WeightChart({
           stroke="var(--chart-1)"
           strokeWidth={3}
           strokeLinecap="round"
-          filter={`url(#${gradiente}-glow)`}
           dot={false}
           activeDot={{ r: 7, strokeWidth: 3, stroke: "var(--card)", fill: "var(--chart-1)" }}
           animationDuration={1100}

@@ -1,16 +1,8 @@
 import { AlertTriangle, Languages, Lightbulb, ListOrdered } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { ExerciseMediaView } from "@/components/workouts/exercise-media-view";
-import { exerciseMedia } from "@/data/exercise-media";
-import {
-  EQUIPMENT_LABELS,
-  EXERCISE_LEVEL_LABELS,
-  MECHANIC_LABELS,
-  MUSCLE_LABELS,
-  label,
-} from "@/lib/labels";
+import { INJURY_OPTIONS } from "@/lib/onboarding/options";
+import { cn } from "@/lib/utils";
 
 /**
  * Como executar o exercício.
@@ -57,16 +49,6 @@ export type ExerciseHowToData = {
 };
 
 export function ExerciseHowTo({ exercise }: { exercise: ExerciseHowToData }) {
-  const media = exerciseMedia({
-    name: exercise.name,
-    imageUrls: exercise.image_urls,
-    externalId: exercise.external_id,
-    mediaId: exercise.media_id,
-    mediaRef: exercise.media_ref,
-    mediaSource: exercise.media_source,
-    videoUrl: exercise.video_url,
-  });
-
   /*
    * Ordem de preferência das instruções:
    *
@@ -88,130 +70,121 @@ export function ExerciseHowTo({ exercise }: { exercise: ExerciseHowToData }) {
   const emIngles = passos === passosEn && passosEn.length > 0;
   const mostrarTextoCorrido = passosPt.length === 0 && textoPt.length > 0;
 
-  const secundarios = exercise.secondary_muscles ?? [];
-
   return (
-    <Card>
-      <CardContent className="grid gap-5 p-4 sm:p-6 md:grid-cols-[minmax(0,18rem)_1fr]">
-        <div>
-          {/* `autoPlay` aqui e não na lista: esta é a tela de um exercício só,
-              e a animação é o conteúdo principal, não decoração. */}
-          <ExerciseMediaView media={media} name={exercise.name} autoPlay />
-        </div>
+    <div className="space-y-3">
+      {mostrarTextoCorrido && (
+        <Bloco titulo="Execução" icone={<ListOrdered className="size-4" aria-hidden />}>
+          <p className="whitespace-pre-line text-[15px] leading-relaxed">{textoPt}</p>
+        </Bloco>
+      )}
 
-        <div className="min-w-0 space-y-5">
-          <div className="flex flex-wrap gap-1.5">
-            <Badge variant="soft">{label(MUSCLE_LABELS, exercise.primary_muscle)}</Badge>
-            <Badge variant="outline">{label(EQUIPMENT_LABELS, exercise.equipment)}</Badge>
-            {exercise.mechanic && (
-              <Badge variant="outline">{label(MECHANIC_LABELS, exercise.mechanic)}</Badge>
-            )}
-            {exercise.level && (
-              <Badge variant="outline">{label(EXERCISE_LEVEL_LABELS, exercise.level)}</Badge>
-            )}
-          </div>
-
-          {secundarios.length > 0 && (
-            <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Músculos secundários
-              </h3>
-              <p className="mt-1 text-sm">
-                {secundarios.map((m) => label(MUSCLE_LABELS, m)).join(" · ")}
-              </p>
-            </div>
-          )}
-
-          {mostrarTextoCorrido && (
-            <section>
-              <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                <ListOrdered className="size-3.5" aria-hidden />
-                Execução
-              </h3>
-              <p className="mt-2 whitespace-pre-line text-sm leading-relaxed">{textoPt}</p>
-            </section>
-          )}
-
-          {passos.length > 0 && (
-            <section>
-              <h3 className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                <ListOrdered className="size-3.5" aria-hidden />
-                Passo a passo
-                {emIngles && (
-                  <Badge variant="warning" className="normal-case tracking-normal">
-                    <Languages aria-hidden />
-                    em inglês
-                  </Badge>
-                )}
-              </h3>
-
-              <ol className="mt-2 space-y-2">
-                {passos.map((passo, i) => (
-                  <li key={passo} className="flex gap-2.5 text-sm leading-relaxed">
-                    <span
-                      className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-primary-soft text-[11px] font-semibold text-primary-soft-foreground"
-                      aria-hidden
-                    >
-                      {i + 1}
-                    </span>
-                    <span lang={emIngles ? "en" : undefined}>{passo}</span>
-                  </li>
-                ))}
-              </ol>
-
-              {emIngles && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Este exercício veio de uma base sem versão em português. O texto original é
-                  exibido sem tradução automática — instrução de execução traduzida por máquina pode
-                  sair perigosa.
-                </p>
-              )}
-            </section>
-          )}
-
-          {exercise.cues && exercise.cues.length > 0 && (
-            <ListaComIcone
-              titulo="Dicas de execução"
-              icone={<Lightbulb className="size-3.5" aria-hidden />}
-              itens={exercise.cues}
-              tom="primary"
-            />
-          )}
-
-          {exercise.common_mistakes && exercise.common_mistakes.length > 0 && (
-            <ListaComIcone
-              titulo="Erros comuns"
-              icone={<AlertTriangle className="size-3.5" aria-hidden />}
-              itens={exercise.common_mistakes}
-              tom="warning"
-            />
-          )}
-
-          {exercise.contraindications && exercise.contraindications.length > 0 && (
-            <ListaComIcone
-              titulo="Cuidado se você tem"
-              icone={<AlertTriangle className="size-3.5" aria-hidden />}
-              itens={exercise.contraindications}
-              tom="destructive"
-            />
-          )}
-
-          {passos.length === 0 && !mostrarTextoCorrido && (
-            <p className="rounded-lg border border-dashed border-border p-3 text-sm text-muted-foreground">
-              Este exercício ainda não tem passo a passo cadastrado. A demonstração ao lado mostra o
-              movimento completo.
+      {passos.length > 0 && (
+        <Bloco
+          titulo="Passo a passo"
+          icone={<ListOrdered className="size-4" aria-hidden />}
+          extra={
+            emIngles ? (
+              <Badge variant="warning" className="normal-case tracking-normal">
+                <Languages aria-hidden />
+                em inglês
+              </Badge>
+            ) : null
+          }
+        >
+          {/* Linha vertical ligando os números: lê como sequência, não como lista solta. */}
+          <ol className="relative space-y-4">
+            <span className="absolute bottom-3 left-[13px] top-3 w-px bg-border" aria-hidden />
+            {passos.map((passo, i) => (
+              <li key={passo} className="relative flex gap-3.5 text-[15px] leading-relaxed">
+                <span
+                  className="grid size-7 shrink-0 place-items-center rounded-full bg-primary text-xs font-extrabold text-primary-foreground"
+                  aria-hidden
+                >
+                  {i + 1}
+                </span>
+                <span className="pt-0.5" lang={emIngles ? "en" : undefined}>
+                  {passo}
+                </span>
+              </li>
+            ))}
+          </ol>
+          {emIngles && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Sem versão em português na base de origem. O texto original é exibido sem tradução
+              automática — instrução de execução traduzida por máquina pode sair perigosa.
             </p>
           )}
-        </div>
-      </CardContent>
-    </Card>
+        </Bloco>
+      )}
+
+      {exercise.cues && exercise.cues.length > 0 && (
+        <ListaComIcone
+          titulo="Dicas de execução"
+          icone={<Lightbulb className="size-4" aria-hidden />}
+          itens={exercise.cues}
+          tom="primary"
+        />
+      )}
+
+      {exercise.common_mistakes && exercise.common_mistakes.length > 0 && (
+        <ListaComIcone
+          titulo="Erros comuns"
+          icone={<AlertTriangle className="size-4" aria-hidden />}
+          itens={exercise.common_mistakes}
+          tom="warning"
+        />
+      )}
+
+      {exercise.contraindications && exercise.contraindications.length > 0 && (
+        <ListaComIcone
+          titulo="Cuidado se você tem"
+          icone={<AlertTriangle className="size-4" aria-hidden />}
+          itens={exercise.contraindications.map(
+            (c) => INJURY_OPTIONS.find((o) => o.value === c)?.label ?? c,
+          )}
+          tom="destructive"
+        />
+      )}
+
+      {passos.length === 0 && !mostrarTextoCorrido && (
+        <p className="rounded-[1.25rem] border border-dashed border-border p-4 text-sm text-muted-foreground">
+          Este exercício ainda não tem passo a passo cadastrado. A demonstração acima mostra o
+          movimento completo.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function Bloco({
+  titulo,
+  icone,
+  extra,
+  children,
+  className,
+}: {
+  titulo: string;
+  icone: React.ReactNode;
+  extra?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={cn("rounded-[1.25rem] bg-card p-4", className)}>
+      <h3 className="mb-3 flex flex-wrap items-center gap-2 font-bold">
+        {icone}
+        {titulo}
+        {extra}
+      </h3>
+      {children}
+    </section>
   );
 }
 
 const TONS = {
-  primary: "bg-primary-soft text-primary-soft-foreground",
-  warning: "bg-warning-soft text-warning",
-  destructive: "bg-destructive-soft text-destructive",
+  primary: { titulo: "text-primary", borda: "border-l-primary" },
+  warning: { titulo: "text-warning", borda: "border-l-warning" },
+  destructive: { titulo: "text-destructive", borda: "border-l-destructive" },
 } as const;
 
 function ListaComIcone({
@@ -226,17 +199,15 @@ function ListaComIcone({
   tom: keyof typeof TONS;
 }) {
   return (
-    <section>
-      <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        <span className={`grid size-5 place-items-center rounded-full ${TONS[tom]}`} aria-hidden>
-          {icone}
-        </span>
+    <section className={cn("rounded-[1.25rem] border-l-4 bg-card p-4", TONS[tom].borda)}>
+      <h3 className={cn("mb-2 flex items-center gap-2 font-bold", TONS[tom].titulo)}>
+        {icone}
         {titulo}
       </h3>
-      <ul className="mt-2 space-y-1.5">
+      <ul className="space-y-1.5">
         {itens.map((item) => (
-          <li key={item} className="flex gap-2 text-sm leading-relaxed">
-            <span className="mt-2 size-1 shrink-0 rounded-full bg-muted-foreground" aria-hidden />
+          <li key={item} className="flex gap-2.5 text-[15px] leading-relaxed">
+            <span className="mt-2.5 size-1.5 shrink-0 rounded-full bg-muted-foreground" aria-hidden />
             {item}
           </li>
         ))}

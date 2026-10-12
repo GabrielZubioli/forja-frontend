@@ -38,6 +38,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ErrorState } from "@/components/query-boundary";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { NoRoutineCard } from "@/components/home/today-workout-card";
 import { ExercisePicker } from "@/components/pickers/exercise-picker";
 import { ExerciseDetailSheet } from "@/components/workouts/exercise-detail-sheet";
@@ -107,6 +108,14 @@ function PlanPage() {
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
+
+  // Começar um treino abre uma sessão: pergunta antes, para um toque sem querer
+  // na agenda não virar treino iniciado.
+  const [iniciar, setIniciar] = useState<{ templateId: string; nome: string } | null>(null);
+  const pedirInicio = (templateId: string) => {
+    const s = week.data?.splits.find((x) => x.templateId === templateId);
+    setIniciar({ templateId, nome: s ? splitDisplayName(s.name) : "este treino" });
+  };
 
   const salvar = useMutation({
     mutationFn: (acao: () => Promise<void>) => acao(),
@@ -206,7 +215,7 @@ function PlanPage() {
 
             <h2 className="mb-3 mt-5 flex items-center gap-2 px-1 text-lg font-bold">
               <span
-                className="h-5 w-1.5 rounded-full bg-primary shadow-[0_0_10px_var(--primary)]"
+                className="h-5 w-1.5 rounded-full bg-primary"
                 aria-hidden
               />
               Agenda da semana
@@ -228,7 +237,7 @@ function PlanPage() {
                         ),
                       )
                     }
-                    onStart={(templateId) => abrir.mutate(templateId)}
+                    onStart={pedirInicio}
                     isToday={dia === hoje}
                   />
                 </li>
@@ -283,7 +292,7 @@ function PlanPage() {
                       <Button
                         size="icon"
                         className="shrink-0 rounded-full"
-                        onClick={() => abrir.mutate(split.templateId)}
+                        onClick={() => pedirInicio(split.templateId)}
                         disabled={abrir.isPending || split.exercises.length === 0}
                         aria-label={`Começar ${splitDisplayName(split.name)}`}
                       >
@@ -389,6 +398,14 @@ function PlanPage() {
         )}
       </PageBody>
 
+      <ConfirmDialog
+        open={iniciar !== null}
+        onOpenChange={(o) => !o && setIniciar(null)}
+        title="Deseja iniciar esse treino?"
+        description={iniciar ? `${iniciar.nome} começa agora e o cronômetro passa a contar.` : undefined}
+        confirmLabel="Iniciar treino"
+        onConfirm={() => iniciar && abrir.mutate(iniciar.templateId)}
+      />
       <ExerciseDetailSheet
         exerciseId={detalhe}
         open={detalhe !== null}
@@ -442,7 +459,7 @@ function DiaFixo({
   const adicionar = (gatilho: ReactNode) => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>{gatilho}</DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
+      <DropdownMenuContent align={doDia.length === 0 ? "end" : "start"}>
         <DropdownMenuLabel>Rotina para {WEEKDAY_LABELS[dia].toLowerCase()}</DropdownMenuLabel>
         {outras.length === 0 ? (
           <DropdownMenuItem disabled>Todas as rotinas já estão neste dia</DropdownMenuItem>
@@ -487,16 +504,10 @@ function DiaFixo({
       className={cn(
         "relative overflow-hidden rounded-[1.25rem] p-5",
         isToday
-          ? "border-2 border-primary bg-linear-to-br from-primary/20 via-card to-card shadow-lg shadow-primary/15"
+          ? "border-2 border-primary bg-card"
           : "border border-primary/15 bg-card",
       )}
     >
-      {isToday && (
-        <span
-          className="hf-halo pointer-events-none absolute -right-12 -top-12 size-32 rounded-full bg-primary/30 blur-2xl"
-          aria-hidden
-        />
-      )}
       <div className="relative mb-2 flex items-baseline justify-between">
         <h3 className="text-xl font-bold">
           {WEEKDAY_LABELS[dia]}
@@ -634,7 +645,7 @@ function Segmented<T extends string>({
             "flex-1 rounded-xl font-medium transition-all duration-300",
             small ? "py-2 text-sm" : "py-3 text-base",
             value === o.value
-              ? "bg-primary font-bold text-primary-foreground shadow-md shadow-primary/30"
+              ? "bg-primary font-bold text-primary-foreground"
               : "text-muted-foreground hover:text-foreground",
           )}
         >

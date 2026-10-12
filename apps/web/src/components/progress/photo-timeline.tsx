@@ -44,7 +44,7 @@ export function PhotoTimeline({
       {/* A linha vertical liga as paradas. `aria-hidden` porque é desenho: a
           sequência já está na semântica da lista ordenada. */}
       <span
-        className="absolute inset-y-2 left-[7px] w-0.5 rounded-full bg-linear-to-b from-primary via-primary/40 to-primary/5"
+        className="absolute inset-y-2 left-[7px] w-0.5 rounded-full bg-border"
         aria-hidden
       />
 
@@ -67,7 +67,7 @@ export function PhotoTimeline({
               className={cn(
                 "absolute left-0 top-1.5 size-[15px] rounded-full border-2 border-background transition-all",
                 selecionada || i === 0
-                  ? "bg-primary shadow-[0_0_10px_var(--primary)]"
+                  ? "bg-primary"
                   : "bg-primary/40",
                 selecionada && "scale-125",
               )}
@@ -97,7 +97,7 @@ export function PhotoTimeline({
                 className={cn(
                   "press-feedback ml-auto rounded-full border px-3 py-1 text-xs font-bold cursor-pointer transition-colors",
                   selecionada
-                    ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/30"
+                    ? "border-primary bg-primary text-primary-foreground"
                     : "border-primary/40 text-primary hover:bg-primary/10",
                 )}
               >
@@ -115,7 +115,7 @@ export function PhotoTimeline({
                     key={foto.id}
                     className={cn(
                       "group relative overflow-hidden rounded-2xl border-2 transition-all duration-300",
-                      selecionada ? "border-primary shadow-lg shadow-primary/25" : "border-transparent",
+                      selecionada ? "border-primary" : "border-transparent",
                     )}
                   >
                     {url ? (
@@ -131,7 +131,7 @@ export function PhotoTimeline({
                       <Skeleton className="aspect-[3/4] w-full rounded-none" />
                     )}
 
-                    <figcaption className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-linear-to-t from-black/80 to-transparent px-2 pb-1.5 pt-6 text-[11px] font-semibold text-white">
+                    <figcaption className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-black/55 px-2 pb-1.5 pt-6 text-[11px] font-semibold text-white">
                       <span className="truncate rounded-full bg-[#01D798] px-2 py-0.5 text-[#020306]">{label(PHOTO_ANGLE_LABELS, foto.angle)}</span>
                       <ConfirmButton
                         aria-label={`Excluir foto: ${descricao}`}

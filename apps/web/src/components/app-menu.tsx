@@ -41,7 +41,7 @@ type Estilo = "solido" | "suave" | "contorno";
 
 const ESTILOS: Record<Estilo, { tile: string; icone: string; hint: string }> = {
   solido: {
-    tile: "bg-[#01D798] text-[#020306] shadow-lg shadow-[#01D798]/25",
+    tile: "bg-[#01D798] text-[#020306]",
     icone: "bg-[#020306]/12 text-[#020306]",
     hint: "text-[#020306]/70",
   },

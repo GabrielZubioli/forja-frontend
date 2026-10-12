@@ -85,7 +85,7 @@ export function ActivityHeatmap() {
                       ? "bg-primary/10"
                       : n === 1
                         ? "bg-primary/55"
-                        : "bg-primary shadow-[0_0_6px_var(--primary)]",
+                        : "bg-primary",
                   d === ate && "ring-2 ring-primary/60 ring-offset-1 ring-offset-card",
                   d === dia && "scale-125 ring-2 ring-foreground",
                 )}

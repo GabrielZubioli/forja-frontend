@@ -54,7 +54,7 @@ import {
 import { ErrorState } from "@/components/query-boundary";
 import { FoodPicker } from "@/components/pickers/food-picker";
 import { SubstituteFoodDialog } from "@/components/diet/substitute-food-dialog";
-import { CalorieRing, MACRO_COLORS, MacroRing } from "@/components/home/macro-rings";
+import { DaySummary } from "@/components/diet/day-summary";
 import { MEALS, MEAL_LABELS, label, type MealValue } from "@/lib/labels";
 import { fromISODate, toISODate, todayISO } from "@/lib/date";
 import { cn } from "@/lib/utils";
@@ -289,74 +289,21 @@ function DietPage() {
       />
 
       <PageBody>
-        <Card className="relative mb-4 overflow-hidden border border-primary/25 bg-linear-to-b from-primary/15 via-card to-card">
-          <span
-            className="hf-halo pointer-events-none absolute left-1/2 top-0 size-56 -translate-x-1/2 -translate-y-1/3 rounded-full bg-primary/25 blur-3xl"
-            aria-hidden
+        {entries.isPending || profile.isPending ? (
+          <Skeleton className="mb-4 h-[19rem] w-full rounded-[1.5rem]" />
+        ) : (
+          <DaySummary
+            consumido={totaisConsumidos}
+            planejado={totaisPlanejados}
+            metas={{
+              kcal: num(profile.data?.daily_kcal_target),
+              proteinG: num(profile.data?.protein_g_target),
+              carbsG: num(profile.data?.carbs_g_target),
+              fatG: num(profile.data?.fat_g_target),
+              fiberG: num(profile.data?.fiber_g_target),
+            }}
           />
-          <CardContent className="relative p-4">
-            {entries.isPending || profile.isPending ? (
-              <div className="flex flex-col items-center gap-5 sm:flex-row">
-                <Skeleton className="size-[148px] shrink-0 rounded-full" />
-                <div className="grid w-full grid-cols-4 gap-3">
-                  {[0, 1, 2, 3].map((i) => (
-                    <Skeleton key={i} className="h-24 rounded-xl" />
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="flex flex-col items-center gap-5 sm:flex-row sm:gap-6">
-                  <CalorieRing
-                    consumed={totaisConsumidos.kcal}
-                    target={num(profile.data?.daily_kcal_target)}
-                  />
-                  <div className="grid w-full grid-cols-4 gap-2 sm:gap-3">
-                    <MacroRing
-                      value={totaisConsumidos.proteinG}
-                      target={num(profile.data?.protein_g_target)}
-                      label="Proteína"
-                      unit="g"
-                      color={MACRO_COLORS.protein}
-                    />
-                    <MacroRing
-                      value={totaisConsumidos.carbsG}
-                      target={num(profile.data?.carbs_g_target)}
-                      label="Carbo"
-                      unit="g"
-                      color={MACRO_COLORS.carbs}
-                    />
-                    <MacroRing
-                      value={totaisConsumidos.fatG}
-                      target={num(profile.data?.fat_g_target)}
-                      label="Gordura"
-                      unit="g"
-                      color={MACRO_COLORS.fat}
-                      excessIsBad
-                    />
-                    <MacroRing
-                      value={totaisConsumidos.fiberG}
-                      target={num(profile.data?.fiber_g_target)}
-                      label="Fibra"
-                      unit="g"
-                      color={MACRO_COLORS.fiber}
-                    />
-                  </div>
-                </div>
-
-                {rows.length > 0 && totaisPlanejados.kcal - totaisConsumidos.kcal > 50 && (
-                  <p className="mt-4 border-t border-border pt-3 text-center text-xs text-muted-foreground">
-                    Planejado para o dia:{" "}
-                    <span className="font-medium tabular-nums text-foreground">
-                      {Math.round(totaisPlanejados.kcal).toLocaleString("pt-BR")} kcal
-                    </span>{" "}
-                    · P {Math.round(totaisPlanejados.proteinG)} g
-                  </p>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
+        )}
 
         {entries.isError ? (
           <ErrorState message={errorMessage(entries.error)} onRetry={entries.refetch} />
@@ -526,7 +473,7 @@ function MealCard({
     <Card
       className={cn(
         "border border-primary/15 transition-colors",
-        todosConsumidos && "border-primary/50 bg-primary/[0.06] shadow-lg shadow-primary/10",
+        todosConsumidos && "border-primary/50 bg-primary/[0.06]",
       )}
     >
       <CardContent className="p-4">

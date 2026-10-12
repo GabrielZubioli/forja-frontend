@@ -182,7 +182,7 @@ function WeightPanel() {
             antes de digitar o de hoje agora é a primeira coisa que ela vê.
           */}
           {ultimo && (
-            <div className="relative overflow-hidden rounded-2xl bg-[#01D798] p-4 text-[#020306] shadow-lg shadow-[#01D798]/25">
+            <div className="relative overflow-hidden rounded-2xl bg-[#01D798] p-4 text-[#020306]">
               <span className="absolute -right-6 -top-8 size-24 rounded-full bg-white/20" aria-hidden />
               <p className="relative text-xs font-bold uppercase tracking-wider text-[#020306]/70">
                 Último registro
@@ -234,7 +234,7 @@ function WeightPanel() {
         </CardContent>
       </Card>
 
-      <Card className="border border-primary/25 bg-linear-to-b from-primary/10 to-card lg:col-span-2">
+      <Card className="border border-primary/25 bg-card lg:col-span-2">
         <CardHeader className="flex-row items-baseline justify-between gap-2 space-y-0">
           <CardTitle className="text-base">Histórico — {HISTORY_DAYS} dias</CardTitle>
           {delta !== null && (
@@ -625,13 +625,9 @@ function PhotosPanel() {
   return (
     <div className="space-y-4">
       {/* Herói: quantas paradas a linha do tempo já tem e o atalho para a próxima. */}
-      <section className="relative overflow-hidden rounded-[1.75rem] border border-primary/30 bg-linear-to-br from-primary/25 via-card to-card p-5 animate-in fade-in zoom-in-95 duration-500">
-        <span
-          className="hf-halo pointer-events-none absolute -right-16 -top-16 size-48 rounded-full bg-primary/35 blur-3xl"
-          aria-hidden
-        />
+      <section className="relative overflow-hidden rounded-[1.75rem] border border-primary/30 bg-card p-5 animate-in fade-in zoom-in-95 duration-500">
         <div className="relative flex items-center gap-4">
-          <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-[#01D798] text-[#020306] shadow-lg shadow-[#01D798]/30">
+          <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-[#01D798] text-[#020306]">
             <Camera className="size-7" aria-hidden />
           </span>
           <div className="min-w-0">
@@ -657,7 +653,7 @@ function PhotosPanel() {
         <button
           type="button"
           onClick={() => setNovaAberta(true)}
-          className="relative mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#01D798] font-extrabold text-[#020306] shadow-lg shadow-[#01D798]/30 transition active:scale-[0.98]"
+          className="relative mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#01D798] font-extrabold text-[#020306] transition active:scale-[0.98]"
         >
           <Camera className="size-5" aria-hidden />
           Nova evolução
@@ -665,7 +661,7 @@ function PhotosPanel() {
       </section>
 
       {antes && depois && (
-        <Card className="border border-primary/40 shadow-lg shadow-primary/10 animate-in fade-in zoom-in-95 duration-300">
+        <Card className="border border-primary/40 animate-in fade-in zoom-in-95 duration-300">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">
               {formatShortDate(antes.date)} <span className="text-muted-foreground">vs.</span>{" "}

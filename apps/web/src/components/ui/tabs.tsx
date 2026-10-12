@@ -46,7 +46,7 @@ const TabsTrigger = React.forwardRef<
       "cursor-pointer press-feedback",
       "hover:text-foreground",
       "disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed",
-      "data-[state=active]:bg-primary data-[state=active]:font-bold data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:shadow-primary/30",
+      "data-[state=active]:bg-primary data-[state=active]:font-bold data-[state=active]:text-primary-foreground",
       "[&_svg]:size-4 [&_svg]:shrink-0",
       className,
     )}

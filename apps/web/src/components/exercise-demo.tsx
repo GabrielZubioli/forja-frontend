@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { videoSearchUrl } from "@/data/exercise-media";
 
 /** Só http(s) vira `href` — o banco valida o mesmo, mas nunca confie num lado só. */
-function isSafeUrl(url: string | null | undefined): url is string {
+export function isSafeUrl(url: string | null | undefined): url is string {
   return typeof url === "string" && /^https?:\/\//i.test(url);
 }
 
