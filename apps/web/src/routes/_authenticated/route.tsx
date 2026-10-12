@@ -33,6 +33,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { ThemeSwitch } from "@/components/theme-switch";
 import { AppMenu } from "@/components/app-menu";
+import { AppTour } from "@/components/app-tour";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { CommandPalette, CommandPaletteTrigger } from "@/components/command-palette";
 import { CoachIcon } from "@/components/coach/coach-icon";
 import { cn } from "@/lib/utils";
@@ -80,6 +82,7 @@ const SECONDARY_NAV = [
 ] as const;
 
 function AuthLayout() {
+  const user = useCurrentUser();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -256,6 +259,7 @@ function AuthLayout() {
                     to={sessao ? "/workouts/session/$id" : "/train"}
                     params={sessao ? { id: sessao.id } : undefined}
                     onClick={aoTocarTreinar}
+                    data-tour="nav-treinar"
                     aria-label={
                       naSessao ? "Terminar treino" : emTreino ? "Voltar ao treino" : "Treinar"
                     }
@@ -275,6 +279,7 @@ function AuthLayout() {
               <li key={item.to}>
                 <Link
                   to={item.to}
+                  data-tour={`nav${item.to}`}
                   aria-current={active ? "page" : undefined}
                   className={cn(
                     "flex min-h-[3.75rem] flex-col items-center justify-center gap-1 px-1 py-2 text-[12px] transition-colors",
@@ -305,6 +310,7 @@ function AuthLayout() {
         </ul>
       </nav>
 
+      <AppTour userId={user.id} createdAt={user.created_at} />
       <AppMenu
         open={menuAberto}
         onOpenChange={setMenuAberto}

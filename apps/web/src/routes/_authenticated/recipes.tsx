@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, Clock, Copy, Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { BookOpen, Clock, Copy, Loader2, Pencil, Plus, Search, Trash2, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { queryKeys } from "@/data/query-keys";
@@ -184,7 +184,11 @@ function RecipesPage() {
             aria-label="Buscar receita"
           />
         </div>
-        <div className="mt-3 flex flex-wrap gap-1.5" role="radiogroup" aria-label="Categoria">
+        <div
+          className="-mx-4 mt-3 flex gap-1.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none]"
+          role="radiogroup"
+          aria-label="Categoria"
+        >
           {[
             { key: null, label: "Todas" },
             ...RECIPE_CATEGORIES.map((c) => ({ key: c.key, label: `${c.emoji} ${c.label}` })),
@@ -197,7 +201,7 @@ function RecipesPage() {
               aria-checked={categoria === c.key}
               onClick={() => setCategoria(c.key)}
               className={cn(
-                "rounded-full px-3.5 py-2 text-sm font-medium transition-colors",
+                "shrink-0 rounded-full px-3.5 py-2 text-sm font-semibold transition-colors",
                 categoria === c.key
                   ? "bg-primary text-primary-foreground"
                   : "bg-card text-muted-foreground hover:text-foreground",
@@ -257,28 +261,49 @@ function RecipesPage() {
               </section>
             )}
 
+            {/* Sem filtro: um destaque e cada categoria numa fileira que rola de lado. */}
+            {!busca.trim() && !categoria && prontas.length > 0 && (
+              <section className="mt-6" aria-label="Mais proteína">
+                <Titulo icone={<Zap className="size-4" />} texto="Mais proteína por caloria" />
+                <Fileira>
+                  {[...prontas]
+                    .sort(
+                      (x, y) =>
+                        y.perServing.proteinG / Math.max(1, y.perServing.kcal) -
+                        x.perServing.proteinG / Math.max(1, x.perServing.kcal),
+                    )
+                    .slice(0, 8)
+                    .map((r) => (
+                      <CartaoReceita key={r.id} r={r} onOpen={() => setAberta(r)} grande />
+                    ))}
+                </Fileira>
+              </section>
+            )}
+
             {RECIPE_CATEGORIES.map((c) => {
               const daCategoria = prontas.filter((r) => r.category === c.key);
               if (daCategoria.length === 0) return null;
+              const emGrade = Boolean(busca.trim() || categoria);
               return (
-                <section key={c.key} className="mt-8" aria-label={c.label}>
-                  <h2 className="mb-3 px-1 text-lg font-semibold">
-                    {c.emoji} {c.label}
-                  </h2>
-                  <ul className="grid gap-2 sm:grid-cols-2">
-                    {daCategoria.map((r) => (
-                      <li key={r.id}>
-                        <button
-                          type="button"
-                          onClick={() => setAberta(r)}
-                          className="flex w-full items-center gap-3 rounded-[1.25rem] bg-card p-3 text-left transition-colors hover:bg-elevated"
-                        >
-                          <Emoji categoria={r.category} />
-                          <Linha r={r} />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+                <section key={c.key} className="mt-7" aria-label={c.label}>
+                  <Titulo
+                    icone={<span aria-hidden>{c.emoji}</span>}
+                    texto={c.label}
+                    contador={daCategoria.length}
+                  />
+                  {emGrade ? (
+                    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+                      {daCategoria.map((r) => (
+                        <CartaoReceita key={r.id} r={r} onOpen={() => setAberta(r)} />
+                      ))}
+                    </div>
+                  ) : (
+                    <Fileira>
+                      {daCategoria.map((r) => (
+                        <CartaoReceita key={r.id} r={r} onOpen={() => setAberta(r)} />
+                      ))}
+                    </Fileira>
+                  )}
                 </section>
               );
             })}
@@ -394,5 +419,90 @@ function Linha({ r }: { r: RecipeSummary }) {
         {r.prepMinutes ? ` · ${r.prepMinutes} min` : ""}
       </span>
     </span>
+  );
+}
+
+/** Tom de fundo de cada categoria: identifica a fileira sem depender de foto. */
+const TOM: Record<string, string> = {
+  vitaminas: "var(--chart-5)",
+  "cafe-da-manha": "var(--chart-4)",
+  sanduiches: "var(--chart-2)",
+  pratos: "var(--chart-1)",
+  saladas: "var(--chart-1)",
+  lanches: "var(--chart-4)",
+  "bolos-e-doces": "var(--chart-5)",
+};
+
+function Titulo({
+  icone,
+  texto,
+  contador,
+}: {
+  icone: React.ReactNode;
+  texto: string;
+  contador?: number;
+}) {
+  return (
+    <h2 className="mb-3 flex items-center gap-2 px-1 text-lg font-bold">
+      <span className="text-primary">{icone}</span>
+      {texto}
+      {contador ? (
+        <span className="ml-auto text-sm font-medium text-muted-foreground">{contador}</span>
+      ) : null}
+    </h2>
+  );
+}
+
+function Fileira({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="-mx-4 flex snap-x snap-mandatory gap-2.5 overflow-x-auto scroll-px-4 px-4 pb-1 [scrollbar-width:none]">
+      {children}
+    </div>
+  );
+}
+
+function CartaoReceita({
+  r,
+  onOpen,
+  grande = false,
+}: {
+  r: RecipeSummary;
+  onOpen: () => void;
+  grande?: boolean;
+}) {
+  const tom = TOM[r.category ?? ""] ?? "var(--chart-1)";
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={cn(
+        "flex shrink-0 snap-start flex-col overflow-hidden rounded-[1.25rem] bg-card text-left transition-transform active:scale-[0.98]",
+        grande ? "w-48" : "w-40 min-w-0 [.grid_&]:w-auto",
+      )}
+    >
+      <span
+        className={cn("grid w-full place-items-center", grande ? "h-28 text-6xl" : "h-24 text-5xl")}
+        style={{ background: `color-mix(in oklch, ${tom} 18%, transparent)` }}
+        aria-hidden
+      >
+        {recipeCategoryOf(r.category)?.emoji ?? "🍽️"}
+      </span>
+      <span className="flex flex-1 flex-col p-3">
+        <span className="line-clamp-2 min-h-[2.5rem] break-words text-sm font-bold leading-tight">
+          {r.name}
+        </span>
+        <span className="mt-2 flex flex-wrap gap-1 text-[11px] font-semibold tabular-nums">
+          <span className="rounded-full bg-elevated px-2 py-0.5">{kcal(r.perServing.kcal)} kcal</span>
+          <span className="rounded-full bg-primary/12 px-2 py-0.5 text-primary">
+            {Math.round(r.perServing.proteinG)} g P
+          </span>
+          {r.prepMinutes ? (
+            <span className="rounded-full bg-elevated px-2 py-0.5 text-muted-foreground">
+              {r.prepMinutes} min
+            </span>
+          ) : null}
+        </span>
+      </span>
+    </button>
   );
 }

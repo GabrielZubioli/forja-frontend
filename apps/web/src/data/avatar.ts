@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { toWebp } from "@/lib/to-webp";
 
 /**
  * Foto de perfil.
@@ -62,10 +63,12 @@ export async function resolveAvatarUrl(stored: string | null | undefined): Promi
  * substitui o anterior em vez de acumular arquivos órfãos no bucket. O primeiro
  * segmento **precisa** ser o uid — é o que a policy de Storage verifica.
  */
-export async function uploadAvatar(userId: string, file: File): Promise<string> {
-  if (!ACCEPTED_AVATAR_TYPES.includes(file.type)) {
+export async function uploadAvatar(userId: string, original: File): Promise<string> {
+  if (!ACCEPTED_AVATAR_TYPES.includes(original.type)) {
     throw new Error("Formato não suportado. Envie JPG, PNG, WEBP ou HEIC.");
   }
+  // Avatar aparece pequeno: 512 px bastam.
+  const file = await toWebp(original, 512);
   if (file.size > MAX_AVATAR_BYTES) {
     throw new Error(`Imagem muito grande (máx. ${MAX_AVATAR_BYTES / 1024 / 1024} MB).`);
   }

@@ -137,12 +137,15 @@ export function CalorieRing({
   consumed,
   target,
   size = 148,
+  compacto = false,
 }: {
   consumed: number;
   target: number;
   size?: number;
+  /** Versão pequena (Início): só o restante no centro. */
+  compacto?: boolean;
 }) {
-  const stroke = 12;
+  const stroke = compacto ? 9 : 12;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
 
@@ -182,16 +185,17 @@ export function CalorieRing({
       <div className="absolute inset-0 grid place-content-center text-center">
         <p
           className={cn(
-            "text-3xl font-bold tabular-nums leading-none tracking-tight",
+            compacto ? "text-lg" : "text-3xl",
+            "font-bold tabular-nums leading-none tracking-tight",
             excedeu && "text-destructive",
           )}
         >
           {Math.abs(restante).toLocaleString("pt-BR")}
         </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {restante >= 0 ? "kcal restantes" : "kcal acima"}
+        <p className={cn("mt-1 text-muted-foreground", compacto ? "text-[9px]" : "text-xs")}>
+          {restante >= 0 ? (compacto ? "restantes" : "kcal restantes") : "kcal acima"}
         </p>
-        <p className="mt-1.5 text-[11px] tabular-nums text-muted-foreground">
+        <p className={cn("mt-1.5 text-[11px] tabular-nums text-muted-foreground", compacto && "hidden")}>
           {Math.round(consumed).toLocaleString("pt-BR")} /{" "}
           {Math.round(target).toLocaleString("pt-BR")}
         </p>

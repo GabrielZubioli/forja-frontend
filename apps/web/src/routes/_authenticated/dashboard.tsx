@@ -7,6 +7,8 @@ import {
   ArrowDown,
   ArrowUp,
   CalendarDays,
+  Check,
+  Play,
   ChevronLeft,
   ChevronRight,
   Dumbbell,
@@ -44,6 +46,7 @@ import { CoachIcon } from "@/components/coach/coach-icon";
 import { NoRoutineCard } from "@/components/home/today-workout-card";
 import { WaterCard } from "@/components/home/water-card";
 import { CoachTips } from "@/components/coach/coach-tips";
+import { CalorieRing, MACRO_COLORS } from "@/components/home/macro-rings";
 import { LazyWeightChart } from "@/components/charts/lazy-chart";
 import { formatDate, formatLongDate, fromISODate, toISODate, todayISO } from "@/lib/date";
 import { cn } from "@/lib/utils";
@@ -84,6 +87,11 @@ const INICIAIS: Record<Weekday, string> = {
   6: "SÁB",
 };
 
+function saudacao(): string {
+  const h = new Date().getHours();
+  return h < 5 ? "Boa noite" : h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+}
+
 function Home() {
   const today = todayISO();
 
@@ -92,6 +100,7 @@ function Home() {
     queryFn: async () =>
       unwrapMaybe("carregar perfil", await supabase.from("profiles").select("*").maybeSingle()),
   });
+  const primeiroNome = profile.data?.display_name?.trim().split(/\s+/)[0];
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 pb-8 pt-6 md:px-8 md:pt-8">
@@ -99,33 +108,39 @@ function Home() {
         <h1>
           <BrandLogo className="h-12 justify-center" />
         </h1>
-        <p className="mt-2 text-lg text-muted-foreground first-letter:uppercase">
+        <p className="mt-4 text-2xl font-extrabold">
+          {saudacao()}
+          {primeiroNome ? `, ${primeiroNome}` : ""}
+        </p>
+        <p className="text-muted-foreground first-letter:uppercase">
           {formatLongDate(today).toLowerCase()}
         </p>
       </header>
 
-      <div className="space-y-4">
-        <SequenciaCard />
+      <div className="space-y-3">
         <SemanaCard />
-        <PesoCard />
+        <SequenciaCard />
         <DietaCard
           kcalTarget={num(profile.data?.daily_kcal_target)}
           proteinTarget={num(profile.data?.protein_g_target)}
           loadingProfile={profile.isPending}
         />
         <WaterCard date={today} targetMl={num(profile.data?.water_ml_target, 2500)} />
+        <PesoCard />
         <Link
           to="/coach"
-          className="flex items-center gap-4 rounded-[1.5rem] bg-card p-5 transition-colors hover:bg-elevated"
+          className="flex items-center gap-3.5 rounded-[1.5rem] border border-border p-4 transition-colors hover:bg-card"
         >
-          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-info text-info-foreground">
-            <CoachIcon className="size-6" aria-hidden />
+          <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-primary/12 text-primary">
+            <CoachIcon className="size-5" aria-hidden />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-xl">Treinador</span>
-            <span className="block text-muted-foreground">Pergunte sobre seu treino e dieta</span>
+            <span className="block font-bold">Pergunte ao Treinador</span>
+            <span className="block text-sm text-muted-foreground">
+              Treino de hoje, calorias, recordes e mais
+            </span>
           </span>
-          <ChevronRight className="size-5 shrink-0" aria-hidden />
+          <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden />
         </Link>
         <CoachTips limit={1} />
       </div>
@@ -200,96 +215,125 @@ function SemanaCard() {
           ? "Próxima semana"
           : `${formatDate(dias[0]!, "d MMM")} – ${formatDate(dias[6]!, "d MMM")}`;
 
+  const nomeHoje = template?.name.replace(/^[A-Z]\s*—\s*/, "") ?? "";
+  const treinoHoje = isPlannedDay && template && !alreadyDone;
+
   return (
-    <section className="rounded-[1.5rem] bg-card p-5" aria-label="Semana de treino">
-      <div className="mb-4 flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => setOffset((o) => o - 1)}
-          aria-label="Semana anterior"
-          className="grid size-9 place-items-center rounded-full hover:bg-elevated"
-        >
-          <ChevronLeft className="size-5" />
-        </button>
-        <p className="text-lg text-muted-foreground">{titulo}</p>
-        <button
-          type="button"
-          onClick={() => setOffset((o) => o + 1)}
-          aria-label="Próxima semana"
-          className="grid size-9 place-items-center rounded-full hover:bg-elevated"
-        >
-          <ChevronRight className="size-5" />
-        </button>
+    <section className="overflow-hidden rounded-[1.75rem] bg-card" aria-label="Semana de treino">
+      <div className="p-5 pb-4">
+        <div className="mb-4 flex items-center justify-between">
+          <p className="font-bold">{titulo}</p>
+          <div className="flex gap-1">
+            <button
+              type="button"
+              onClick={() => setOffset((o) => o - 1)}
+              aria-label="Semana anterior"
+              className="grid size-8 place-items-center rounded-full bg-elevated hover:bg-muted"
+            >
+              <ChevronLeft className="size-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setOffset((o) => o + 1)}
+              aria-label="Próxima semana"
+              className="grid size-8 place-items-center rounded-full bg-elevated hover:bg-muted"
+            >
+              <ChevronRight className="size-4" />
+            </button>
+          </div>
+        </div>
+
+        <ol className="grid grid-cols-7 gap-1 text-center">
+          {dias.map((dia, i) => {
+            const p = projecao[i]!;
+            const eHoje = dia === today;
+            const treinou = treinados.has(dia);
+            const planejado = !treinou && p.splitIndex !== null && dia >= today;
+            return (
+              <li key={dia} className="flex flex-col items-center gap-1.5">
+                <span
+                  className={cn(
+                    "text-[11px] font-bold",
+                    eHoje ? "text-primary" : "text-muted-foreground",
+                  )}
+                >
+                  {INICIAIS[weekdayOf(dia)]}
+                </span>
+                <span
+                  className={cn(
+                    "grid size-10 place-items-center rounded-full text-base font-bold tabular-nums",
+                    treinou
+                      ? "bg-primary text-primary-foreground"
+                      : eHoje
+                        ? "border-2 border-primary text-primary"
+                        : planejado
+                          ? "border-2 border-dashed border-muted-foreground/35"
+                          : "text-muted-foreground",
+                  )}
+                  aria-current={eHoje ? "date" : undefined}
+                  aria-label={`${Number(dia.slice(8))}${treinou ? ", treinou" : planejado ? ", treino previsto" : ""}`}
+                >
+                  {treinou ? <Check className="size-4" strokeWidth={3} /> : Number(dia.slice(8))}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
       </div>
 
-      <ol className="grid grid-cols-7 text-center">
-        {dias.map((dia, i) => {
-          const p = projecao[i]!;
-          const eHoje = dia === today;
-          const treinou = treinados.has(dia);
-          const planejado = !treinou && p.splitIndex !== null && dia >= today;
-          return (
-            <li key={dia} className="flex flex-col items-center gap-1">
-              <span className="text-sm text-muted-foreground">{INICIAIS[weekdayOf(dia)]}</span>
-              <span
-                className={cn(
-                  "grid size-11 place-items-center rounded-full text-xl tabular-nums",
-                  eHoje && "bg-primary font-extrabold text-primary-foreground",
-                )}
-                aria-current={eHoje ? "date" : undefined}
-              >
-                {Number(dia.slice(8))}
-              </span>
-              <span
-                className={cn(
-                  "size-1.5 rounded-full",
-                  treinou ? "bg-primary" : planejado ? "bg-warning" : "bg-transparent",
-                )}
-                aria-label={treinou ? "treinou" : planejado ? "treino previsto" : undefined}
-              />
-            </li>
-          );
-        })}
-      </ol>
-
-      <div className="mt-4 flex items-center gap-4 rounded-2xl bg-elevated p-4">
-        <span
-          className={cn(
-            "grid size-12 shrink-0 place-items-center rounded-xl",
-            isPlannedDay && !alreadyDone
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-muted-foreground",
-          )}
-        >
-          {isPlannedDay ? (
-            <Dumbbell className="size-6" aria-hidden />
-          ) : (
-            <Moon className="size-6" aria-hidden />
-          )}
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm uppercase tracking-wide text-muted-foreground">Hoje</p>
-          <p className="truncate text-xl">
-            {alreadyDone
-              ? "Treino concluído"
-              : isPlannedDay && template
-                ? template.name.replace(/^[A-Z]\s*—\s*/, "")
-                : proximo
-                  ? `Descanso · ${WEEKDAY_LABELS[proximo.weekday].toLowerCase()} tem treino`
-                  : "Descanso"}
+      {treinoHoje ? (
+        <div className="bg-primary p-5 text-primary-foreground">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] opacity-75">Treino de hoje</p>
+          <p className="mt-1 truncate text-2xl font-extrabold">{nomeHoje}</p>
+          <p className="text-sm font-medium opacity-75">
+            {template.exerciseCount} {template.exerciseCount === 1 ? "exercício" : "exercícios"}
           </p>
-        </div>
-        {template && !alreadyDone && (
           <button
             type="button"
             onClick={() => comecar.mutate(template.id)}
             disabled={comecar.isPending}
-            className="shrink-0 rounded-xl bg-primary-soft px-4 py-2 text-lg font-medium text-primary-soft-foreground disabled:opacity-60"
+            className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#020306] font-bold text-white transition active:scale-[0.98] disabled:opacity-60"
           >
-            {isPlannedDay ? "Começar" : "Treinar"}
+            <Play className="size-4 fill-current" aria-hidden />
+            Começar treino
           </button>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3.5 border-t border-border/60 p-5">
+          <span
+            className={cn(
+              "grid size-11 shrink-0 place-items-center rounded-2xl",
+              alreadyDone ? "bg-primary text-primary-foreground" : "bg-elevated text-muted-foreground",
+            )}
+          >
+            {alreadyDone ? (
+              <Check className="size-5" strokeWidth={3} aria-hidden />
+            ) : (
+              <Moon className="size-5" aria-hidden />
+            )}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-bold">{alreadyDone ? "Treino de hoje feito" : "Dia de descanso"}</p>
+            <p className="truncate text-sm text-muted-foreground">
+              {alreadyDone
+                ? "Bom trabalho — recuperação também conta."
+                : proximo
+                  ? `Próximo treino: ${WEEKDAY_LABELS[proximo.weekday].toLowerCase()}`
+                  : "Aproveite para recuperar."}
+            </p>
+          </div>
+          {template && !alreadyDone && (
+            <button
+              type="button"
+              onClick={() => comecar.mutate(template.id)}
+              disabled={comecar.isPending}
+              className="shrink-0 rounded-full border border-border px-3.5 py-2 text-sm font-semibold disabled:opacity-60"
+            >
+              Treinar
+            </button>
+          )}
+        </div>
+      )}
     </section>
   );
 }
@@ -333,41 +377,56 @@ function DietaCard({
   const pendentes = (diario.data ?? []).filter((e) => !e.consumed).length;
   const pct = kcalTarget > 0 ? Math.min(100, (totais.kcal / kcalTarget) * 100) : 0;
 
+  const pctProteina = proteinTarget > 0 ? Math.min(100, (totais.proteinG / proteinTarget) * 100) : 0;
+  const restante = Math.round(kcalTarget - totais.kcal);
+
   return (
     <Link
       to="/diet"
-      className="block rounded-[1.5rem] bg-card p-5 transition-colors hover:bg-elevated"
+      className="flex items-center gap-4 rounded-[1.5rem] bg-card p-4 transition-colors hover:bg-elevated"
       aria-label="Abrir a dieta de hoje"
     >
-      <div className="flex items-center gap-4">
-        <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-warning text-warning-foreground">
-          <Utensils className="size-6" aria-hidden />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-lg text-muted-foreground">Dieta de hoje</p>
-          {diario.isPending || loadingProfile ? (
-            <Skeleton className="mt-1 h-7 w-40" />
-          ) : (
-            <p className="text-2xl font-bold tabular-nums">
-              {Math.round(totais.kcal).toLocaleString("pt-BR")}
-              <span className="text-base font-normal text-muted-foreground">
-                {" "}
-                / {Math.round(kcalTarget).toLocaleString("pt-BR")} kcal
-              </span>
-            </p>
-          )}
+      {diario.isPending || loadingProfile ? (
+        <Skeleton className="size-[88px] shrink-0 rounded-full" />
+      ) : (
+        <div className="w-[88px] shrink-0">
+          <CalorieRing consumed={totais.kcal} target={kcalTarget} size={88} compacto />
         </div>
-        <ChevronRight className="size-5 shrink-0" aria-hidden />
-      </div>
-      <div className="mt-4 h-2 overflow-hidden rounded-full bg-elevated" aria-hidden>
-        <div className="h-full rounded-full bg-warning" style={{ width: `${pct}%` }} />
-      </div>
-      {!diario.isPending && (
-        <p className="mt-3 text-muted-foreground">
-          Proteína {Math.round(totais.proteinG)}/{Math.round(proteinTarget)} g
-          {pendentes > 0 && ` · ${pendentes} ${pendentes === 1 ? "item" : "itens"} a marcar`}
-        </p>
       )}
+      <div className="min-w-0 flex-1">
+        <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
+          <Utensils className="size-3.5" aria-hidden />
+          Dieta de hoje
+        </p>
+        <p className="mt-1 text-lg font-extrabold tabular-nums">
+          {Math.round(totais.kcal).toLocaleString("pt-BR")}
+          <span className="text-sm font-medium text-muted-foreground">
+            {" "}
+            / {Math.round(kcalTarget).toLocaleString("pt-BR")} kcal
+          </span>
+        </p>
+        <div className="mt-2">
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Proteína</span>
+            <span className="tabular-nums">
+              {Math.round(totais.proteinG)}/{Math.round(proteinTarget)} g
+            </span>
+          </div>
+          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
+            <div
+              className="h-full rounded-full transition-[width] duration-700"
+              style={{ width: `${pctProteina}%`, background: MACRO_COLORS.protein }}
+            />
+          </div>
+        </div>
+        {!diario.isPending && pendentes > 0 && (
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            {restante > 0 ? `Faltam ${restante.toLocaleString("pt-BR")} kcal · ` : ""}
+            {pendentes} {pendentes === 1 ? "item" : "itens"} a marcar
+          </p>
+        )}
+      </div>
+      <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden />
     </Link>
   );
 }
@@ -484,24 +543,45 @@ function SequenciaCard() {
   const semanas = weeklyStreak(datas, meta, today);
   const nestaSemana = datas.filter((d) => d >= weekStart(today)).length;
 
+  const tiles = [
+    {
+      icone: Flame,
+      valor: semanas,
+      rotulo: semanas === 1 ? "semana seguida" : "semanas seguidas",
+      destaque: true,
+    },
+    { icone: CalendarDays, valor: `${nestaSemana}/${meta}`, rotulo: "esta semana", destaque: false },
+    { icone: Dumbbell, valor: contagem.data?.total ?? "–", rotulo: "treinos no total", destaque: false },
+  ];
+
   return (
     <Link
       to="/workouts/calendar"
-      className="relative flex items-center gap-4 overflow-hidden rounded-[1.5rem] border border-primary/30 bg-card p-5 transition-colors"
+      className="grid grid-cols-3 gap-2.5"
+      aria-label="Ver calendário de treinos"
     >
-      <span className="relative grid size-12 shrink-0 place-items-center rounded-2xl bg-[#01D798] text-[#020306]">
-        <Flame className="size-6" aria-hidden />
-      </span>
-      <span className="relative min-w-0 flex-1">
-        <span className="block text-3xl font-extrabold">
-          {semanas} {semanas === 1 ? "semana seguida" : "semanas seguidas"}
+      {tiles.map((t) => (
+        <span
+          key={t.rotulo}
+          className={cn(
+            "rounded-[1.25rem] p-3.5",
+            t.destaque ? "bg-primary text-primary-foreground" : "bg-card",
+          )}
+        >
+          <t.icone className={cn("size-4", t.destaque ? "opacity-80" : "text-primary")} aria-hidden />
+          <span className="mt-2 block text-2xl font-extrabold leading-none tabular-nums">
+            {t.valor}
+          </span>
+          <span
+            className={cn(
+              "mt-1 block text-[11px] font-medium leading-tight",
+              t.destaque ? "opacity-75" : "text-muted-foreground",
+            )}
+          >
+            {t.rotulo}
+          </span>
         </span>
-        <span className="block text-lg text-muted-foreground">
-          {nestaSemana} / {meta} esta semana
-          {contagem.data && ` · ${contagem.data.total} treinos no total`}
-        </span>
-      </span>
-      <CalendarDays className="relative size-6 shrink-0 text-primary" aria-label="Ver calendário" />
+      ))}
     </Link>
   );
 }

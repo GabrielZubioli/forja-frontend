@@ -28,6 +28,7 @@ import {
 import { PhotoCapture } from "@/components/progress/photo-capture";
 import { PHOTO_ANGLE_OPTIONS, type PhotoAngleValue } from "@/lib/labels";
 import { todayISO } from "@/lib/date";
+import { toWebp } from "@/lib/to-webp";
 import { cn } from "@/lib/utils";
 
 /**
@@ -134,11 +135,12 @@ export function NewProgressDialog({
       try {
         for (const captura of capturas) {
           validatePhotoFile(captura.file);
-          const path = photoStoragePath(userId, captura.angle, captura.file.name);
+          const arquivo = await toWebp(captura.file);
+          const path = photoStoragePath(userId, captura.angle, arquivo.name);
 
           const { error } = await supabase.storage
             .from(PHOTOS_BUCKET)
-            .upload(path, captura.file, { upsert: false, contentType: captura.file.type });
+            .upload(path, arquivo, { upsert: false, contentType: arquivo.type });
           if (error) throw new Error(error.message);
           enviados.push(path);
 

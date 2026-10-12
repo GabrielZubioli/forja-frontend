@@ -17,6 +17,8 @@ export function RestTimerBar({ timer }: { timer: RestTimer }) {
   const ss = String(timer.remaining % 60).padStart(2, "0");
 
   const fracao = timer.total > 0 ? timer.remaining / timer.total : 0;
+  const botaoPequeno =
+    "grid size-9 shrink-0 place-items-center rounded-full bg-(--t-raised) text-(--t-on) transition active:scale-90";
   const botao =
     "grid size-11 shrink-0 place-items-center rounded-full text-(--t-on-soft) transition hover:bg-(--t-raised) hover:text-(--t-on) active:scale-90";
 
@@ -37,54 +39,62 @@ export function RestTimerBar({ timer }: { timer: RestTimer }) {
             style={{ width: `${fracao * 100}%` }}
           />
         </div>
-        <div className="flex items-center gap-1 p-2">
-          <button
-            type="button"
-            className={botao}
-            onClick={() => timer.adjust(-15)}
-            aria-label="Menos 15 segundos"
-          >
-            <Minus className="size-5" />
-          </button>
-          <div className="flex-1 text-center">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-(--t-on-soft)">
-              Descanso
-            </p>
-            <p
-              className="text-[1.75rem] font-extrabold leading-none tabular-nums text-(--t-accent)"
-              aria-live="off"
+        {/*
+          Tempo e ajuste à esquerda, som e pular à direita: o meio fica livre
+          para o recorte do botão Treinar, que sobe sobre a barra.
+        */}
+        <div className="flex items-center justify-between gap-2 p-2">
+          <div className="flex items-center">
+            <button
+              type="button"
+              className={botaoPequeno}
+              onClick={() => timer.adjust(-15)}
+              aria-label="Menos 15 segundos"
             >
-              {mm}:{ss}
-            </p>
+              <Minus className="size-4" />
+            </button>
+            <div className="w-[3.4rem] text-center">
+              <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-(--t-on-soft)">
+                Descanso
+              </p>
+              <p
+                className="text-2xl font-extrabold leading-none tabular-nums text-(--t-accent)"
+                aria-live="off"
+              >
+                {mm}:{ss}
+              </p>
+            </div>
+            <button
+              type="button"
+              className={botaoPequeno}
+              onClick={() => timer.adjust(15)}
+              aria-label="Mais 15 segundos"
+            >
+              <Plus className="size-4" />
+            </button>
           </div>
-          <button
-            type="button"
-            className={botao}
-            onClick={() => timer.adjust(15)}
-            aria-label="Mais 15 segundos"
-          >
-            <Plus className="size-5" />
-          </button>
-          <button
-            type="button"
-            className={botao}
-            onClick={() => {
-              setSom(!som);
-              writeSound(!som);
-            }}
-            aria-label={som ? "Desligar som do descanso" : "Ligar som do descanso"}
-            aria-pressed={som}
-          >
-            {som ? <Bell className="size-5" /> : <BellOff className="size-5" />}
-          </button>
-          <button
-            type="button"
-            onClick={timer.stop}
-            aria-label="Pular descanso"
-            className="grid size-11 shrink-0 place-items-center rounded-full bg-(--t-accent) text-(--t-accent-fg) transition active:scale-90"
-          >
-            <X className="size-5" strokeWidth={2.75} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              className={botao}
+              onClick={() => {
+                setSom(!som);
+                writeSound(!som);
+              }}
+              aria-label={som ? "Desligar som do descanso" : "Ligar som do descanso"}
+              aria-pressed={som}
+            >
+              {som ? <Bell className="size-5" /> : <BellOff className="size-5" />}
+            </button>
+            <button
+              type="button"
+              onClick={timer.stop}
+              aria-label="Pular descanso"
+              className="grid size-11 shrink-0 place-items-center rounded-full bg-(--t-accent) text-(--t-accent-fg) transition active:scale-90"
+            >
+              <X className="size-5" strokeWidth={2.75} />
+            </button>
+          </div>
         </div>
       </div>
     </div>

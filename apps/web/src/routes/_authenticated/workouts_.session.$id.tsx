@@ -16,6 +16,7 @@ import {
   Lightbulb,
   Minus,
   MoreHorizontal,
+  Pencil,
   PlayCircle,
   Plus,
   Repeat,
@@ -68,6 +69,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ErrorState } from "@/components/query-boundary";
 import { ExerciseDemo } from "@/components/workouts/exercise-demo-images";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ExerciseDetailSheet } from "@/components/workouts/exercise-detail-sheet";
 import { RestTimerBar, playRestFinishedSound } from "@/components/workouts/rest-timer";
 import { useRestTimer } from "@/hooks/use-rest-timer";
@@ -184,6 +186,7 @@ function SessionPage() {
     onError: (e) => toast.error(errorMessage(e)),
   });
 
+  const [confirmarDescarte, setConfirmarDescarte] = useState(false);
   const descartar = useMutation({
     mutationFn: () => discardWorkout(id),
     onSuccess: () => {
@@ -308,32 +311,35 @@ function SessionPage() {
                 <Cronometro dados={dados} />
               </p>
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  aria-label="Mais opções do treino"
-                  className="grid size-11 shrink-0 place-items-center rounded-full bg-(--t-ink-faint) text-(--t-ink) transition-transform active:scale-90"
-                >
-                  <MoreHorizontal className="size-5" strokeWidth={2.5} />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {terminado ? (
-                  <DropdownMenuItem onSelect={() => setEditando((v) => !v)}>
-                    {editando ? "Parar de editar" : "Corrigir cargas e séries"}
-                  </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem
-                    onSelect={() => descartar.mutate()}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <Trash2 className="mr-2 size-4" />
-                    Descartar treino
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {terminado ? (
+              <button
+                type="button"
+                onClick={() => setEditando((v) => !v)}
+                aria-label={editando ? "Parar de editar" : "Corrigir cargas e séries"}
+                aria-pressed={editando}
+                className="grid size-11 shrink-0 place-items-center rounded-full bg-(--t-ink-faint) text-(--t-ink) transition-transform active:scale-90"
+              >
+                <Pencil className="size-5" strokeWidth={2.5} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmarDescarte(true)}
+                aria-label="Descartar treino"
+                className="grid size-11 shrink-0 place-items-center rounded-full bg-(--t-ink-faint) text-(--t-ink) transition-transform active:scale-90"
+              >
+                <Trash2 className="size-5" strokeWidth={2.5} />
+              </button>
+            )}
+            <ConfirmDialog
+              open={confirmarDescarte}
+              onOpenChange={setConfirmarDescarte}
+              title="Descartar este treino?"
+              description="As séries registradas até agora serão apagadas. Não dá para desfazer."
+              confirmLabel="Descartar treino"
+              destructive
+              onConfirm={() => descartar.mutate()}
+            />
             {!terminado && (
               <button
                 type="button"
@@ -680,7 +686,11 @@ function ExercicioAtual({
       {/* O exercício: demonstração, nome, etiquetas e dicas. */}
       <div className="overflow-hidden rounded-[1.75rem] bg-(--t-surface) text-(--t-on) shadow-[0_24px_50px_-28px_rgba(0,0,0,0.55)]">
         <div className="relative bg-white">
-          <ExerciseDemo images={exercicio.images} name={exercicio.name} className="aspect-[4/3]" />
+          <ExerciseDemo
+            images={exercicio.images}
+            name={exercicio.name}
+            className="aspect-[4/3] rounded-none bg-white"
+          />
           <span className="absolute left-3 top-3 rounded-full bg-(--t-surface)/85 px-3 py-1 text-xs font-bold uppercase tracking-wider text-(--t-on) backdrop-blur">
             {indice + 1} de {total}
           </span>
@@ -787,7 +797,7 @@ function ExercicioAtual({
             {feitas} de {exercicio.sets.length} feitas
           </span>
         </div>
-        <div className="mb-2 grid grid-cols-[2rem_1.5fr_1fr_3rem_2.75rem] items-center gap-1.5 px-1.5 text-center text-[11px] font-bold uppercase tracking-wider text-(--t-on-soft)">
+        <div className="mb-2 grid grid-cols-[1.75rem_1.35fr_1.15fr_2.75rem_2.5rem] items-center gap-1.5 px-1.5 text-center text-[11px] font-bold uppercase tracking-wider text-(--t-on-soft)">
           <span />
           <span>Carga (kg)</span>
           <span>Reps</span>
@@ -799,7 +809,7 @@ function ExercicioAtual({
             <li
               key={set.id}
               className={cn(
-                "grid grid-cols-[2rem_1.5fr_1fr_3rem_2.75rem] items-center gap-1.5 rounded-2xl p-1.5 transition-colors duration-300",
+                "grid grid-cols-[1.75rem_1.35fr_1.15fr_2.75rem_2.5rem] items-center gap-1.5 rounded-2xl p-1.5 transition-colors duration-300",
                 set.completed && "bg-(--t-accent)/12",
               )}
             >
@@ -953,7 +963,7 @@ function Passo({
         onClick={() => ajustar(-passo)}
         disabled={desabilitado || !valor}
         aria-label={`Diminuir ${rotulo.toLowerCase()}`}
-        className="grid h-full w-7 shrink-0 place-items-center text-(--t-on-soft) transition-colors hover:text-(--t-on) active:scale-90 disabled:opacity-30"
+        className="grid h-full w-6 shrink-0 place-items-center text-(--t-on-soft) transition-colors hover:text-(--t-on) active:scale-90 disabled:opacity-30"
       >
         <Minus className="size-4" />
       </button>
@@ -984,7 +994,7 @@ function Passo({
         onClick={() => ajustar(passo)}
         disabled={desabilitado}
         aria-label={`Aumentar ${rotulo.toLowerCase()}`}
-        className="grid h-full w-7 shrink-0 place-items-center text-(--t-on-soft) transition-colors hover:text-(--t-on) active:scale-90 disabled:opacity-30"
+        className="grid h-full w-6 shrink-0 place-items-center text-(--t-on-soft) transition-colors hover:text-(--t-on) active:scale-90 disabled:opacity-30"
       >
         <Plus className="size-4" />
       </button>
