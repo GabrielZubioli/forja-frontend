@@ -192,6 +192,19 @@ export async function generateEverything(
     unit: "g",
   });
 
+  // Refazer o questionário substitui as metas: o banco aceita uma ativa por métrica.
+  assertOk(
+    "arquivar metas antigas",
+    await supabase
+      .from("goals")
+      .update({ is_active: false })
+      .eq("user_id", userId)
+      .eq("is_active", true)
+      .in(
+        "metric_key",
+        metas.map((m) => m.metric_key),
+      ),
+  );
   assertOk("criar metas", await supabase.from("goals").insert(metas));
 
   // ------------------------------------------------------------- 3. treino

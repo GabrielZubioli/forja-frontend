@@ -40,7 +40,12 @@ export const Route = createFileRoute("/criar-conta")({
 });
 
 const emailSchema = z.string().trim().email("E-mail inválido").max(255);
-const passSchema = z.string().min(8, "Use pelo menos 8 caracteres").max(72);
+const passSchema = z
+  .string()
+  .min(8, "Use pelo menos 8 caracteres")
+  .max(72)
+  .regex(/[A-Za-z]/, "Use pelo menos uma letra")
+  .regex(/[0-9]/, "Use pelo menos um número");
 
 function CreateAccountPage() {
   const navigate = useNavigate();
