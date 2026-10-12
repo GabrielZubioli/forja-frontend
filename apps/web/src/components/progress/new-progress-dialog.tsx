@@ -189,7 +189,7 @@ export function NewProgressDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] gap-0 overflow-y-auto sm:max-w-md">
+      <DialogContent className="max-h-[calc(92dvh-var(--teclado,0px))] gap-0 overflow-y-auto sm:max-w-md">
         <DialogHeader className="text-left">
           <DialogTitle className="flex items-center gap-2">
             {etapa !== "angulos" && (

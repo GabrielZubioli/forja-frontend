@@ -185,13 +185,13 @@ function TrainPage() {
           className="flex items-center gap-4 rounded-[1.75rem] bg-[#020306] p-5 text-white animate-in fade-in slide-in-from-bottom-3 fill-mode-backwards delay-200 duration-500"
           aria-label="Hoje"
         >
-          <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-[#01D798] text-[#020306]">
-            {treinouHoje ? (
-              <CheckCircle2 className="size-7" aria-hidden />
-            ) : (
+          {treinouHoje ? (
+            <CheckCircle2 className="size-14 shrink-0 text-[#01D798]" strokeWidth={2.25} aria-hidden />
+          ) : (
+            <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-[#01D798] text-[#020306]">
               <Moon className="size-7" aria-hidden />
-            )}
-          </span>
+            </span>
+          )}
           <div className="min-w-0">
             <p className="text-xl font-bold">
               {treinouHoje ? "Você já treinou hoje" : "Hoje é dia de descanso"}

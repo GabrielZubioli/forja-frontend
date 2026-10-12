@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { addDays, startOfWeek } from "date-fns";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, Plus, X } from "lucide-react";
 import { toast } from "sonner";
@@ -93,26 +92,18 @@ export function WeeklyMenu() {
   if (!p) return null;
 
   const t = totais(p, dia);
-  const segunda = startOfWeek(new Date(), { weekStartsOn: 1 });
   const metaKcal = p.kcalTarget;
   const nomeDia = WEEKDAY_LABELS[dia];
 
   return (
     <div>
-      {/* Os sete dias, cada um com o total de calorias do cardápio. */}
       {/*
-        A semana como na Início: a sigla em cima e a data no círculo. Verde
-        cheio é o dia aberto; o anel marca hoje; o ponto, dia com item próprio.
+        Os sete dias como botões grandes: o aberto em verde cheio, hoje com
+        contorno. Só o nome do dia — o cardápio é da semana, não de uma data.
       */}
-      <div
-        role="tablist"
-        aria-label="Dia da semana"
-        className="grid grid-cols-7 rounded-[1.5rem] bg-card px-1 py-3"
-      >
-        {ORDEM.map((d, i) => {
+      <div role="tablist" aria-label="Dia da semana" className="grid grid-cols-7 gap-1.5">
+        {ORDEM.map((d) => {
           const ativo = d === dia;
-          const data = addDays(segunda, i);
-          const temProprio = p.meals.some((m) => m.items.some((it) => it.weekday === d));
           return (
             <button
               key={d}
@@ -121,32 +112,16 @@ export function WeeklyMenu() {
               aria-selected={ativo}
               aria-label={WEEKDAY_LABELS[d]}
               onClick={() => setDia(d)}
-              className="flex min-w-0 flex-col items-center gap-1.5"
+              className={cn(
+                "flex h-14 min-w-0 items-center justify-center rounded-2xl text-xs font-extrabold tracking-wide transition-all duration-200 active:scale-95",
+                ativo
+                  ? "bg-primary text-primary-foreground"
+                  : d === hoje
+                    ? "border-2 border-primary/60 bg-card text-primary"
+                    : "bg-card text-muted-foreground hover:text-foreground",
+              )}
             >
-              <span
-                className={cn(
-                  "text-[11px] font-bold",
-                  ativo || d === hoje ? "text-primary" : "text-muted-foreground",
-                )}
-              >
-                {SIGLA[d]}
-              </span>
-              <span
-                className={cn(
-                  "grid size-10 place-items-center rounded-full text-base font-bold tabular-nums transition-colors",
-                  ativo
-                    ? "bg-primary text-primary-foreground"
-                    : d === hoje
-                      ? "border-2 border-primary text-primary"
-                      : "text-foreground hover:bg-elevated",
-                )}
-              >
-                {data.getDate()}
-              </span>
-              <span
-                className={cn("size-1 rounded-full", temProprio ? "bg-warning" : "bg-transparent")}
-                aria-hidden
-              />
+              {SIGLA[d]}
             </button>
           );
         })}

@@ -38,12 +38,12 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+        "fixed left-[50%] top-[calc(50%-var(--teclado,0px)/2)] z-50 grid translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
         // Nunca encosta na borda da tela nem passa da altura dela: um diálogo
         // mais alto que o visor ficava com o rodapé (onde vivem os botões de
         // confirmar) fora de alcance, sem rolagem possível — o conteúdo era
         // simplesmente inacessível no celular.
-        "max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-lg overflow-y-auto overscroll-contain rounded-lg p-5 sm:p-6",
+        "max-h-[calc(100dvh-var(--teclado,0px)-2rem)] w-[calc(100vw-2rem)] max-w-lg overflow-y-auto overscroll-contain rounded-lg p-5 sm:p-6",
         className,
       )}
       {...props}

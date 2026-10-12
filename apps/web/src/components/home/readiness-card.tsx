@@ -35,7 +35,7 @@ export function ReadinessCard() {
     .slice(0, 3);
   const prontos = musculos.filter((m) => m.hoursRemaining <= 0);
   const cheios = Math.round((media / 100) * SEGMENTOS);
-  const cor = media >= 85 ? "bg-primary" : media >= 60 ? "bg-warning" : "bg-destructive";
+  const cor = media >= 60 ? "bg-primary" : "bg-(--treino)";
 
   return (
     <Link

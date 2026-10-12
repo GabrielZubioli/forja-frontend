@@ -152,7 +152,7 @@ export function FoodPicker({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="flex max-h-[min(88dvh,44rem)] flex-col gap-0 overflow-hidden rounded-[1.5rem] p-0 sm:p-0">
+      <DialogContent className="flex max-h-[min(calc(88dvh-var(--teclado,0px)),44rem)] flex-col gap-0 overflow-hidden rounded-[1.5rem] p-0 sm:p-0">
         <DialogHeader className="space-y-1 px-5 pb-3 pt-5 text-left">
           <DialogTitle className="line-clamp-2 break-words pr-8 text-xl leading-tight">
             {titulo}

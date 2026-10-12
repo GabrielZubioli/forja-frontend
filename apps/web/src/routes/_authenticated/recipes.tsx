@@ -319,7 +319,7 @@ function RecipesPage() {
       </PageBody>
 
       <Dialog open={aberta !== null} onOpenChange={(o) => !o && setAberta(null)}>
-        <DialogContent className="flex max-h-[min(88dvh,44rem)] flex-col gap-0 overflow-hidden rounded-[1.5rem] p-0 sm:p-0">
+        <DialogContent className="flex max-h-[min(calc(88dvh-var(--teclado,0px)),44rem)] flex-col gap-0 overflow-hidden rounded-[1.5rem] p-0 sm:p-0">
           {aberta && (
             <>
               {aberta.imageUrl && (

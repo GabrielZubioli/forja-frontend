@@ -40,7 +40,6 @@ import { ErrorState } from "@/components/query-boundary";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { NoRoutineCard } from "@/components/home/today-workout-card";
 import { ExercisePicker } from "@/components/pickers/exercise-picker";
-import { ExerciseDetailSheet } from "@/components/workouts/exercise-detail-sheet";
 import { RoutineExerciseRow, estimarDuracao } from "@/components/workouts/routine-exercise-row";
 import { RoutineIcon, RoutineIconPicker } from "@/components/workouts/routine-icon";
 import { todayISO } from "@/lib/date";
@@ -75,7 +74,6 @@ function PlanPage() {
   const userId = useCurrentUserId();
   const [aba, setAba] = useState<"agenda" | "rotinas">("agenda");
   const [aberta, setAberta] = useState<string | null>(null);
-  const [detalhe, setDetalhe] = useState<string | null>(null);
   /** Diálogo de nome aberto: renomear o plano, renomear uma rotina ou criar uma. */
   const [nomeando, setNomeando] = useState<
     | { tipo: "plano" }
@@ -302,7 +300,12 @@ function PlanPage() {
                               exercise={exercise}
                               index={i}
                               templateId={split.templateId}
-                              onOpenDetail={() => setDetalhe(exercise.exerciseId)}
+                              onOpenDetail={() =>
+                                void navigate({
+                                  to: "/exercises/$id",
+                                  params: { id: exercise.exerciseId },
+                                })
+                              }
                               onChanged={invalidar}
                             />
                           ))}
@@ -388,11 +391,6 @@ function PlanPage() {
         description={iniciar ? `${iniciar.nome} começa agora e o cronômetro passa a contar.` : undefined}
         confirmLabel="Iniciar treino"
         onConfirm={() => iniciar && abrir.mutate(iniciar.templateId)}
-      />
-      <ExerciseDetailSheet
-        exerciseId={detalhe}
-        open={detalhe !== null}
-        onOpenChange={(o) => !o && setDetalhe(null)}
       />
 
       <NomeDialog

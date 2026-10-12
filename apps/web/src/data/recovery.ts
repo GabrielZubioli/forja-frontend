@@ -126,12 +126,14 @@ export async function fetchTemplateMuscles(
 /** Converte a razão de recuperação numa cor semântica do design system. */
 export function recoveryColor(status: MuscleRecovery["status"]): string {
   switch (status) {
+    // Laranja = muito fadigado; verde = pronto ou quase. O "quase" é o verde
+    // puxado para o amarelo — ainda lê como "pode ir", sem ser o verde cheio.
     case "recovered":
-      return "var(--success)";
+      return "var(--primary)";
     case "recovering":
-      return "var(--chart-4)";
+      return "color-mix(in oklch, var(--primary) 70%, var(--treino))";
     case "fatigued":
-      return "var(--destructive)";
+      return "var(--treino)";
   }
 }
 

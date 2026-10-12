@@ -1,5 +1,5 @@
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { addDays, startOfWeek } from "date-fns";
@@ -25,7 +25,6 @@ import {
   todaysWorkout,
   weekStart,
   weekdayOf,
-  weeklyStreak,
   type Weekday,
 } from "@forja/domain";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,6 +50,7 @@ import { LazyWeightChart } from "@/components/charts/lazy-chart";
 import { formatDate, formatLongDate, fromISODate, toISODate, todayISO } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/brand-logo";
+import { diasSeguidos } from "@/lib/streak";
 
 /**
  * Início: a semana, o treino de hoje e o resto do dia.
@@ -184,7 +184,6 @@ function SemanaCard() {
   const r = routine.data;
   const entrada = scheduleInputOf(r);
   const feitos = recentes.data ?? [];
-  const treinados = new Set(feitos.map((w) => w.date));
 
   const { splitIndex, isPlannedDay, alreadyDone } = todaysWorkout(today, entrada, feitos);
   const template = r.templates[splitIndex];
@@ -232,7 +231,6 @@ function SemanaCard() {
       <ol className="grid grid-cols-7 text-center">
         {dias.map((dia, i) => {
           const eHoje = dia === today;
-          const treinou = treinados.has(dia);
           return (
             <li key={dia}>
               <button
@@ -252,13 +250,6 @@ function SemanaCard() {
               >
                 {Number(dia.slice(8))}
               </span>
-              <span
-                className={cn(
-                  "size-1.5 rounded-full",
-                  treinou ? "bg-primary" : "bg-transparent",
-                )}
-                aria-label={treinou ? "treinou" : undefined}
-              />
               </button>
             </li>
           );
@@ -577,58 +568,61 @@ function SequenciaCard() {
       );
     },
   });
-  const meta = routine.data?.daysPerWeek ?? 3;
-  const datas = (recentes.data ?? []).map((w) => w.date);
-  const semanas = weeklyStreak(datas, meta, today);
-  const nestaSemana = datas.filter((d) => d >= weekStart(today)).length;
+  const r = routine.data;
+  const treinou = new Set((recentes.data ?? []).map((w) => w.date));
+  // Dias de treino do plano: na semana fixa, os dias das rotinas; na rotação,
+  // os dias escolhidos.
+  const diasDoPlano = new Set(
+    r
+      ? r.scheduleMode === "fixed"
+        ? r.templates.flatMap((t) => t.weekdays)
+        : r.trainingWeekdays
+      : [],
+  );
+  const dias = diasSeguidos(treinou, (wd) => diasDoPlano.has(wd), today);
+  const aceso = dias > 0;
+  const semana = Array.from({ length: 7 }, (_, i) =>
+    toISODate(addDays(fromISODate(weekStart(today)), i)),
+  );
 
   return (
     <Link
       to="/workouts/calendar"
-      className="flex items-center gap-3 rounded-[1.5rem] border border-primary/30 bg-card py-4 pl-3 pr-5"
+      className="relative block rounded-[1.5rem] border border-border bg-card px-5 pb-5 pt-6 text-center transition-colors hover:bg-elevated"
+      aria-label={`${dias} ${dias === 1 ? "dia seguido" : "dias seguidos"} de treino. Ver calendário`}
     >
-      {/* Fogo de verdade: contorno vermelho-alaranjado, miolo âmbar. */}
+      <CalendarDays className="absolute right-4 top-4 size-5 text-muted-foreground" aria-hidden />
       <Flame
-        className="size-14 shrink-0 fill-[#FFB01F] text-[#FF5A1F]"
-        strokeWidth={1.75}
+        className={cn(
+          "mx-auto size-20 transition-colors duration-500",
+          aceso ? "fill-[#FFB01F] text-[#FF5A1F]" : "fill-muted text-muted-foreground/40",
+        )}
+        strokeWidth={1.5}
         aria-hidden
       />
-      <span className="min-w-0 flex-1">
-        <TextoQueEnche className="font-extrabold leading-tight">
-          {semanas} {semanas === 1 ? "semana seguida" : "semanas seguidas"}
-        </TextoQueEnche>
-        <span className="mt-0.5 block whitespace-nowrap text-muted-foreground">
-          {nestaSemana} / {meta} esta semana
-        </span>
-      </span>
-      <CalendarDays className="size-6 shrink-0 text-primary" aria-label="Ver calendário" />
-    </Link>
-  );
-}
+      <p className="mt-2 text-6xl font-extrabold leading-none tabular-nums">{dias}</p>
+      <p className="mt-1.5 text-lg font-semibold">{dias === 1 ? "dia seguido" : "dias seguidos"}</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {aceso ? "Não deixe o fogo apagar." : "Treine hoje para acender o fogo."}
+      </p>
 
-/**
- * Texto numa linha que ocupa toda a largura disponível: mede quanto sobra e
- * ajusta o tamanho da fonte (entre 16 e 40 px) até caber exato.
- */
-function TextoQueEnche({ children, className }: { children: ReactNode; className?: string }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const ajustar = () => {
-      el.style.fontSize = "40px";
-      const largura = el.parentElement?.clientWidth ?? el.clientWidth;
-      const tamanho = Math.max(16, Math.min(40, Math.floor((40 * largura) / el.scrollWidth)));
-      el.style.fontSize = `${tamanho}px`;
-    };
-    ajustar();
-    const obs = new ResizeObserver(ajustar);
-    if (el.parentElement) obs.observe(el.parentElement);
-    return () => obs.disconnect();
-  }, [children]);
-  return (
-    <span ref={ref} className={cn("inline-block whitespace-nowrap", className)}>
-      {children}
-    </span>
+      {/* A semana: laranja nos dias treinados, anel no dia de hoje. */}
+      <div className="mx-auto mt-4 grid max-w-xs grid-cols-7 gap-1.5" aria-hidden>
+        {semana.map((d) => (
+          <span key={d} className="flex flex-col items-center gap-1">
+            <span
+              className={cn(
+                "h-1.5 w-full rounded-full",
+                treinou.has(d) ? "bg-[#FF7A1F]" : "bg-muted",
+                d === today && !treinou.has(d) && "ring-1 ring-[#FF7A1F]/60",
+              )}
+            />
+            <span className={cn("text-[10px] font-bold", d === today ? "text-foreground" : "text-muted-foreground")}>
+              {INICIAIS[weekdayOf(d)].charAt(0)}
+            </span>
+          </span>
+        ))}
+      </div>
+    </Link>
   );
 }

@@ -13,6 +13,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { THEME_INIT_SCRIPT, ThemeProvider } from "@/components/theme-provider";
 import { ErrorScreen, NotFoundScreen, OfflineBanner } from "@/components/status-screen";
+import { KeyboardInset } from "@/components/keyboard-inset";
 
 function NotFoundComponent() {
   return <NotFoundScreen />;
@@ -40,7 +41,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      // `interactive-widget`: no Android, o teclado encolhe a página (e os
+      // modais centralizam no que sobra) em vez de cobrir o conteúdo.
+      {
+        name: "viewport",
+        content: "width=device-width, initial-scale=1, interactive-widget=resizes-content",
+      },
       { title: "Habitual Fit — Treino, Dieta e Progresso" },
       {
         name: "description",
@@ -122,6 +128,7 @@ function RootComponent() {
         {/* Toaster global: disponível em todas as rotas (login, landing e área logada). */}
         {TOASTS_LIGADOS && <Toaster position="top-right" richColors closeButton />}
         <OfflineBanner />
+        <KeyboardInset />
       </ThemeProvider>
     </QueryClientProvider>
   );

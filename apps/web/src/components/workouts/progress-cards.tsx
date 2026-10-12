@@ -50,14 +50,19 @@ export function RecoveryCard() {
       <CardContent className="grid gap-4 p-4 sm:grid-cols-[auto_1fr]">
         <div>
           <BodyMap
-            muscles={musculos.map((m) => ({ muscle: m.muscle, intensity: 1 - m.ratio }))}
+            muscles={musculos.map((m) => ({
+              muscle: m.muscle,
+              // Fadigado aparece forte; pronto, suave — cada um na sua cor.
+              intensity: m.status === "recovered" ? 0.35 : 1 - m.ratio,
+              color: recoveryColor(m.status),
+            }))}
             size="sm"
             showToggle={false}
             showLegend={false}
             className="mx-auto"
           />
           <p className="mt-1 text-center text-xs text-muted-foreground">
-            Quanto mais forte a cor, mais fadiga
+            Laranja: fadigado · verde: pronto
           </p>
         </div>
         <ul className="space-y-2.5">

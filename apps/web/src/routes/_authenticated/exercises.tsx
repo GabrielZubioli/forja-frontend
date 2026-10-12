@@ -221,16 +221,16 @@ function ExerciseLibrary() {
           trigger={
             <button
               type="button"
-              className="mb-3 flex w-full items-center gap-4 rounded-[1.25rem] bg-card p-3 text-left transition-colors hover:bg-elevated"
+              className="mb-3 flex w-full items-center gap-4 rounded-[1.25rem] border border-dashed border-primary/40 p-3 text-left transition-colors hover:bg-primary/5"
             >
-              <span className="grid size-16 shrink-0 place-items-center rounded-xl bg-elevated text-muted-foreground">
+              <span className="grid size-14 shrink-0 place-items-center rounded-xl bg-primary/12 text-primary">
                 <Sparkles className="size-6" aria-hidden />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-lg">Criar seu exercício</span>
-                <span className="block text-muted-foreground">nome e músculo, sem animação</span>
+                <span className="block font-bold">Criar seu exercício</span>
+                <span className="block text-sm text-muted-foreground">Nome e músculo, sem animação</span>
               </span>
-              <Plus className="mr-2 size-6 shrink-0" aria-hidden />
+              <Plus className="mr-2 size-5 shrink-0 text-primary" aria-hidden />
             </button>
           }
         />
@@ -369,10 +369,11 @@ function ExerciseListRow({
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="shrink-0 rounded-xl bg-primary-soft px-4 py-2.5 text-lg font-bold text-primary-soft-foreground"
+              className="flex shrink-0 items-center gap-1 rounded-full border border-primary/40 px-3 py-1.5 text-sm font-bold text-primary transition-colors hover:bg-primary/10"
               aria-label={`Adicionar ${exercise.name} a uma rotina`}
             >
-              + Plano
+              <Plus className="size-4" aria-hidden />
+              Plano
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">

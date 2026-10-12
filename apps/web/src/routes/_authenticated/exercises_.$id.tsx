@@ -12,8 +12,10 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { ArrowLeft, ExternalLink, Flag, PlayCircle, TrendingUp } from "lucide-react";
+import { ExternalLink, Flag, PlayCircle, Target, TrendingUp } from "lucide-react";
 import { isSafeUrl } from "@/components/exercise-demo";
+import { BackButton } from "@/components/back-button";
+import { BodyMap, aggregateMuscleIntensities } from "@/components/body-map/body-map";
 import { ExerciseHowTo } from "@/components/workouts/exercise-how-to";
 import { ExerciseMediaView } from "@/components/workouts/exercise-media-view";
 import { exerciseMedia, videoSearchUrl } from "@/data/exercise-media";
@@ -88,7 +90,7 @@ function ExerciseDetail() {
         await supabase
           .from("exercises")
           .select(
-            "id, name, primary_muscle, secondary_muscles, equipment, category, level, mechanic, execution, instructions, execution_en, cues, common_mistakes, contraindications, image_urls, external_id, media_id, media_ref, media_source, video_url",
+            "id, name, primary_muscle, secondary_muscles, equipment, category, level, mechanic, execution, instructions, execution_en, cues, common_mistakes, contraindications, image_urls, external_id, media_id, media_ref, media_source, video_url, exercise_muscles(muscle, contribution)",
           )
           .eq("id", id)
           .single(),
@@ -186,15 +188,8 @@ function ExerciseDetail() {
       ? ((ultimo.bestE1rm - primeiro.bestE1rm) / primeiro.bestE1rm) * 100
       : null;
 
-  const voltar = (
-    <Link
-      to="/exercises"
-      className="grid size-11 place-items-center rounded-full bg-card transition-colors hover:bg-elevated"
-      aria-label="Voltar para a biblioteca"
-    >
-      <ArrowLeft className="size-5" />
-    </Link>
-  );
+  // Volta para onde a pessoa estava: a biblioteca, uma rotina do Plano…
+  const voltar = <BackButton fallback="/exercises" />;
 
   if (exercise.isError) {
     return (
@@ -263,14 +258,6 @@ function ExerciseDetail() {
                 </span>
               ))}
           </div>
-          {secundarios.length > 0 && (
-            <p className="mt-3 text-sm text-muted-foreground">
-              Também trabalha:{" "}
-              <span className="font-medium text-foreground">
-                {secundarios.map((m) => label(MUSCLE_LABELS, m)).join(" · ")}
-              </span>
-            </p>
-          )}
         </>
       )}
 
@@ -303,6 +290,56 @@ function ExerciseDetail() {
             <Skeleton className="h-48 w-full rounded-[1.25rem]" />
           ) : (
             <>
+              {/* Músculos trabalhados: o mapa diz onde, a lista diz qual. */}
+              <section className="mb-3 rounded-[1.25rem] bg-card p-4">
+                <h3 className="mb-3 flex items-center gap-2 font-bold">
+                  <Target className="size-4" aria-hidden />
+                  Músculos trabalhados
+                </h3>
+                <div className="flex items-center gap-4">
+                  <BodyMap
+                    muscles={aggregateMuscleIntensities(
+                      (ex.exercise_muscles ?? []).map((m) => ({
+                        muscle: m.muscle,
+                        contribution: Number(m.contribution),
+                      })),
+                    )}
+                    size="sm"
+                    showLegend={false}
+                    showToggle={false}
+                    className="shrink-0"
+                  />
+                  <dl className="min-w-0 space-y-3 text-sm">
+                    <div>
+                      <dt className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Principal
+                      </dt>
+                      <dd className="mt-0.5">
+                        <span className="rounded-full bg-primary px-2.5 py-0.5 text-sm font-bold text-primary-foreground">
+                          {label(MUSCLE_LABELS, ex.primary_muscle)}
+                        </span>
+                      </dd>
+                    </div>
+                    {secundarios.length > 0 && (
+                      <div>
+                        <dt className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                          Secundários
+                        </dt>
+                        <dd className="mt-1 flex flex-wrap gap-1.5">
+                          {secundarios.map((m) => (
+                            <span
+                              key={m}
+                              className="rounded-full border border-border px-2.5 py-0.5 text-xs font-semibold"
+                            >
+                              {label(MUSCLE_LABELS, m)}
+                            </span>
+                          ))}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                </div>
+              </section>
               <ExerciseHowTo exercise={ex} />
               <a
                 href={isSafeUrl(ex.video_url) ? ex.video_url! : videoSearchUrl(ex.name)}

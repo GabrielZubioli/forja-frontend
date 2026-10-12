@@ -55,7 +55,7 @@ import {
 import { ErrorState } from "@/components/query-boundary";
 import { FoodPicker } from "@/components/pickers/food-picker";
 import { SubstituteFoodDialog } from "@/components/diet/substitute-food-dialog";
-import { CalorieRing, MACRO_COLORS, MacroRing } from "@/components/home/macro-rings";
+import { CalorieRing, MACRO_COLORS } from "@/components/home/macro-rings";
 import { MEALS, MEAL_LABELS, label, type MealValue } from "@/lib/labels";
 import { fromISODate, toISODate, todayISO } from "@/lib/date";
 import { cn } from "@/lib/utils";
@@ -321,70 +321,64 @@ function DietPage() {
           <WeeklyMenu />
         ) : (
         <>
-        <Card className="mb-4">
-          <CardContent className="p-4">
-            {entries.isPending || profile.isPending ? (
-              <div className="flex flex-col items-center gap-5 sm:flex-row">
-                <Skeleton className="size-[148px] shrink-0 rounded-full" />
-                <div className="grid w-full grid-cols-4 gap-3">
-                  {[0, 1, 2, 3].map((i) => (
-                    <Skeleton key={i} className="h-24 rounded-xl" />
-                  ))}
-                </div>
+        {/* Resumo do dia direto no fundo: a caloria em destaque, os macros abaixo. */}
+        <section className="mb-6" aria-label="Resumo do dia">
+          {entries.isPending || profile.isPending ? (
+            <>
+              <Skeleton className="mx-auto size-[200px] rounded-full" />
+              <div className="mt-6 grid grid-cols-2 gap-4">
+                {[0, 1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-12 rounded-xl" />
+                ))}
               </div>
-            ) : (
-              <>
-                <div className="flex flex-col items-center gap-5 sm:flex-row sm:gap-6">
-                  <CalorieRing
-                    consumed={totaisConsumidos.kcal}
-                    target={num(profile.data?.daily_kcal_target)}
-                  />
-                  <div className="grid w-full grid-cols-4 gap-2 sm:gap-3">
-                    <MacroRing
-                      value={totaisConsumidos.proteinG}
-                      target={num(profile.data?.protein_g_target)}
-                      label="Proteína"
-                      unit="g"
-                      color={MACRO_COLORS.protein}
-                    />
-                    <MacroRing
-                      value={totaisConsumidos.carbsG}
-                      target={num(profile.data?.carbs_g_target)}
-                      label="Carbo"
-                      unit="g"
-                      color={MACRO_COLORS.carbs}
-                    />
-                    <MacroRing
-                      value={totaisConsumidos.fatG}
-                      target={num(profile.data?.fat_g_target)}
-                      label="Gordura"
-                      unit="g"
-                      color={MACRO_COLORS.fat}
-                      excessIsBad
-                    />
-                    <MacroRing
-                      value={totaisConsumidos.fiberG}
-                      target={num(profile.data?.fiber_g_target)}
-                      label="Fibra"
-                      unit="g"
-                      color={MACRO_COLORS.fiber}
-                    />
-                  </div>
-                </div>
-
-                {rows.length > 0 && totaisPlanejados.kcal - totaisConsumidos.kcal > 50 && (
-                  <p className="mt-4 border-t border-border pt-3 text-center text-xs text-muted-foreground">
-                    Planejado para o dia:{" "}
-                    <span className="font-medium tabular-nums text-foreground">
-                      {Math.round(totaisPlanejados.kcal).toLocaleString("pt-BR")} kcal
-                    </span>{" "}
-                    · P {Math.round(totaisPlanejados.proteinG)} g
-                  </p>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
+            </>
+          ) : (
+            <>
+              <div className="mx-auto w-full max-w-[200px]">
+                <CalorieRing
+                  consumed={totaisConsumidos.kcal}
+                  target={num(profile.data?.daily_kcal_target)}
+                  size={200}
+                />
+              </div>
+              <div className="mt-6 grid grid-cols-2 gap-x-5 gap-y-4">
+                <MacroLinha
+                  nome="Proteína"
+                  valor={totaisConsumidos.proteinG}
+                  meta={num(profile.data?.protein_g_target)}
+                  cor={MACRO_COLORS.protein}
+                />
+                <MacroLinha
+                  nome="Carboidrato"
+                  valor={totaisConsumidos.carbsG}
+                  meta={num(profile.data?.carbs_g_target)}
+                  cor={MACRO_COLORS.carbs}
+                />
+                <MacroLinha
+                  nome="Gordura"
+                  valor={totaisConsumidos.fatG}
+                  meta={num(profile.data?.fat_g_target)}
+                  cor={MACRO_COLORS.fat}
+                />
+                <MacroLinha
+                  nome="Fibra"
+                  valor={totaisConsumidos.fiberG}
+                  meta={num(profile.data?.fiber_g_target)}
+                  cor={MACRO_COLORS.fiber}
+                />
+              </div>
+              {rows.length > 0 && totaisPlanejados.kcal - totaisConsumidos.kcal > 50 && (
+                <p className="mt-5 text-center text-xs text-muted-foreground">
+                  Planejado para o dia:{" "}
+                  <span className="font-semibold tabular-nums text-foreground">
+                    {Math.round(totaisPlanejados.kcal).toLocaleString("pt-BR")} kcal
+                  </span>{" "}
+                  · P {Math.round(totaisPlanejados.proteinG)} g
+                </p>
+              )}
+            </>
+          )}
+        </section>
 
         {entries.isError ? (
           <ErrorState message={errorMessage(entries.error)} onRetry={entries.refetch} />
@@ -979,5 +973,37 @@ function RenomearRefeicao({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Um macro do dia: anel pequeno com o percentual, nome e gramas contra a meta. */
+function MacroLinha({ nome, valor, meta, cor }: { nome: string; valor: number; meta: number; cor: string }) {
+  const r = 18;
+  const c = 2 * Math.PI * r;
+  const pct = meta > 0 ? Math.min(1, valor / meta) : 0;
+  return (
+    <div className="flex items-center gap-3">
+      <svg viewBox="0 0 44 44" className="size-11 shrink-0 -rotate-90" aria-hidden>
+        <circle cx="22" cy="22" r={r} fill="none" stroke={cor} strokeOpacity={0.18} strokeWidth="5" />
+        <circle
+          cx="22"
+          cy="22"
+          r={r}
+          fill="none"
+          stroke={cor}
+          strokeWidth="5"
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={c * (1 - pct)}
+          className="transition-[stroke-dashoffset] duration-700"
+        />
+      </svg>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold">{nome}</p>
+        <p className="text-xs tabular-nums text-muted-foreground">
+          <span className="font-bold text-foreground">{Math.round(valor)}</span> / {Math.round(meta)} g
+        </p>
+      </div>
+    </div>
   );
 }

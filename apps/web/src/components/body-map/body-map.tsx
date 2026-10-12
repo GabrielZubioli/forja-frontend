@@ -44,6 +44,8 @@ export interface MuscleIntensity {
   muscle: string;
   /** 0 a 1. */
   intensity: number;
+  /** Cor própria do músculo (ex.: fadiga em laranja); sem ela, o verde da marca. */
+  color?: string;
 }
 
 export function BodyMap({
@@ -60,6 +62,14 @@ export function BodyMap({
   size?: "sm" | "md" | "lg";
 }) {
   /** Intensidade por grupo desenhável, já resolvendo os apelidos. */
+  const corDoGrupo = useMemo(() => {
+    const mapa = new Map<string, string>();
+    for (const m of muscles) {
+      const grupo = resolveMuscle(m.muscle);
+      if (grupo && m.color && !mapa.has(grupo)) mapa.set(grupo, m.color);
+    }
+    return mapa;
+  }, [muscles]);
   const porGrupo = useMemo(() => {
     const mapa = new Map<string, number>();
     for (const m of muscles) {
@@ -128,7 +138,7 @@ export function BodyMap({
               <path
                 key={`on-${muscle}-${i}`}
                 d={d}
-                fill="var(--primary)"
+                fill={corDoGrupo.get(muscle) ?? "var(--primary)"}
                 opacity={opacidade}
                 className="transition-opacity duration-500 motion-reduce:transition-none"
               />
