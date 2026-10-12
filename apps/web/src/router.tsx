@@ -3,6 +3,7 @@ import { createRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
 import { DataError } from "./data/supabase-helpers";
 import { RouteErrorComponent } from "./components/route-error";
+import { slideTypes } from "./lib/swipe-nav";
 
 /**
  * Defaults do cache. Antes o `QueryClient` era criado sem opções, então toda
@@ -47,6 +48,8 @@ export const getRouter = () => {
     // Erro dentro de uma tela: mostra a tela de erro no lugar do conteúdo,
     // mantendo a barra de navegação para a pessoa seguir usando o app.
     defaultErrorComponent: RouteErrorComponent,
+    // Entre as abas da barra, a tela desliza (View Transitions); no resto, nada.
+    defaultViewTransition: { types: slideTypes },
   });
 
   return router;

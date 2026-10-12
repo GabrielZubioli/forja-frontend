@@ -105,6 +105,12 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Avisos flutuantes (toasts) só com `VITE_TOASTS=on`. Sem o Toaster montado,
+ * as chamadas a `toast()` não mostram nada — desligado por padrão.
+ */
+const TOASTS_LIGADOS = import.meta.env.VITE_TOASTS === "on";
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
@@ -114,7 +120,7 @@ function RootComponent() {
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
         {/* Toaster global: disponível em todas as rotas (login, landing e área logada). */}
-        <Toaster position="top-right" richColors closeButton />
+        {TOASTS_LIGADOS && <Toaster position="top-right" richColors closeButton />}
         <OfflineBanner />
       </ThemeProvider>
     </QueryClientProvider>

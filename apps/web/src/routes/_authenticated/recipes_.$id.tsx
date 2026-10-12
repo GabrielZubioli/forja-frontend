@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, Save, UtensilsCrossed } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Save, UtensilsCrossed } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { MEALS, type MealValue } from "@/lib/labels";
@@ -222,26 +222,28 @@ function RecipeEditor() {
 
   return (
     <>
-      <PageHeader
-        title={recipe.isPending ? "Carregando…" : name || "Receita"}
-        description={`${list.length === 1 ? "1 ingrediente" : `${list.length} ingredientes`} · ${servings === 1 ? "1 porção" : `${servings} porções`}`}
-        action={
-          <>
-            <Button variant="outline" asChild>
-              <Link to="/recipes">Voltar</Link>
-            </Button>
-            <LogToDiary
-              disabled={list.length === 0 || logToDiary.isPending}
-              onLog={(meal, portions) => logToDiary.mutate({ meal, portions })}
-            />
-            <Button onClick={() => save.mutate()} disabled={save.isPending || recipe.isPending}>
-              <Save className="mr-1 size-4" />
-              Salvar
-            </Button>
-          </>
-        }
-      />
       <PageBody>
+        {/* Topo: voltar (só a seta) à esquerda, lançar no diário à direita. */}
+        <div className="flex items-center justify-between gap-3 pb-3 pt-2">
+          <Link
+            to="/recipes"
+            aria-label="Voltar para as receitas"
+            className="grid size-11 shrink-0 place-items-center rounded-full bg-card transition-colors hover:bg-elevated"
+          >
+            <ArrowLeft className="size-5" />
+          </Link>
+          <LogToDiary
+            disabled={list.length === 0 || logToDiary.isPending}
+            onLog={(meal, portions) => logToDiary.mutate({ meal, portions })}
+          />
+        </div>
+        <h1 className="break-words text-[1.75rem] font-extrabold leading-tight">
+          {recipe.isPending ? "Carregando…" : name || "Receita"}
+        </h1>
+        <p className="mb-4 mt-1 text-sm text-muted-foreground">
+          {list.length === 1 ? "1 ingrediente" : `${list.length} ingredientes`} ·{" "}
+          {servings === 1 ? "1 porção" : `${servings} porções`}
+        </p>
         <div className="grid gap-4 lg:grid-cols-3">
           <Card>
             <CardContent className="space-y-3 p-4">
@@ -405,6 +407,18 @@ function RecipeEditor() {
             </CardContent>
           </Card>
         </div>
+        <div className="h-20" aria-hidden />
+        <div className="fixed inset-x-0 bottom-(--acima-da-barra) z-30 px-4 md:bottom-6 md:left-auto md:right-6 md:w-80">
+          <Button
+            className="h-13 w-full rounded-2xl text-base font-bold"
+            onClick={() => save.mutate()}
+            disabled={save.isPending || recipe.isPending}
+            loading={save.isPending}
+          >
+            <Save className="mr-1.5 size-5" />
+            Salvar receita
+          </Button>
+        </div>
       </PageBody>
     </>
   );
@@ -427,7 +441,7 @@ function LogToDiary({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" disabled={disabled}>
+        <Button variant="outline" disabled={disabled} className="h-11 rounded-full px-4">
           <Plus className="mr-1 size-4" />
           Diário
         </Button>

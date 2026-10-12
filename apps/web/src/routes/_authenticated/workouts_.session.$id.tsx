@@ -268,12 +268,6 @@ function SessionPage() {
   const progresso = totais.total ? totais.feitas / totais.total : 0;
   const ultimo = atual >= dados.exercises.length - 1;
 
-  const botaoFinalizar = (
-    <span className="grid size-11 place-items-center rounded-full bg-(--t-ink) text-(--t-page) shadow-lg shadow-black/15 transition-transform active:scale-90">
-      <Check className="size-6" strokeWidth={2.75} />
-    </span>
-  );
-
   return (
     // A tela lê só os tokens --t-* (styles.css): com o treino rolando eles são
     // a paleta laranja; vendo o histórico, as cores normais do tema.
@@ -326,7 +320,7 @@ function SessionPage() {
                 type="button"
                 onClick={() => setConfirmarDescarte(true)}
                 aria-label="Descartar treino"
-                className="grid size-11 shrink-0 place-items-center rounded-full bg-(--t-ink-faint) text-(--t-ink) transition-transform active:scale-90"
+                className="grid size-11 shrink-0 place-items-center rounded-full bg-(--t-ink) text-(--t-page) transition-transform active:scale-90"
               >
                 <Trash2 className="size-5" strokeWidth={2.5} />
               </button>
@@ -340,17 +334,6 @@ function SessionPage() {
               destructive
               onConfirm={() => descartar.mutate()}
             />
-            {!terminado && (
-              <button
-                type="button"
-                onClick={() => terminarPeloBotao.current()}
-                disabled={finalizar.isPending}
-                aria-label="Terminar treino"
-                className="shrink-0 disabled:opacity-50"
-              >
-                {botaoFinalizar}
-              </button>
-            )}
           </div>
 
           <div className="mt-4 flex items-center gap-3">

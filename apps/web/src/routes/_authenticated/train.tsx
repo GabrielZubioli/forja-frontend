@@ -198,7 +198,7 @@ function TrainPage() {
             </p>
             <p className="text-white/60">
               {treinouHoje
-                ? "Agora é descansar: o músculo cresce na recuperação. Se quiser treinar mais, escolha abaixo."
+                ? "Se quiser treinar mais, escolha abaixo."
                 : "Aproveite para recuperar. Se quiser treinar mesmo assim, escolha abaixo."}
             </p>
           </div>

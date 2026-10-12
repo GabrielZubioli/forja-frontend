@@ -34,6 +34,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeSwitch } from "@/components/theme-switch";
 import { AppMenu } from "@/components/app-menu";
 import { AppTour } from "@/components/app-tour";
+import { useSwipeNav } from "@/lib/swipe-nav";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { CommandPalette, CommandPaletteTrigger } from "@/components/command-palette";
 import { CoachIcon } from "@/components/coach/coach-icon";
@@ -104,6 +105,7 @@ function AuthLayout() {
     void navigate({ to: "/auth", replace: true });
   };
 
+  const gestos = useSwipeNav(pathname, (to) => void navigate({ to }));
   const isActive = (to: string) => pathname === to || pathname.startsWith(`${to}/`);
   const sessaoAberta = useQuery({
     queryKey: [...queryKeys.workouts.all, "open-session-info"],
@@ -318,7 +320,7 @@ function AuthLayout() {
         isActive={isActive}
       />
 
-      <main id="conteudo" className="min-h-screen pb-28 md:pb-0 md:pl-60">
+      <main id="conteudo" className="min-h-screen pb-28 md:pb-0 md:pl-60" {...gestos}>
         <Outlet />
       </main>
 

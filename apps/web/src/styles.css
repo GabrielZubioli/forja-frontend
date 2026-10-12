@@ -780,3 +780,55 @@
     animation: forja-shimmer 1.8s infinite;
   }
 }
+
+/* Troca de aba: só o conteúdo desliza; a barra inferior fica parada. O nome
+   só existe durante a transição, para não mexer no layout no resto do tempo. */
+html:active-view-transition main#conteudo {
+  view-transition-name: conteudo;
+}
+
+@keyframes hf-sai-esquerda {
+  to {
+    transform: translateX(-28%);
+    opacity: 0;
+  }
+}
+@keyframes hf-entra-direita {
+  from {
+    transform: translateX(28%);
+    opacity: 0;
+  }
+}
+@keyframes hf-sai-direita {
+  to {
+    transform: translateX(28%);
+    opacity: 0;
+  }
+}
+@keyframes hf-entra-esquerda {
+  from {
+    transform: translateX(-28%);
+    opacity: 0;
+  }
+}
+
+html:active-view-transition-type(slide-esquerda)::view-transition-old(conteudo) {
+  animation: hf-sai-esquerda 280ms cubic-bezier(0.3, 0.8, 0.3, 1) both;
+}
+html:active-view-transition-type(slide-esquerda)::view-transition-new(conteudo) {
+  animation: hf-entra-direita 280ms cubic-bezier(0.3, 0.8, 0.3, 1) both;
+}
+html:active-view-transition-type(slide-direita)::view-transition-old(conteudo) {
+  animation: hf-sai-direita 280ms cubic-bezier(0.3, 0.8, 0.3, 1) both;
+}
+html:active-view-transition-type(slide-direita)::view-transition-new(conteudo) {
+  animation: hf-entra-esquerda 280ms cubic-bezier(0.3, 0.8, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
