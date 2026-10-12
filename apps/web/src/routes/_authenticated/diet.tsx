@@ -61,6 +61,8 @@ import { fromISODate, toISODate, todayISO } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import { addDays } from "date-fns";
 import { nutritionTotals, portionMacros, type FoodCandidate } from "@forja/domain";
+import { CATEGORY_EMOJI } from "@/lib/food-emoji";
+import { WeeklyMenu } from "@/components/diet/weekly-menu";
 
 /**
  * O diário alimentar — agora um **plano executável**, não um registro.
@@ -110,6 +112,7 @@ function DietPage() {
   const userId = useCurrentUserId();
   const hoje = todayISO();
   const [date, setDate] = useState(hoje);
+  const [aba, setAba] = useState<"diario" | "cardapio">("diario");
 
   const profile = useQuery({
     queryKey: queryKeys.profile(),
@@ -278,18 +281,46 @@ function DietPage() {
     <>
       <PageHeader
         title="Dieta"
-        description={date === hoje ? "Hoje" : undefined}
+        description={aba === "cardapio" ? "Cardápio da semana" : date === hoje ? "Hoje" : undefined}
         action={
+          aba === "diario" && (
           <DatePicker
             value={date}
             onChange={setDate}
             className="h-11 w-auto rounded-2xl border-transparent bg-card"
             aria-label="Data do diário"
           />
+          )
         }
       />
 
       <PageBody>
+        <div role="tablist" aria-label="Seção da dieta" className="mb-4 flex rounded-2xl bg-card p-1">
+          {(
+            [
+              ["diario", "Diário"],
+              ["cardapio", "Cardápio da semana"],
+            ] as const
+          ).map(([v, rotulo]) => (
+            <button
+              key={v}
+              type="button"
+              role="tab"
+              aria-selected={aba === v}
+              onClick={() => setAba(v)}
+              className={cn(
+                "flex-1 rounded-xl py-2.5 text-[15px] font-medium transition-colors",
+                aba === v ? "bg-primary font-bold text-primary-foreground" : "text-muted-foreground",
+              )}
+            >
+              {rotulo}
+            </button>
+          ))}
+        </div>
+        {aba === "cardapio" ? (
+          <WeeklyMenu />
+        ) : (
+        <>
         <Card className="mb-4">
           <CardContent className="p-4">
             {entries.isPending || profile.isPending ? (
@@ -397,6 +428,8 @@ function DietPage() {
             <CopyPlus className="mr-1.5 size-4" />
             Copiar o dia anterior
           </Button>
+        )}
+        </>
         )}
       </PageBody>
     </>
@@ -638,23 +671,6 @@ function MealCard({
  * cinza em toda linha, a categoria vira um símbolo. Não é foto do prato, e não
  * finge ser: é um identificador visual que ajuda a varrer a lista com o olho.
  */
-const CATEGORY_EMOJI: Record<string, string> = {
-  protein_meat: "🥩",
-  protein_egg: "🥚",
-  dairy: "🥛",
-  legume: "🫘",
-  grain: "🌾",
-  tuber: "🥔",
-  vegetable: "🥦",
-  fruit: "🍎",
-  fat: "🥑",
-  beverage: "🥤",
-  supplement: "🥤",
-  sweet: "🍫",
-  condiment: "🧂",
-  prepared: "🍲",
-  other: "🍽️",
-};
 
 function FoodThumb({ item }: { item: DayEntry }) {
   if (item.food.imageUrl) {

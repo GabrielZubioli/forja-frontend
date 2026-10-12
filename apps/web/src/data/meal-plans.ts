@@ -523,6 +523,17 @@ export interface ActiveMealPlan {
       grams: number;
       position: number;
       prepNotes: string | null;
+      /** Dia da semana em que vale (0 = domingo); null = todos os dias. */
+      weekday: number | null;
+      food: {
+        servingSizeG: number;
+        kcal: number;
+        proteinG: number;
+        carbsG: number;
+        fatG: number;
+        fiberG: number;
+        category: string | null;
+      };
     }[];
   }[];
 }
@@ -651,7 +662,7 @@ export async function fetchActiveMealPlan(): Promise<ActiveMealPlan | null> {
     await supabase
       .from("meal_plan_meals")
       .select(
-        "id, slot, position, label, target_time, kcal_target, meal_plan_items(id, food_id, grams, position, prep_notes, foods(name))",
+        "id, slot, position, label, target_time, kcal_target, meal_plan_items(id, food_id, grams, position, prep_notes, weekday, foods(name, serving_size_g, kcal, protein_g, carbs_g, fat_g, fiber_g, category))",
       )
       .eq("plan_id", plan.id)
       .order("position"),
@@ -682,6 +693,16 @@ export async function fetchActiveMealPlan(): Promise<ActiveMealPlan | null> {
           grams: num(i.grams),
           position: i.position,
           prepNotes: i.prep_notes,
+          weekday: i.weekday,
+          food: {
+            servingSizeG: num(i.foods?.serving_size_g, 100),
+            kcal: num(i.foods?.kcal),
+            proteinG: num(i.foods?.protein_g),
+            carbsG: num(i.foods?.carbs_g),
+            fatG: num(i.foods?.fat_g),
+            fiberG: num(i.foods?.fiber_g),
+            category: i.foods?.category ?? null,
+          },
         })),
     })),
   };

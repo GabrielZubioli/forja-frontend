@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { assertOk, num, unwrapList, unwrapMaybe } from "@/data/supabase-helpers";
-import type { MealSlot } from "@forja/domain";
+import { weekdayOf, type MealSlot } from "@forja/domain";
 
 /**
  * O dia do diário.
@@ -105,13 +105,17 @@ export async function ensureDayMaterialized(
     "carregar refeições do plano",
     await supabase
       .from("meal_plan_meals")
-      .select("slot, meal_plan_items(id, food_id, grams)")
+      .select("slot, meal_plan_items(id, food_id, grams, weekday)")
       .eq("plan_id", plan.id)
       .order("position"),
   );
 
+  // Cardápio da semana: entram os itens de todo dia e os deste dia da semana.
+  const diaDaSemana = weekdayOf(date);
   const linhas = meals.flatMap((m) =>
-    (m.meal_plan_items ?? []).map((item) => ({
+    (m.meal_plan_items ?? [])
+      .filter((item) => item.weekday === null || item.weekday === diaDaSemana)
+      .map((item) => ({
       user_id: userId,
       food_id: item.food_id,
       log_date: date,

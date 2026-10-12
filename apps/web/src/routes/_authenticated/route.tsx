@@ -131,14 +131,20 @@ function AuthLayout() {
       // Volta ao treino em andamento: o mesmo punho, em laranja.
       e.preventDefault();
       lancar(
-        () => void navigate({ to: "/workouts/session/$id", params: { id: sessao.id } }),
+        () =>
+          void navigate({
+            to: "/workouts/session/$id",
+            params: { id: sessao.id },
+            viewTransition: false,
+          }),
         "laranja",
       );
       return;
     }
     if (pathname === "/train") return;
     e.preventDefault();
-    lancar(() => void navigate({ to: "/train" }), "verde");
+    // O punho já é a transição: sem o deslize das abas por cima.
+    lancar(() => void navigate({ to: "/train", viewTransition: false }), "verde");
   };
   const [menuAberto, setMenuAberto] = useState(false);
   const menuAtivo = [...SECONDARY_NAV.map((i) => i.to), "/settings"].some(isActive);

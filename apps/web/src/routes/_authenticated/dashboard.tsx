@@ -7,6 +7,7 @@ import {
   ArrowDown,
   ArrowUp,
   CalendarDays,
+  Check,
   ChevronLeft,
   ChevronRight,
   Dumbbell,
@@ -141,6 +142,8 @@ function SemanaCard() {
   const userId = useCurrentUserId();
   const today = todayISO();
   const [offset, setOffset] = useState(0);
+  // Dia escolhido na faixa da semana; o painel de baixo mostra os treinos dele.
+  const [selecionado, setSelecionado] = useState(today);
 
   const routine = useQuery({
     queryKey: queryKeys.workouts.activeRoutine(),
@@ -230,12 +233,19 @@ function SemanaCard() {
           const treinou = treinados.has(dia);
           const planejado = !treinou && p.splitIndex !== null && dia >= today;
           return (
-            <li key={dia} className="flex flex-col items-center gap-1">
+            <li key={dia}>
+              <button
+                type="button"
+                onClick={() => setSelecionado(dia)}
+                aria-pressed={dia === selecionado}
+                className="flex w-full flex-col items-center gap-1"
+              >
               <span className="text-sm text-muted-foreground">{INICIAIS[weekdayOf(dia)]}</span>
               <span
                 className={cn(
-                  "grid size-11 place-items-center rounded-full text-xl tabular-nums",
+                  "grid size-11 place-items-center rounded-full text-xl tabular-nums transition-colors",
                   eHoje && "bg-primary font-extrabold text-primary-foreground",
+                  !eHoje && dia === selecionado && "bg-elevated font-bold ring-2 ring-primary",
                 )}
                 aria-current={eHoje ? "date" : undefined}
               >
@@ -248,11 +258,24 @@ function SemanaCard() {
                 )}
                 aria-label={treinou ? "treinou" : planejado ? "treino previsto" : undefined}
               />
+              </button>
             </li>
           );
         })}
       </ol>
 
+      {selecionado !== today ? (
+        <DiaEscolhido
+          dia={selecionado}
+          hoje={today}
+          feitos={feitos.filter((w) => w.date === selecionado)}
+          previsto={(() => {
+            const i = projectSchedule([selecionado], today, entrada, feitos)[0]?.splitIndex;
+            return i != null ? (r.templates[i]?.name.replace(/^[A-Z]\s*—\s*/, "") ?? null) : null;
+          })()}
+          onVoltar={() => setSelecionado(today)}
+        />
+      ) : (
       <div className="mt-4 flex items-center gap-4 rounded-2xl bg-elevated p-4">
         <span
           className={cn(
@@ -291,7 +314,78 @@ function SemanaCard() {
           </button>
         )}
       </div>
+      )}
     </section>
+  );
+}
+
+/** O que houve (ou está previsto) num dia que não é hoje. */
+function DiaEscolhido({
+  dia,
+  hoje,
+  feitos,
+  previsto,
+  onVoltar,
+}: {
+  dia: string;
+  hoje: string;
+  feitos: { sessionId: string; name: string }[];
+  previsto: string | null;
+  onVoltar: () => void;
+}) {
+  const passado = dia < hoje;
+  return (
+    <div className="mt-4 rounded-2xl bg-elevated p-4 animate-in fade-in duration-200">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm uppercase tracking-wide text-muted-foreground first-letter:uppercase">
+          {formatDate(dia, "EEEE, d 'de' MMM")}
+        </p>
+        <button type="button" onClick={onVoltar} className="text-sm font-semibold text-primary">
+          Hoje
+        </button>
+      </div>
+      {feitos.length > 0 ? (
+        <ul className="mt-2 space-y-2">
+          {feitos.map((w) => (
+            <li key={w.sessionId}>
+              <Link
+                to="/workouts/session/$id"
+                params={{ id: w.sessionId }}
+                className="flex items-center gap-3"
+              >
+                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground">
+                  <Check className="size-5" strokeWidth={3} aria-hidden />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-lg">{w.name.replace(/^[A-Z]\s*—\s*/, "")}</span>
+                  <span className="block text-sm text-muted-foreground">Treino concluído</span>
+                </span>
+                <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="mt-2 flex items-center gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground">
+            {previsto && !passado ? (
+              <Dumbbell className="size-5" aria-hidden />
+            ) : (
+              <Moon className="size-5" aria-hidden />
+            )}
+          </span>
+          <p className="min-w-0 flex-1 truncate text-lg">
+            {passado
+              ? previsto
+                ? `Não treinou · era ${previsto}`
+                : "Descanso"
+              : previsto
+                ? `Previsto: ${previsto}`
+                : "Descanso"}
+          </p>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -509,13 +603,18 @@ function SequenciaCard() {
         <Flame className="size-6" aria-hidden />
       </span>
       <span className="relative min-w-0 flex-1">
-        <span className="block text-3xl font-extrabold">
+        {/* Uma linha só: o tamanho acompanha a largura da tela, sem quebrar. */}
+        <span className="block whitespace-nowrap text-[clamp(1.05rem,5vw,1.875rem)] font-extrabold leading-tight">
           {semanas} {semanas === 1 ? "semana seguida" : "semanas seguidas"}
         </span>
-        <span className="block text-lg text-muted-foreground">
+        <span className="mt-0.5 block whitespace-nowrap text-muted-foreground">
           {nestaSemana} / {meta} esta semana
-          {contagem.data && ` · ${contagem.data.total} treinos no total`}
         </span>
+        {contagem.data && (
+          <span className="block whitespace-nowrap text-muted-foreground">
+            {contagem.data.total} {contagem.data.total === 1 ? "treino" : "treinos"} no total
+          </span>
+        )}
       </span>
       <CalendarDays className="relative size-6 shrink-0 text-primary" aria-label="Ver calendário" />
     </Link>

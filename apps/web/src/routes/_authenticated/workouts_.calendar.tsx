@@ -11,8 +11,9 @@ import {
   startOfWeek,
   subMonths,
 } from "date-fns";
-import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Dumbbell } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Dumbbell } from "lucide-react";
 import { PageBody, PageHeader } from "@/components/page-header";
+import { BackButton } from "@/components/back-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -94,14 +95,7 @@ function WorkoutCalendar() {
       <PageHeader
         title="Calendário"
         description="Seus treinos por mês."
-        action={
-          <Button variant="outline" asChild>
-            <Link to="/plan">
-              <ArrowLeft className="mr-1 size-4" />
-              Treinos
-            </Link>
-          </Button>
-        }
+        action={<BackButton fallback="/plan" />}
       />
       <PageBody>
         <Card className="mx-auto max-w-2xl">

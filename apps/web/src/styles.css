@@ -787,6 +787,25 @@ html:active-view-transition main#conteudo {
   view-transition-name: conteudo;
 }
 
+/* A barra inferior vira uma camada própria, desenhada acima do conteúdo que
+   desliza — sem isso, a tela em movimento passa por cima dela. */
+html:active-view-transition nav[aria-label="Navegação principal"] {
+  view-transition-name: barra;
+}
+::view-transition-group(conteudo) {
+  z-index: 1;
+}
+::view-transition-group(barra) {
+  z-index: 2;
+  animation: none;
+}
+::view-transition-old(barra) {
+  display: none;
+}
+::view-transition-new(barra) {
+  animation: none;
+}
+
 @keyframes hf-sai-esquerda {
   to {
     transform: translateX(-28%);
