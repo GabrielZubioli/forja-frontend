@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { addDays, startOfWeek } from "date-fns";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, Plus, X } from "lucide-react";
 import { toast } from "sonner";
@@ -55,7 +56,6 @@ function totais(plan: ActiveMealPlan, dia: number) {
   return t;
 }
 
-const k = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace(".", ",")}k` : String(Math.round(n)));
 
 /**
  * O cardápio da semana: um dia de cada vez, como a agenda do Plano.
@@ -93,41 +93,60 @@ export function WeeklyMenu() {
   if (!p) return null;
 
   const t = totais(p, dia);
+  const segunda = startOfWeek(new Date(), { weekStartsOn: 1 });
   const metaKcal = p.kcalTarget;
   const nomeDia = WEEKDAY_LABELS[dia];
 
   return (
     <div>
       {/* Os sete dias, cada um com o total de calorias do cardápio. */}
-      <div role="tablist" aria-label="Dia da semana" className="grid grid-cols-7 gap-1">
-        {ORDEM.map((d) => {
-          const kcal = totais(p, d).kcal;
+      {/*
+        A semana como na Início: a sigla em cima e a data no círculo. Verde
+        cheio é o dia aberto; o anel marca hoje; o ponto, dia com item próprio.
+      */}
+      <div
+        role="tablist"
+        aria-label="Dia da semana"
+        className="grid grid-cols-7 rounded-[1.5rem] bg-card px-1 py-3"
+      >
+        {ORDEM.map((d, i) => {
           const ativo = d === dia;
+          const data = addDays(segunda, i);
+          const temProprio = p.meals.some((m) => m.items.some((it) => it.weekday === d));
           return (
             <button
               key={d}
               type="button"
               role="tab"
               aria-selected={ativo}
+              aria-label={WEEKDAY_LABELS[d]}
               onClick={() => setDia(d)}
-              className={cn(
-                "relative flex min-w-0 flex-col items-center rounded-2xl py-2.5 transition-colors",
-                ativo ? "bg-primary text-primary-foreground" : "bg-card hover:bg-elevated",
-              )}
+              className="flex min-w-0 flex-col items-center gap-1.5"
             >
-              <span className={cn("text-[11px] font-bold", !ativo && "text-muted-foreground")}>
+              <span
+                className={cn(
+                  "text-[11px] font-bold",
+                  ativo || d === hoje ? "text-primary" : "text-muted-foreground",
+                )}
+              >
                 {SIGLA[d]}
               </span>
-              <span className="mt-0.5 text-xs font-extrabold tabular-nums">{k(kcal)}</span>
-              {d === hoje && (
-                <span
-                  className={cn(
-                    "absolute bottom-1 size-1 rounded-full",
-                    ativo ? "bg-primary-foreground" : "bg-primary",
-                  )}
-                  aria-label="hoje"
-                />
-              )}
+              <span
+                className={cn(
+                  "grid size-10 place-items-center rounded-full text-base font-bold tabular-nums transition-colors",
+                  ativo
+                    ? "bg-primary text-primary-foreground"
+                    : d === hoje
+                      ? "border-2 border-primary text-primary"
+                      : "text-foreground hover:bg-elevated",
+                )}
+              >
+                {data.getDate()}
+              </span>
+              <span
+                className={cn("size-1 rounded-full", temProprio ? "bg-warning" : "bg-transparent")}
+                aria-hidden
+              />
             </button>
           );
         })}
