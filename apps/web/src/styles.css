@@ -49,6 +49,17 @@
  * 3. Só então ele existe como utilitário (`bg-<nome>`, `text-<nome>`).
  */
 
+/* Mesma fonte em todo aparelho. Sem ela, o PC usava a Segoe UI (Windows) e o
+   celular a Roboto/SF — e o Windows arredonda os pesos que a Segoe não tem:
+   500 vira 600 e 800 vira 900. Por isso o PC parecia mais "negrito". Aqui a
+   Inter (pesos 400–900) é a fonte de todos, e os pesos reproduzem o que o PC
+   mostrava, para o celular ficar igual. */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-weight-medium: 600;
+  --font-weight-extrabold: 900;
+}
+
 @theme inline {
   /* ——— Raio ——— */
   --radius-sm: calc(var(--radius) - 4px);

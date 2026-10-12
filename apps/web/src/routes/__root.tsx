@@ -79,6 +79,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "format-detection", content: "telephone=no" },
     ],
     links: [
+      // Fonte do app (Inter, pesos 400–900), igual em PC e celular.
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400..900&display=swap",
+      },
       {
         rel: "stylesheet",
         href: appCss,
