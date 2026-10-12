@@ -593,7 +593,7 @@ function SequenciaCard() {
     >
       <CalendarDays className="absolute right-4 top-4 size-5 text-muted-foreground" aria-hidden />
       {/* Fogo à esquerda, número e legenda à direita, alinhados pelo meio. */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center justify-center">
         <Flame
           className={cn(
             "size-20 shrink-0 transition-colors duration-500",

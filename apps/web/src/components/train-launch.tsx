@@ -84,15 +84,15 @@ export function TrainLaunchOverlay({ fase, cor }: { fase: Fase; cor: CorLancamen
           termina com o braço cobrindo a tela e o punho já acima dela. */}
       <div className="hf-arm-up absolute inset-x-0 top-full">
         <Punho className="hf-fist-flex relative z-10 block w-full" />
-        {/* Abaixo do desenho o antebraço (23,4% a 94,4% da largura) se abre
-            até a tela toda — o braço em perspectiva vira a própria tela. */}
+        {/* O desenho termina na base da palma (9,9% a 98% da largura) e o braço
+            continua dali já se abrindo até a tela toda — sem afinar no pulso. */}
         <svg
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
-          className="-mt-1 block h-[28vh] w-full"
+          className="-mt-3 block h-[18vh] w-full"
           aria-hidden
         >
-          <path d="M23.4 0 L94.4 0 C97 30 100 60 100 100 L0 100 C0 60 18 30 23.4 0 Z" fill="currentColor" />
+          <path d="M9.9 0 L98 0 C99.5 30 100 60 100 100 L0 100 C0 60 5 25 9.9 0 Z" fill="currentColor" />
         </svg>
         <div className="-mt-px h-[calc(100dvh+4rem)] bg-current" />
       </div>
@@ -111,7 +111,7 @@ const PUNHO_D =
 
 function Punho({ className }: { className?: string }) {
   return (
-    <svg viewBox="53 40 203 399" className={className} preserveAspectRatio="xMidYMax meet">
+    <svg viewBox="53 40 203 158" className={className} preserveAspectRatio="xMidYMax meet">
       <path fill="currentColor" fillRule="evenodd" d={PUNHO_D} />
     </svg>
   );

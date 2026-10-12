@@ -15,6 +15,7 @@ import { BodyMap } from "@/components/body-map/body-map";
 import { FavoriteButton } from "@/components/exercises/favorite-button";
 import { CreateExerciseDialog } from "@/components/create-exercise-dialog";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -150,9 +151,7 @@ function ExerciseLibrary() {
         <Busca term={term} setTerm={setTerm} carregando={false} />
 
         {termo ? (
-          <div className="mt-4">
-            <ListaExercicios termo={termo} rotina={rotina.data ?? null} />
-          </div>
+          <BuscaComFiltros termo={termo} rotina={rotina.data ?? null} />
         ) : (
           <>
             <div role="tablist" aria-label="Navegar exercícios" className="mt-4 flex rounded-2xl bg-card p-1">
@@ -284,13 +283,23 @@ function AbaEquipamentos({ porEquip }: { porEquip?: Map<string, number> }) {
   const disponiveis = ESTRUTURAS.find((x) => x.key === estrutura)!.equipamentos as readonly string[];
   return (
     <>
-      <Chips
-        rotulo="Estrutura de treino"
-        valor={estrutura}
-        onChange={(v) => v && setEstrutura(v as typeof estrutura)}
-        opcoes={ESTRUTURAS.map((x) => ({ value: x.key, label: x.nome }))}
-        semTodos
-      />
+      <div role="radiogroup" aria-label="Estrutura de treino" className="grid grid-cols-3 gap-1 rounded-2xl bg-card p-1">
+        {ESTRUTURAS.map((x) => (
+          <button
+            key={x.key}
+            type="button"
+            role="radio"
+            aria-checked={estrutura === x.key}
+            onClick={() => setEstrutura(x.key)}
+            className={cn(
+              "rounded-xl px-1 py-2 text-xs font-semibold leading-tight transition-colors",
+              estrutura === x.key ? "bg-primary text-primary-foreground" : "text-muted-foreground",
+            )}
+          >
+            {x.nome}
+          </button>
+        ))}
+      </div>
       <ul className="mt-3 grid grid-cols-2 gap-2.5">
         {EQUIPAMENTOS.filter((e) => disponiveis.includes(e.key)).map((e, i) => (
           <li
@@ -419,28 +428,22 @@ function TelaFiltrada({
         <h1 className="min-w-0 truncate text-2xl font-extrabold">{titulo}</h1>
       </div>
       <Busca term={term} setTerm={setTerm} carregando={false} />
-      <div className="mt-3 space-y-2">
-        <Chips
-          rotulo="Nível"
-          valor={nivel}
-          onChange={setNivel}
-          todos="Todos os níveis"
-          opcoes={NIVEIS}
-        />
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <Seletor rotulo="Nível" valor={nivel} onChange={setNivel} todos="Nível" opcoes={NIVEIS} />
         {musculos ? (
-          <Chips
+          <Seletor
             rotulo="Equipamento"
             valor={equip}
             onChange={setEquip}
-            todos="Qualquer equipamento"
+            todos="Equipamento"
             opcoes={EQUIPAMENTOS.map((e) => ({ value: e.key, label: e.nome }))}
           />
         ) : (
-          <Chips
-            rotulo="Músculo"
+          <Seletor
+            rotulo="Grupo muscular"
             valor={grupo}
             onChange={setGrupo}
-            todos="Todos os músculos"
+            todos="Músculo"
             opcoes={GRUPOS.map((g) => ({ value: g.key, label: g.nome }))}
           />
         )}
@@ -663,57 +666,64 @@ function ExerciseListRow({ exercise, rotina }: { exercise: ExerciseRow; rotina: 
   );
 }
 
-/** Fila de chips de escolha única, rolando na horizontal. */
-function Chips({
+/** Busca geral com filtros de nível e grupo muscular. */
+function BuscaComFiltros({ termo, rotina }: { termo: string; rotina: ActiveRoutine | null }) {
+  const [nivel, setNivel] = useState<string | null>(null);
+  const [grupo, setGrupo] = useState<string | null>(null);
+  const musculos = grupo ? [...GRUPOS.find((g) => g.key === grupo)!.musculos] : undefined;
+  return (
+    <>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <Seletor rotulo="Nível" valor={nivel} onChange={setNivel} todos="Nível" opcoes={NIVEIS} />
+        <Seletor
+          rotulo="Grupo muscular"
+          valor={grupo}
+          onChange={setGrupo}
+          todos="Músculo"
+          opcoes={GRUPOS.map((g) => ({ value: g.key, label: g.nome }))}
+        />
+      </div>
+      <div className="mt-4">
+        <ListaExercicios termo={termo} musculos={musculos} nivel={nivel} rotina={rotina} />
+      </div>
+    </>
+  );
+}
+
+/** Filtro compacto: um select que ocupa a largura da sua coluna. */
+function Seletor({
   rotulo,
-  todos = "Todos",
+  todos,
   valor,
   onChange,
   opcoes,
-  semTodos = false,
 }: {
   rotulo: string;
-  todos?: string;
+  todos: string;
   valor: string | null;
   onChange: (v: string | null) => void;
   opcoes: { value: string; label: string }[];
-  semTodos?: boolean;
 }) {
-  const chip = (ativo: boolean) =>
-    cn(
-      "shrink-0 rounded-full px-3.5 py-2 text-sm font-semibold transition-colors",
-      ativo ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground",
-    );
   return (
-    <div
-      role="radiogroup"
-      aria-label={rotulo}
-      className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] md:mx-0 md:px-0 [&::-webkit-scrollbar]:hidden"
-    >
-      {!semTodos && (
-        <button
-          type="button"
-          role="radio"
-          aria-checked={valor === null}
-          onClick={() => onChange(null)}
-          className={chip(valor === null)}
-        >
-          {todos}
-        </button>
-      )}
-      {opcoes.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          role="radio"
-          aria-checked={valor === o.value}
-          onClick={() => onChange(valor === o.value && !semTodos ? null : o.value)}
-          className={chip(valor === o.value)}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
+    <Select value={valor ?? "todos"} onValueChange={(v) => onChange(v === "todos" ? null : v)}>
+      <SelectTrigger
+        aria-label={rotulo}
+        className={cn(
+          "h-11 w-full min-w-0 rounded-2xl border-transparent bg-card text-sm font-semibold",
+          valor && "border-primary/50 text-primary",
+        )}
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="todos">{todos}</SelectItem>
+        {opcoes.map((o) => (
+          <SelectItem key={o.value} value={o.value}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
