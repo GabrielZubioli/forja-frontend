@@ -120,16 +120,18 @@ function Home() {
         <WaterCard date={today} targetMl={num(profile.data?.water_ml_target, 2500)} />
         <Link
           to="/coach"
-          className="flex items-center gap-4 rounded-[1.5rem] bg-card p-5 transition-colors hover:bg-elevated"
+          className="flex items-center gap-4 rounded-[1.5rem] border border-primary/40 bg-primary/10 p-4 transition-colors hover:bg-primary/15"
         >
-          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-info text-info-foreground">
-            <CoachIcon className="size-6" aria-hidden />
+          <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground">
+            <CoachIcon className="size-7" aria-hidden />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-xl">Treinador</span>
-            <span className="block text-muted-foreground">Pergunte sobre seu treino e dieta</span>
+            <span className="block text-xl font-bold">Treinador</span>
+            <span className="block text-sm text-muted-foreground">
+              Pergunte sobre seu treino, dieta e progresso
+            </span>
           </span>
-          <ChevronRight className="size-5 shrink-0" aria-hidden />
+          <ChevronRight className="size-5 shrink-0 text-primary" aria-hidden />
         </Link>
         <CoachTips limit={1} />
       </div>

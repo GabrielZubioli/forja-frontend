@@ -28,7 +28,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CoachIcon } from "@/components/coach/coach-icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
@@ -181,22 +180,6 @@ function PlanPage() {
     <>
       {header}
       <PageBody>
-        <Link
-          to="/coach"
-          className="mb-6 flex items-center gap-4 rounded-[1.5rem] border border-primary/40 bg-primary/10 p-4 transition-colors hover:bg-primary/15"
-        >
-          <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground">
-            <CoachIcon className="size-7" aria-hidden />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-xl font-bold">Treinador</span>
-            <span className="block text-sm text-muted-foreground">
-              Montagem e revisão do plano a partir do seu treino
-            </span>
-          </span>
-          <ChevronRight className="size-5 shrink-0 text-primary" aria-hidden />
-        </Link>
-
         <Segmented
           value={aba}
           onChange={setAba}
