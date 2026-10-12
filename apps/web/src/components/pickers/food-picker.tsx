@@ -297,9 +297,20 @@ export function FoodPicker({
                     onClick={() => setReceita(r)}
                     className="flex w-full items-center gap-3 rounded-2xl bg-card p-3 text-left transition-colors hover:bg-elevated"
                   >
-                    <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-elevated text-2xl">
-                      {recipeCategoryOf(r.category)?.emoji ?? "🍽️"}
-                    </span>
+                    {r.imageUrl ? (
+                      <img
+                        src={r.imageUrl}
+                        alt=""
+                        loading="lazy"
+                        width={96}
+                        height={96}
+                        className="size-12 shrink-0 rounded-xl object-cover"
+                      />
+                    ) : (
+                      <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-elevated text-2xl">
+                        {recipeCategoryOf(r.category)?.emoji ?? "🍽️"}
+                      </span>
+                    )}
                     <span className="min-w-0 flex-1">
                       <span className="line-clamp-2 break-words font-semibold leading-snug">
                         {r.name}

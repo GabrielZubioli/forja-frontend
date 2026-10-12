@@ -226,6 +226,7 @@ function SessionPage() {
   // O quadradinho do botão central termina o treino: o mesmo fluxo do ✓ do
   // cabeçalho — direto se tudo foi marcado, com confirmação se há pendentes.
   const [confirmarFim, setConfirmarFim] = useState(false);
+  const [semSeries, setSemSeries] = useState(false);
   const estadoFim = useRef({ terminado, feitas: totais.feitas, total: totais.total });
   estadoFim.current = { terminado, feitas: totais.feitas, total: totais.total };
   const terminarPeloBotao = useRef(() => {});
@@ -233,9 +234,7 @@ function SessionPage() {
     const { terminado: fim, feitas, total } = estadoFim.current;
     if (fim || finalizar.isPending) return;
     if (feitas === 0) {
-      toast("Marque ao menos uma série para terminar", {
-        description: "Ou descarte o treino no menu ⋯ do topo.",
-      });
+      setSemSeries(true);
       return;
     }
     if (total - feitas > 0) setConfirmarFim(true);
@@ -372,6 +371,28 @@ function SessionPage() {
             <AlertDialogFooter>
               <AlertDialogCancel>Continuar treinando</AlertDialogCancel>
               <AlertDialogAction onClick={() => finalizar.mutate()}>Terminar</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Terminar sem nenhuma série marcada: explica o que fazer. */}
+        <AlertDialog open={semSeries} onOpenChange={setSemSeries}>
+          <AlertDialogContent className="rounded-[1.5rem]">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Marque ao menos uma série</AlertDialogTitle>
+              <AlertDialogDescription>
+                Para terminar o treino, toque no círculo ao lado de cada série que você fez. Se
+                não treinou, descarte o treino na lixeira do topo.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel
+                onClick={() => setConfirmarDescarte(true)}
+                className="text-destructive"
+              >
+                Descartar treino
+              </AlertDialogCancel>
+              <AlertDialogAction>Entendi</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

@@ -322,9 +322,19 @@ function RecipesPage() {
         <DialogContent className="flex max-h-[min(88dvh,44rem)] flex-col gap-0 overflow-hidden rounded-[1.5rem] p-0 sm:p-0">
           {aberta && (
             <>
+              {aberta.imageUrl && (
+                <img
+                  src={aberta.imageUrl}
+                  alt=""
+                  width={800}
+                  height={600}
+                  className="aspect-[16/9] w-full shrink-0 object-cover"
+                />
+              )}
               <DialogHeader className="space-y-1 px-5 pb-3 pt-5 text-left">
                 <DialogTitle className="pr-8 text-xl leading-tight">
-                  {recipeCategoryOf(aberta.category)?.emoji} {aberta.name}
+                  {aberta.imageUrl ? "" : `${recipeCategoryOf(aberta.category)?.emoji ?? ""} `}
+                  {aberta.name}
                 </DialogTitle>
                 <DialogDescription className="flex items-center gap-1">
                   Rende {aberta.servings} {aberta.servings === 1 ? "porção" : "porções"}
@@ -480,13 +490,25 @@ function CartaoReceita({
         grande ? "w-48" : "w-40 min-w-0 [.grid_&]:w-auto",
       )}
     >
-      <span
-        className={cn("grid w-full place-items-center", grande ? "h-28 text-6xl" : "h-24 text-5xl")}
-        style={{ background: `color-mix(in oklch, ${tom} 18%, transparent)` }}
-        aria-hidden
-      >
-        {recipeCategoryOf(r.category)?.emoji ?? "🍽️"}
-      </span>
+      {r.imageUrl ? (
+        <img
+          src={r.imageUrl}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          width={400}
+          height={300}
+          className={cn("w-full bg-elevated object-cover", grande ? "h-28" : "h-24")}
+        />
+      ) : (
+        <span
+          className={cn("grid w-full place-items-center", grande ? "h-28 text-6xl" : "h-24 text-5xl")}
+          style={{ background: `color-mix(in oklch, ${tom} 18%, transparent)` }}
+          aria-hidden
+        >
+          {recipeCategoryOf(r.category)?.emoji ?? "🍽️"}
+        </span>
+      )}
       <span className="flex flex-1 flex-col p-3">
         <span className="line-clamp-2 min-h-[2.5rem] break-words text-sm font-bold leading-tight">
           {r.name}

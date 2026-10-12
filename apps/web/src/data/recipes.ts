@@ -29,6 +29,8 @@ export interface RecipeSummary {
   id: string;
   name: string;
   category: string | null;
+  /** Foto do prato (receitas do sistema); null = mostrar o símbolo da categoria. */
+  imageUrl: string | null;
   servings: number;
   prepMinutes: number | null;
   instructions: string | null;
@@ -45,7 +47,7 @@ export async function fetchRecipes(): Promise<RecipeSummary[]> {
     await supabase
       .from("recipes")
       .select(
-        "id, name, category, servings, prep_minutes, instructions, user_id, recipe_items(food_id, grams, foods(name, serving_size_g, kcal, protein_g, carbs_g, fat_g))",
+        "id, name, category, image_url, servings, prep_minutes, instructions, user_id, recipe_items(food_id, grams, foods(name, serving_size_g, kcal, protein_g, carbs_g, fat_g))",
       )
       .is("deleted_at", null)
       .order("name"),
@@ -67,6 +69,7 @@ export async function fetchRecipes(): Promise<RecipeSummary[]> {
       id: r.id,
       name: r.name,
       category: r.category,
+      imageUrl: r.image_url,
       servings: porcoes,
       prepMinutes: r.prep_minutes,
       instructions: r.instructions,
