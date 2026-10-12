@@ -7,8 +7,6 @@ import {
   ArrowDown,
   ArrowUp,
   CalendarDays,
-  Check,
-  Play,
   ChevronLeft,
   ChevronRight,
   Dumbbell,
@@ -87,11 +85,6 @@ const INICIAIS: Record<Weekday, string> = {
   6: "SÁB",
 };
 
-function saudacao(): string {
-  const h = new Date().getHours();
-  return h < 5 ? "Boa noite" : h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
-}
-
 function Home() {
   const today = todayISO();
 
@@ -100,7 +93,6 @@ function Home() {
     queryFn: async () =>
       unwrapMaybe("carregar perfil", await supabase.from("profiles").select("*").maybeSingle()),
   });
-  const primeiroNome = profile.data?.display_name?.trim().split(/\s+/)[0];
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 pb-8 pt-6 md:px-8 md:pt-8">
@@ -108,39 +100,33 @@ function Home() {
         <h1>
           <BrandLogo className="h-12 justify-center" />
         </h1>
-        <p className="mt-4 text-2xl font-extrabold">
-          {saudacao()}
-          {primeiroNome ? `, ${primeiroNome}` : ""}
-        </p>
-        <p className="text-muted-foreground first-letter:uppercase">
+        <p className="mt-2 text-lg text-muted-foreground first-letter:uppercase">
           {formatLongDate(today).toLowerCase()}
         </p>
       </header>
 
-      <div className="space-y-3">
-        <SemanaCard />
+      <div className="space-y-4">
         <SequenciaCard />
+        <SemanaCard />
+        <PesoCard />
         <DietaCard
           kcalTarget={num(profile.data?.daily_kcal_target)}
           proteinTarget={num(profile.data?.protein_g_target)}
           loadingProfile={profile.isPending}
         />
         <WaterCard date={today} targetMl={num(profile.data?.water_ml_target, 2500)} />
-        <PesoCard />
         <Link
           to="/coach"
-          className="flex items-center gap-3.5 rounded-[1.5rem] border border-border p-4 transition-colors hover:bg-card"
+          className="flex items-center gap-4 rounded-[1.5rem] bg-card p-5 transition-colors hover:bg-elevated"
         >
-          <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-primary/12 text-primary">
-            <CoachIcon className="size-5" aria-hidden />
+          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-info text-info-foreground">
+            <CoachIcon className="size-6" aria-hidden />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block font-bold">Pergunte ao Treinador</span>
-            <span className="block text-sm text-muted-foreground">
-              Treino de hoje, calorias, recordes e mais
-            </span>
+            <span className="block text-xl">Treinador</span>
+            <span className="block text-muted-foreground">Pergunte sobre seu treino e dieta</span>
           </span>
-          <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden />
+          <ChevronRight className="size-5 shrink-0" aria-hidden />
         </Link>
         <CoachTips limit={1} />
       </div>
@@ -215,125 +201,96 @@ function SemanaCard() {
           ? "Próxima semana"
           : `${formatDate(dias[0]!, "d MMM")} – ${formatDate(dias[6]!, "d MMM")}`;
 
-  const nomeHoje = template?.name.replace(/^[A-Z]\s*—\s*/, "") ?? "";
-  const treinoHoje = isPlannedDay && template && !alreadyDone;
-
   return (
-    <section className="overflow-hidden rounded-[1.75rem] bg-card" aria-label="Semana de treino">
-      <div className="p-5 pb-4">
-        <div className="mb-4 flex items-center justify-between">
-          <p className="font-bold">{titulo}</p>
-          <div className="flex gap-1">
-            <button
-              type="button"
-              onClick={() => setOffset((o) => o - 1)}
-              aria-label="Semana anterior"
-              className="grid size-8 place-items-center rounded-full bg-elevated hover:bg-muted"
-            >
-              <ChevronLeft className="size-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setOffset((o) => o + 1)}
-              aria-label="Próxima semana"
-              className="grid size-8 place-items-center rounded-full bg-elevated hover:bg-muted"
-            >
-              <ChevronRight className="size-4" />
-            </button>
-          </div>
-        </div>
-
-        <ol className="grid grid-cols-7 gap-1 text-center">
-          {dias.map((dia, i) => {
-            const p = projecao[i]!;
-            const eHoje = dia === today;
-            const treinou = treinados.has(dia);
-            const planejado = !treinou && p.splitIndex !== null && dia >= today;
-            return (
-              <li key={dia} className="flex flex-col items-center gap-1.5">
-                <span
-                  className={cn(
-                    "text-[11px] font-bold",
-                    eHoje ? "text-primary" : "text-muted-foreground",
-                  )}
-                >
-                  {INICIAIS[weekdayOf(dia)]}
-                </span>
-                <span
-                  className={cn(
-                    "grid size-10 place-items-center rounded-full text-base font-bold tabular-nums",
-                    treinou
-                      ? "bg-primary text-primary-foreground"
-                      : eHoje
-                        ? "border-2 border-primary text-primary"
-                        : planejado
-                          ? "border-2 border-dashed border-muted-foreground/35"
-                          : "text-muted-foreground",
-                  )}
-                  aria-current={eHoje ? "date" : undefined}
-                  aria-label={`${Number(dia.slice(8))}${treinou ? ", treinou" : planejado ? ", treino previsto" : ""}`}
-                >
-                  {treinou ? <Check className="size-4" strokeWidth={3} /> : Number(dia.slice(8))}
-                </span>
-              </li>
-            );
-          })}
-        </ol>
+    <section className="rounded-[1.5rem] bg-card p-5" aria-label="Semana de treino">
+      <div className="mb-4 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setOffset((o) => o - 1)}
+          aria-label="Semana anterior"
+          className="grid size-9 place-items-center rounded-full hover:bg-elevated"
+        >
+          <ChevronLeft className="size-5" />
+        </button>
+        <p className="text-lg text-muted-foreground">{titulo}</p>
+        <button
+          type="button"
+          onClick={() => setOffset((o) => o + 1)}
+          aria-label="Próxima semana"
+          className="grid size-9 place-items-center rounded-full hover:bg-elevated"
+        >
+          <ChevronRight className="size-5" />
+        </button>
       </div>
 
-      {treinoHoje ? (
-        <div className="bg-primary p-5 text-primary-foreground">
-          <p className="text-xs font-bold uppercase tracking-[0.14em] opacity-75">Treino de hoje</p>
-          <p className="mt-1 truncate text-2xl font-extrabold">{nomeHoje}</p>
-          <p className="text-sm font-medium opacity-75">
-            {template.exerciseCount} {template.exerciseCount === 1 ? "exercício" : "exercícios"}
+      <ol className="grid grid-cols-7 text-center">
+        {dias.map((dia, i) => {
+          const p = projecao[i]!;
+          const eHoje = dia === today;
+          const treinou = treinados.has(dia);
+          const planejado = !treinou && p.splitIndex !== null && dia >= today;
+          return (
+            <li key={dia} className="flex flex-col items-center gap-1">
+              <span className="text-sm text-muted-foreground">{INICIAIS[weekdayOf(dia)]}</span>
+              <span
+                className={cn(
+                  "grid size-11 place-items-center rounded-full text-xl tabular-nums",
+                  eHoje && "bg-primary font-extrabold text-primary-foreground",
+                )}
+                aria-current={eHoje ? "date" : undefined}
+              >
+                {Number(dia.slice(8))}
+              </span>
+              <span
+                className={cn(
+                  "size-1.5 rounded-full",
+                  treinou ? "bg-primary" : planejado ? "bg-warning" : "bg-transparent",
+                )}
+                aria-label={treinou ? "treinou" : planejado ? "treino previsto" : undefined}
+              />
+            </li>
+          );
+        })}
+      </ol>
+
+      <div className="mt-4 flex items-center gap-4 rounded-2xl bg-elevated p-4">
+        <span
+          className={cn(
+            "grid size-12 shrink-0 place-items-center rounded-xl",
+            isPlannedDay && !alreadyDone
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-muted-foreground",
+          )}
+        >
+          {isPlannedDay ? (
+            <Dumbbell className="size-6" aria-hidden />
+          ) : (
+            <Moon className="size-6" aria-hidden />
+          )}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm uppercase tracking-wide text-muted-foreground">Hoje</p>
+          <p className="truncate text-xl">
+            {alreadyDone
+              ? "Treino concluído"
+              : isPlannedDay && template
+                ? template.name.replace(/^[A-Z]\s*—\s*/, "")
+                : proximo
+                  ? `Descanso · ${WEEKDAY_LABELS[proximo.weekday].toLowerCase()} tem treino`
+                  : "Descanso"}
           </p>
+        </div>
+        {template && !alreadyDone && (
           <button
             type="button"
             onClick={() => comecar.mutate(template.id)}
             disabled={comecar.isPending}
-            className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#020306] font-bold text-white transition active:scale-[0.98] disabled:opacity-60"
+            className="shrink-0 rounded-xl bg-primary-soft px-4 py-2 text-lg font-medium text-primary-soft-foreground disabled:opacity-60"
           >
-            <Play className="size-4 fill-current" aria-hidden />
-            Começar treino
+            {isPlannedDay ? "Começar" : "Treinar"}
           </button>
-        </div>
-      ) : (
-        <div className="flex items-center gap-3.5 border-t border-border/60 p-5">
-          <span
-            className={cn(
-              "grid size-11 shrink-0 place-items-center rounded-2xl",
-              alreadyDone ? "bg-primary text-primary-foreground" : "bg-elevated text-muted-foreground",
-            )}
-          >
-            {alreadyDone ? (
-              <Check className="size-5" strokeWidth={3} aria-hidden />
-            ) : (
-              <Moon className="size-5" aria-hidden />
-            )}
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="font-bold">{alreadyDone ? "Treino de hoje feito" : "Dia de descanso"}</p>
-            <p className="truncate text-sm text-muted-foreground">
-              {alreadyDone
-                ? "Bom trabalho — recuperação também conta."
-                : proximo
-                  ? `Próximo treino: ${WEEKDAY_LABELS[proximo.weekday].toLowerCase()}`
-                  : "Aproveite para recuperar."}
-            </p>
-          </div>
-          {template && !alreadyDone && (
-            <button
-              type="button"
-              onClick={() => comecar.mutate(template.id)}
-              disabled={comecar.isPending}
-              className="shrink-0 rounded-full border border-border px-3.5 py-2 text-sm font-semibold disabled:opacity-60"
-            >
-              Treinar
-            </button>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </section>
   );
 }
@@ -543,45 +500,24 @@ function SequenciaCard() {
   const semanas = weeklyStreak(datas, meta, today);
   const nestaSemana = datas.filter((d) => d >= weekStart(today)).length;
 
-  const tiles = [
-    {
-      icone: Flame,
-      valor: semanas,
-      rotulo: semanas === 1 ? "semana seguida" : "semanas seguidas",
-      destaque: true,
-    },
-    { icone: CalendarDays, valor: `${nestaSemana}/${meta}`, rotulo: "esta semana", destaque: false },
-    { icone: Dumbbell, valor: contagem.data?.total ?? "–", rotulo: "treinos no total", destaque: false },
-  ];
-
   return (
     <Link
       to="/workouts/calendar"
-      className="grid grid-cols-3 gap-2.5"
-      aria-label="Ver calendário de treinos"
+      className="relative flex items-center gap-4 overflow-hidden rounded-[1.5rem] border border-primary/30 bg-card p-5 transition-colors"
     >
-      {tiles.map((t) => (
-        <span
-          key={t.rotulo}
-          className={cn(
-            "rounded-[1.25rem] p-3.5",
-            t.destaque ? "bg-primary text-primary-foreground" : "bg-card",
-          )}
-        >
-          <t.icone className={cn("size-4", t.destaque ? "opacity-80" : "text-primary")} aria-hidden />
-          <span className="mt-2 block text-2xl font-extrabold leading-none tabular-nums">
-            {t.valor}
-          </span>
-          <span
-            className={cn(
-              "mt-1 block text-[11px] font-medium leading-tight",
-              t.destaque ? "opacity-75" : "text-muted-foreground",
-            )}
-          >
-            {t.rotulo}
-          </span>
+      <span className="relative grid size-12 shrink-0 place-items-center rounded-2xl bg-[#01D798] text-[#020306]">
+        <Flame className="size-6" aria-hidden />
+      </span>
+      <span className="relative min-w-0 flex-1">
+        <span className="block text-3xl font-extrabold">
+          {semanas} {semanas === 1 ? "semana seguida" : "semanas seguidas"}
         </span>
-      ))}
+        <span className="block text-lg text-muted-foreground">
+          {nestaSemana} / {meta} esta semana
+          {contagem.data && ` · ${contagem.data.total} treinos no total`}
+        </span>
+      </span>
+      <CalendarDays className="relative size-6 shrink-0 text-primary" aria-label="Ver calendário" />
     </Link>
   );
 }
