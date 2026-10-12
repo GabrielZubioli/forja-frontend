@@ -368,6 +368,11 @@ export interface CreateMealPlanInput {
 
 export interface MealPlanDraft {
   plan: GeneratedMealPlan;
+  /**
+   * Um cardápio por dia da semana (índice = dia, 0 = domingo). Mesmas
+   * refeições e metas; os alimentos variam pela semente do gerador.
+   */
+  porDia: GeneratedMealPlan[];
   slots: MealSlot[];
   /** Quantos alimentos sobraram no pool após as restrições. */
   poolSize: number;
@@ -384,7 +389,9 @@ export async function buildMealPlanDraft(input: CreateMealPlanInput): Promise<Me
     ...(workoutMinutes !== undefined ? { workoutMinutes } : {}),
   });
 
-  const plan = generateMealPlan({
+  const gerar = (seed: number) =>
+    generateMealPlan({
+    seed,
     kcalTarget: input.kcalTarget,
     proteinTarget: input.proteinTarget,
     carbsTarget: input.carbsTarget,
@@ -404,7 +411,10 @@ export async function buildMealPlanDraft(input: CreateMealPlanInput): Promise<Me
     ...(workoutMinutes !== undefined ? { workoutMinutes } : {}),
   });
 
-  return { plan, slots, poolSize: pool.length };
+  // Cada dia da semana com sua semente: a rotação muda as escolhas entre os
+  // melhores candidatos, e a semana não repete o mesmo prato todo dia.
+  const porDia = [0, 1, 2, 3, 4, 5, 6].map((dia) => gerar(dia * 5));
+  return { plan: porDia[1]!, porDia, slots, poolSize: pool.length };
 }
 
 /** Grava o plano: desativa o anterior, cria refeições e itens. */
@@ -462,19 +472,19 @@ export async function createMealPlan(
           .single(),
       );
 
-      if (meal.items.length === 0) continue;
-
-      assertOk(
-        "adicionar alimentos à refeição",
-        await supabase.from("meal_plan_items").insert(
-          meal.items.map((item, position) => ({
-            meal_id: row.id,
-            food_id: item.foodId,
-            grams: item.grams,
-            position,
-          })),
-        ),
+      // Os itens de cada dia da semana, com o dia marcado.
+      const itens = draft.porDia.flatMap((planoDoDia, dia) =>
+        (planoDoDia.meals[index]?.items ?? []).map((item, position) => ({
+          meal_id: row.id,
+          food_id: item.foodId,
+          grams: item.grams,
+          position,
+          weekday: dia,
+        })),
       );
+      if (itens.length === 0) continue;
+
+      assertOk("adicionar alimentos à refeição", await supabase.from("meal_plan_items").insert(itens));
     }
 
     // Espelha as refeições ativas no perfil do usuário, para a UI saber quais

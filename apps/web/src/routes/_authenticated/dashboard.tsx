@@ -1,5 +1,5 @@
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { addDays, startOfWeek } from "date-fns";
@@ -38,13 +38,14 @@ import { fetchActiveRoutine, fetchCompletedWorkouts, scheduleInputOf } from "@/d
 import { openWorkoutForTemplate } from "@/data/workout-session";
 import { ensureDayMaterialized, fetchDayEntries } from "@/data/diet-day";
 import { ensureActiveMealPlan } from "@/data/meal-plans";
-import { fetchGoalWeight, fetchWeighIns, fetchWorkoutCounts } from "@/data/body";
+import { fetchGoalWeight, fetchWeighIns } from "@/data/body";
 import { useCurrentUserId } from "@/hooks/use-current-user";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CoachIcon } from "@/components/coach/coach-icon";
 import { NoRoutineCard } from "@/components/home/today-workout-card";
 import { WaterCard } from "@/components/home/water-card";
 import { CoachTips } from "@/components/coach/coach-tips";
+import { ReadinessCard } from "@/components/home/readiness-card";
 import { CalorieRing, MACRO_COLORS } from "@/components/home/macro-rings";
 import { LazyWeightChart } from "@/components/charts/lazy-chart";
 import { formatDate, formatLongDate, fromISODate, toISODate, todayISO } from "@/lib/date";
@@ -109,6 +110,7 @@ function Home() {
       <div className="space-y-4">
         <SequenciaCard />
         <SemanaCard />
+        <ReadinessCard />
         <PesoCard />
         <DietaCard
           kcalTarget={num(profile.data?.daily_kcal_target)}
@@ -180,7 +182,6 @@ function SemanaCard() {
   const r = routine.data;
   const entrada = scheduleInputOf(r);
   const feitos = recentes.data ?? [];
-  const projecao = projectSchedule(dias, today, entrada, feitos);
   const treinados = new Set(feitos.map((w) => w.date));
 
   const { splitIndex, isPlannedDay, alreadyDone } = todaysWorkout(today, entrada, feitos);
@@ -228,10 +229,8 @@ function SemanaCard() {
 
       <ol className="grid grid-cols-7 text-center">
         {dias.map((dia, i) => {
-          const p = projecao[i]!;
           const eHoje = dia === today;
           const treinou = treinados.has(dia);
-          const planejado = !treinou && p.splitIndex !== null && dia >= today;
           return (
             <li key={dia}>
               <button
@@ -254,9 +253,9 @@ function SemanaCard() {
               <span
                 className={cn(
                   "size-1.5 rounded-full",
-                  treinou ? "bg-primary" : planejado ? "bg-warning" : "bg-transparent",
+                  treinou ? "bg-primary" : "bg-transparent",
                 )}
-                aria-label={treinou ? "treinou" : planejado ? "treino previsto" : undefined}
+                aria-label={treinou ? "treinou" : undefined}
               />
               </button>
             </li>
@@ -273,7 +272,6 @@ function SemanaCard() {
             const i = projectSchedule([selecionado], today, entrada, feitos)[0]?.splitIndex;
             return i != null ? (r.templates[i]?.name.replace(/^[A-Z]\s*—\s*/, "") ?? null) : null;
           })()}
-          onVoltar={() => setSelecionado(today)}
         />
       ) : (
       <div className="mt-4 flex items-center gap-4 rounded-2xl bg-elevated p-4">
@@ -325,25 +323,18 @@ function DiaEscolhido({
   hoje,
   feitos,
   previsto,
-  onVoltar,
 }: {
   dia: string;
   hoje: string;
   feitos: { sessionId: string; name: string }[];
   previsto: string | null;
-  onVoltar: () => void;
 }) {
   const passado = dia < hoje;
   return (
     <div className="mt-4 rounded-2xl bg-elevated p-4 animate-in fade-in duration-200">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm uppercase tracking-wide text-muted-foreground first-letter:uppercase">
-          {formatDate(dia, "EEEE, d 'de' MMM")}
-        </p>
-        <button type="button" onClick={onVoltar} className="text-sm font-semibold text-primary">
-          Hoje
-        </button>
-      </div>
+      <p className="text-sm uppercase tracking-wide text-muted-foreground first-letter:uppercase">
+        {formatDate(dia, "EEEE, d 'de' MMM")}
+      </p>
       {feitos.length > 0 ? (
         <ul className="mt-2 space-y-2">
           {feitos.map((w) => (
@@ -584,11 +575,6 @@ function SequenciaCard() {
       );
     },
   });
-  const contagem = useQuery({
-    queryKey: [...queryKeys.workouts.all, "counts"],
-    queryFn: fetchWorkoutCounts,
-  });
-
   const meta = routine.data?.daysPerWeek ?? 3;
   const datas = (recentes.data ?? []).map((w) => w.date);
   const semanas = weeklyStreak(datas, meta, today);
@@ -597,26 +583,50 @@ function SequenciaCard() {
   return (
     <Link
       to="/workouts/calendar"
-      className="relative flex items-center gap-4 overflow-hidden rounded-[1.5rem] border border-primary/30 bg-card p-5 transition-colors"
+      className="flex items-center gap-3 rounded-[1.5rem] border border-primary/30 bg-card py-4 pl-3 pr-5"
     >
-      <span className="relative grid size-12 shrink-0 place-items-center rounded-2xl bg-[#01D798] text-[#020306]">
-        <Flame className="size-6" aria-hidden />
-      </span>
-      <span className="relative min-w-0 flex-1">
-        {/* Uma linha só: o tamanho acompanha a largura da tela, sem quebrar. */}
-        <span className="block whitespace-nowrap text-[clamp(1.05rem,5vw,1.875rem)] font-extrabold leading-tight">
+      {/* Fogo de verdade: contorno vermelho-alaranjado, miolo âmbar. */}
+      <Flame
+        className="size-14 shrink-0 fill-[#FFB01F] text-[#FF5A1F]"
+        strokeWidth={1.75}
+        aria-hidden
+      />
+      <span className="min-w-0 flex-1">
+        <TextoQueEnche className="font-extrabold leading-tight">
           {semanas} {semanas === 1 ? "semana seguida" : "semanas seguidas"}
-        </span>
+        </TextoQueEnche>
         <span className="mt-0.5 block whitespace-nowrap text-muted-foreground">
           {nestaSemana} / {meta} esta semana
         </span>
-        {contagem.data && (
-          <span className="block whitespace-nowrap text-muted-foreground">
-            {contagem.data.total} {contagem.data.total === 1 ? "treino" : "treinos"} no total
-          </span>
-        )}
       </span>
-      <CalendarDays className="relative size-6 shrink-0 text-primary" aria-label="Ver calendário" />
+      <CalendarDays className="size-6 shrink-0 text-primary" aria-label="Ver calendário" />
     </Link>
+  );
+}
+
+/**
+ * Texto numa linha que ocupa toda a largura disponível: mede quanto sobra e
+ * ajusta o tamanho da fonte (entre 16 e 40 px) até caber exato.
+ */
+function TextoQueEnche({ children, className }: { children: ReactNode; className?: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ajustar = () => {
+      el.style.fontSize = "40px";
+      const largura = el.parentElement?.clientWidth ?? el.clientWidth;
+      const tamanho = Math.max(16, Math.min(40, Math.floor((40 * largura) / el.scrollWidth)));
+      el.style.fontSize = `${tamanho}px`;
+    };
+    ajustar();
+    const obs = new ResizeObserver(ajustar);
+    if (el.parentElement) obs.observe(el.parentElement);
+    return () => obs.disconnect();
+  }, [children]);
+  return (
+    <span ref={ref} className={cn("inline-block whitespace-nowrap", className)}>
+      {children}
+    </span>
   );
 }
