@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { Bell, BellOff, Minus, Plus, X } from "lucide-react";
 import type { RestTimer } from "@/hooks/use-rest-timer";
 
@@ -9,6 +9,7 @@ import type { RestTimer } from "@/hooks/use-rest-timer";
  */
 export function RestTimerBar({ timer }: { timer: RestTimer }) {
   const [som, setSom] = useState(restSoundEnabled);
+  const recorte = useRecorteDoBotao(timer.remaining !== null);
 
   if (timer.remaining === null) return null;
 
@@ -23,6 +24,8 @@ export function RestTimerBar({ timer }: { timer: RestTimer }) {
   return (
     <div className="fixed inset-x-0 bottom-24 z-30 px-4 md:bottom-6 md:pl-64">
       <div
+        ref={recorte.ref}
+        style={recorte.style}
         className="mx-auto max-w-md overflow-hidden rounded-[1.5rem] bg-(--t-surface) text-(--t-on) shadow-2xl shadow-black/40 animate-in fade-in slide-in-from-bottom-4 duration-300"
         role="timer"
         aria-label="Descanso"
@@ -125,4 +128,49 @@ export function playRestFinishedSound() {
   } catch {
     // Sem Web Audio: a vibração do hook ainda avisa.
   }
+}
+
+/** Folga entre o botão Treinar e a borda do recorte. */
+const FOLGA_PX = 8;
+
+/**
+ * Recorte circular em volta do botão Treinar.
+ *
+ * O botão sobe acima da barra e cairia em cima da barra de descanso. Em vez de
+ * empurrar a barra para cima, ela "abre espaço": mede onde o botão está de
+ * verdade (`data-train-fab`) e aplica uma máscara com um círculo transparente
+ * ali, um pouco maior que ele. Medir em vez de fixar pixels mantém o recorte
+ * certo em qualquer aparelho, com ou sem área segura.
+ */
+function useRecorteDoBotao(ativo: boolean) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [style, setStyle] = useState<CSSProperties>();
+
+  useLayoutEffect(() => {
+    if (!ativo) return;
+    const medir = () => {
+      const card = ref.current?.getBoundingClientRect();
+      const fab = document.querySelector("[data-train-fab]")?.getBoundingClientRect();
+      // Sem botão visível (desktop) ou sem sobreposição: nada a recortar.
+      if (!card || !fab || fab.width === 0 || fab.top > card.bottom + 2) {
+        setStyle(undefined);
+        return;
+      }
+      const x = fab.left + fab.width / 2 - card.left;
+      const y = fab.top + fab.height / 2 - card.top;
+      const r = fab.width / 2 + FOLGA_PX;
+      const mascara = `radial-gradient(circle ${r}px at ${x}px ${y}px, transparent ${r - 0.5}px, #000 ${r}px)`;
+      setStyle({ maskImage: mascara, WebkitMaskImage: mascara });
+    };
+    medir();
+    // A barra entra deslizando: mede de novo quando a animação termina.
+    const depois = window.setTimeout(medir, 400);
+    window.addEventListener("resize", medir);
+    return () => {
+      window.clearTimeout(depois);
+      window.removeEventListener("resize", medir);
+    };
+  }, [ativo]);
+
+  return { ref, style };
 }

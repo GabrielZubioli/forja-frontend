@@ -320,7 +320,7 @@ function SettingsPage() {
       <PageHeader title={titulo} />
       <PageBody>
         {/* `key`: trocar de seção pelo Menu remonta a tela. */}
-        <div key={secao ?? "todas"} className={cn("space-y-8", prefsTouched && "pb-24")}>
+        <div key={secao ?? "todas"} className={cn("space-y-8", prefsTouched && "pb-40")}>
           {carregando ? (
             <div className="space-y-3">
               {[0, 1, 2, 3].map((i) => (
@@ -524,7 +524,7 @@ function SettingsPage() {
           quando há mudança: as três seções gravam na mesma linha de `profiles`.
         */}
         {editaPreferencias && prefsTouched && (
-          <div className="fixed inset-x-0 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-30 px-4 animate-in fade-in slide-in-from-bottom-3 duration-300 md:bottom-6 md:left-auto md:right-6 md:w-96">
+          <div className="fixed inset-x-0 bottom-(--acima-da-barra) z-30 px-4 animate-in fade-in slide-in-from-bottom-3 duration-300 md:bottom-6 md:left-auto md:right-6 md:w-96">
             <Button
               className="h-13 w-full rounded-2xl text-base font-bold"
               onClick={() => savePreferences.mutate()}

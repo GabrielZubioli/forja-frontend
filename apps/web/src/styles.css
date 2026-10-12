@@ -156,6 +156,9 @@
   /* Laranja do treino em andamento — o mesmo nos dois temas: tela, botão e punho. */
   --treino: oklch(0.78 0.15 62);
   --treino-ink: oklch(0.2 0.05 62);
+  /* Onde um botão fixo embaixo pode ficar sem passar por baixo do botão Treinar
+     (que sobe acima da barra). Só no celular; no desktop não há barra. */
+  --acima-da-barra: calc(7.75rem + env(safe-area-inset-bottom));
   --radius: 1rem;
 
   /* ——— Escada de superfície ———

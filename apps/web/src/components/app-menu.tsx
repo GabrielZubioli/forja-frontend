@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState, type ComponentType, type SVGProps } from "react";
-import { ArrowUpRight, BarChart3, BookOpen, ChevronRight, HeartPulse, List, LogOut } from "lucide-react";
+import { BarChart3, BookOpen, ChevronRight, HeartPulse, List, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { queryKeys } from "@/data/query-keys";
 import { unwrapMaybe } from "@/data/supabase-helpers";
@@ -17,45 +17,38 @@ import {
 import { CoachIcon } from "@/components/coach/coach-icon";
 import { ThemeSwitch } from "@/components/theme-switch";
 import { SETTINGS_SECTIONS } from "@/components/profile/settings-sections";
-import { cn } from "@/lib/utils";
 
 type Icone = ComponentType<SVGProps<SVGSVGElement>>;
 
 /**
  * O Menu da barra inferior.
  *
- * Em cima, o cartão verde da pessoa (leva ao Perfil). Os atalhos são um
- * mosaico com o verde em três intensidades — o destaque sólido, o tom suave e
- * o contorno —, para o painel ter hierarquia em vez de seis caixas cinzas
- * iguais. Depois o interruptor do modo escuro, as configurações e o sair.
+ * Em cima, o cartão da pessoa (leva ao Perfil). Só duas telas ganham destaque —
+ * Estatísticas e Corpo, as que respondem "estou evoluindo?" —; todo o resto,
+ * telas e ajustes, fica numa lista única e limpa. Destacar tudo é não destacar
+ * nada.
  */
-const ATALHOS: { to: string; label: string; hint: string; icon: Icone; estilo: Estilo }[] = [
-  { to: "/exercises", label: "Exercícios", hint: "Biblioteca com demonstrações", icon: List, estilo: "solido" },
-  { to: "/stats", label: "Estatísticas", hint: "Sua evolução", icon: BarChart3, estilo: "suave" },
-  { to: "/coach", label: "Treinador", hint: "Tire dúvidas", icon: CoachIcon, estilo: "contorno" },
-  { to: "/body", label: "Corpo", hint: "Peso e fotos", icon: HeartPulse, estilo: "suave" },
-  { to: "/recipes", label: "Receitas", hint: "Prontas e suas", icon: BookOpen, estilo: "contorno" },
+const DESTAQUES: { to: string; label: string; hint: string; icon: Icone }[] = [
+  { to: "/stats", label: "Estatísticas", hint: "Sua evolução", icon: BarChart3 },
+  { to: "/body", label: "Corpo", hint: "Peso, medidas e fotos", icon: HeartPulse },
 ];
 
-type Estilo = "solido" | "suave" | "contorno";
+type Item = { label: string; icon: Icone } & (
+  | { to: string; secao?: undefined }
+  | { to: "/settings"; secao: (typeof SETTINGS_SECTIONS)[number]["key"] }
+);
 
-const ESTILOS: Record<Estilo, { tile: string; icone: string; hint: string }> = {
-  solido: {
-    tile: "bg-[#01D798] text-[#020306]",
-    icone: "bg-[#020306]/12 text-[#020306]",
-    hint: "text-[#020306]/70",
-  },
-  suave: {
-    tile: "bg-primary/15 text-foreground",
-    icone: "bg-primary text-primary-foreground",
-    hint: "text-muted-foreground",
-  },
-  contorno: {
-    tile: "border border-primary/35 bg-card text-foreground",
-    icone: "bg-primary/15 text-primary",
-    hint: "text-muted-foreground",
-  },
-};
+const ITENS: Item[] = [
+  { to: "/exercises", label: "Exercícios", icon: List },
+  { to: "/coach", label: "Treinador", icon: CoachIcon },
+  { to: "/recipes", label: "Receitas", icon: BookOpen },
+  ...SETTINGS_SECTIONS.map((s) => ({
+    to: "/settings" as const,
+    secao: s.key,
+    label: s.title,
+    icon: s.icon as Icone,
+  })),
+];
 
 export function AppMenu({
   open,
@@ -69,86 +62,56 @@ export function AppMenu({
   isActive: (to: string) => boolean;
 }) {
   const fechar = () => onOpenChange(false);
-  const [destaque, ...outros] = ATALHOS;
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="pb-[env(safe-area-inset-bottom)]">
         <DrawerHeader className="sr-only">
           <DrawerTitle>Menu</DrawerTitle>
-          <DrawerDescription>Outras telas e configurações</DrawerDescription>
+          <DrawerDescription>Outras telas e ajustes</DrawerDescription>
         </DrawerHeader>
         <div className="max-h-[80vh] overflow-y-auto px-4 pb-5 pt-2">
           <CartaoPerfil onNavigate={fechar} />
 
-          {/* Atalhos: o destaque ocupa a linha toda; os demais, metade. */}
           <ul className="mt-3 grid grid-cols-2 gap-2.5">
-            {[destaque!, ...outros].map((a, i) => {
-              const e = ESTILOS[a.estilo];
-              return (
-                <li
-                  key={a.to}
-                  className={cn(
-                    i === 0 && "col-span-2",
-                    "animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards duration-300",
-                  )}
-                  style={{ animationDelay: `${60 + i * 45}ms` }}
+            {DESTAQUES.map((d) => (
+              <li key={d.to}>
+                <Link
+                  to={d.to}
+                  onClick={fechar}
+                  aria-current={isActive(d.to) ? "page" : undefined}
+                  className="flex h-full flex-col gap-3 rounded-[1.25rem] border border-border bg-card p-4 transition-colors hover:border-primary/40 active:scale-[0.98]"
                 >
-                  <Link
-                    to={a.to}
-                    onClick={fechar}
-                    aria-current={isActive(a.to) ? "page" : undefined}
-                    className={cn(
-                      "flex h-full items-center gap-3 rounded-[1.25rem] p-3.5 transition-transform active:scale-[0.97]",
-                      e.tile,
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "grid shrink-0 place-items-center rounded-xl",
-                        i === 0 ? "size-12" : "size-10",
-                        e.icone,
-                      )}
-                    >
-                      <a.icon className={i === 0 ? "size-6" : "size-5"} aria-hidden />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className={cn("block font-bold", i === 0 ? "text-lg" : "text-[0.95rem]")}>
-                        {a.label}
-                      </span>
-                      <span className={cn("block truncate text-xs", e.hint)}>{a.hint}</span>
-                    </span>
-                    {i === 0 && <ArrowUpRight className="size-5 shrink-0" aria-hidden />}
-                  </Link>
-                </li>
-              );
-            })}
+                  <span className="grid size-10 place-items-center rounded-xl bg-primary/12 text-primary">
+                    <d.icon className="size-5" aria-hidden />
+                  </span>
+                  <span>
+                    <span className="block font-bold">{d.label}</span>
+                    <span className="block text-xs text-muted-foreground">{d.hint}</span>
+                  </span>
+                </Link>
+              </li>
+            ))}
           </ul>
 
-          <div className="mt-3 rounded-[1.25rem] bg-card p-3.5">
-            <ThemeSwitch />
-          </div>
-
-          <h2 className="mb-2 mt-5 px-1 text-xs font-bold uppercase tracking-[0.14em] text-primary">
-            Configurações
-          </h2>
-          <ul className="overflow-hidden rounded-[1.25rem] bg-card">
-            {SETTINGS_SECTIONS.map((sec) => (
-              <li key={sec.key} className="border-b border-border/60 last:border-b-0">
+          <ul className="mt-3 overflow-hidden rounded-[1.25rem] border border-border bg-card">
+            {ITENS.map((it) => (
+              <li key={it.label} className="border-b border-border/60 last:border-b-0">
                 <Link
-                  to="/settings"
-                  search={{ secao: sec.key }}
+                  to={it.to}
+                  search={it.secao ? { secao: it.secao } : undefined}
                   onClick={fechar}
-                  className="flex items-center gap-3 px-3.5 py-3 transition-colors hover:bg-primary/8"
+                  className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-elevated"
                 >
-                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/12 text-primary">
-                    <sec.icon className="size-[1.1rem]" aria-hidden />
-                  </span>
-                  <span className="flex-1 font-medium">{sec.title}</span>
+                  <it.icon className="size-5 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className="flex-1 font-medium">{it.label}</span>
                   <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
                 </Link>
               </li>
             ))}
+            <li className="px-4 py-2.5">
+              <ThemeSwitch />
+            </li>
           </ul>
 
           <button
@@ -157,7 +120,7 @@ export function AppMenu({
               fechar();
               onSignOut();
             }}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-[1.25rem] border border-destructive/30 px-3 py-3 font-semibold text-destructive transition-colors hover:bg-destructive/10"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-[1.25rem] px-3 py-3 font-semibold text-destructive transition-colors hover:bg-destructive/10"
           >
             <LogOut className="size-5" aria-hidden />
             Sair da conta

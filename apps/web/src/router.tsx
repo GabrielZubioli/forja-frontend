@@ -2,6 +2,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
 import { DataError } from "./data/supabase-helpers";
+import { RouteErrorComponent } from "./components/route-error";
 
 /**
  * Defaults do cache. Antes o `QueryClient` era criado sem opções, então toda
@@ -43,6 +44,9 @@ export const getRouter = () => {
     // tornando a navegação praticamente instantânea.
     defaultPreload: "intent",
     defaultPreloadStaleTime: 0,
+    // Erro dentro de uma tela: mostra a tela de erro no lugar do conteúdo,
+    // mantendo a barra de navegação para a pessoa seguir usando o app.
+    defaultErrorComponent: RouteErrorComponent,
   });
 
   return router;

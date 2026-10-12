@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Check,
+  ChevronDown,
   Clock,
   CopyPlus,
   Minus,
@@ -54,7 +55,7 @@ import {
 import { ErrorState } from "@/components/query-boundary";
 import { FoodPicker } from "@/components/pickers/food-picker";
 import { SubstituteFoodDialog } from "@/components/diet/substitute-food-dialog";
-import { DaySummary } from "@/components/diet/day-summary";
+import { CalorieRing, MACRO_COLORS, MacroRing } from "@/components/home/macro-rings";
 import { MEALS, MEAL_LABELS, label, type MealValue } from "@/lib/labels";
 import { fromISODate, toISODate, todayISO } from "@/lib/date";
 import { cn } from "@/lib/utils";
@@ -289,21 +290,70 @@ function DietPage() {
       />
 
       <PageBody>
-        {entries.isPending || profile.isPending ? (
-          <Skeleton className="mb-4 h-[19rem] w-full rounded-[1.5rem]" />
-        ) : (
-          <DaySummary
-            consumido={totaisConsumidos}
-            planejado={totaisPlanejados}
-            metas={{
-              kcal: num(profile.data?.daily_kcal_target),
-              proteinG: num(profile.data?.protein_g_target),
-              carbsG: num(profile.data?.carbs_g_target),
-              fatG: num(profile.data?.fat_g_target),
-              fiberG: num(profile.data?.fiber_g_target),
-            }}
-          />
-        )}
+        <Card className="mb-4">
+          <CardContent className="p-4">
+            {entries.isPending || profile.isPending ? (
+              <div className="flex flex-col items-center gap-5 sm:flex-row">
+                <Skeleton className="size-[148px] shrink-0 rounded-full" />
+                <div className="grid w-full grid-cols-4 gap-3">
+                  {[0, 1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-24 rounded-xl" />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-col items-center gap-5 sm:flex-row sm:gap-6">
+                  <CalorieRing
+                    consumed={totaisConsumidos.kcal}
+                    target={num(profile.data?.daily_kcal_target)}
+                  />
+                  <div className="grid w-full grid-cols-4 gap-2 sm:gap-3">
+                    <MacroRing
+                      value={totaisConsumidos.proteinG}
+                      target={num(profile.data?.protein_g_target)}
+                      label="Proteína"
+                      unit="g"
+                      color={MACRO_COLORS.protein}
+                    />
+                    <MacroRing
+                      value={totaisConsumidos.carbsG}
+                      target={num(profile.data?.carbs_g_target)}
+                      label="Carbo"
+                      unit="g"
+                      color={MACRO_COLORS.carbs}
+                    />
+                    <MacroRing
+                      value={totaisConsumidos.fatG}
+                      target={num(profile.data?.fat_g_target)}
+                      label="Gordura"
+                      unit="g"
+                      color={MACRO_COLORS.fat}
+                      excessIsBad
+                    />
+                    <MacroRing
+                      value={totaisConsumidos.fiberG}
+                      target={num(profile.data?.fiber_g_target)}
+                      label="Fibra"
+                      unit="g"
+                      color={MACRO_COLORS.fiber}
+                    />
+                  </div>
+                </div>
+
+                {rows.length > 0 && totaisPlanejados.kcal - totaisConsumidos.kcal > 50 && (
+                  <p className="mt-4 border-t border-border pt-3 text-center text-xs text-muted-foreground">
+                    Planejado para o dia:{" "}
+                    <span className="font-medium tabular-nums text-foreground">
+                      {Math.round(totaisPlanejados.kcal).toLocaleString("pt-BR")} kcal
+                    </span>{" "}
+                    · P {Math.round(totaisPlanejados.proteinG)} g
+                  </p>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
 
         {entries.isError ? (
           <ErrorState message={errorMessage(entries.error)} onRetry={entries.refetch} />
@@ -406,6 +456,10 @@ function MealCard({
   );
 
   const todosConsumidos = items.length > 0 && items.every((i) => i.consumed);
+  // Refeição concluída se fecha: some a lista, fica o resumo. Tocar reabre.
+  const [aberta, setAberta] = useState(!todosConsumidos);
+  useEffect(() => setAberta(!todosConsumidos), [todosConsumidos]);
+  const fechada = todosConsumidos && !aberta;
 
   const toggleItem = useMutation({
     mutationFn: ({ id, consumed }: { id: string; consumed: boolean }) => setConsumed(id, consumed),
@@ -477,8 +531,8 @@ function MealCard({
       )}
     >
       <CardContent className="p-4">
-        <div className="mb-3 flex items-start justify-between gap-3">
-          <div className="min-w-0">
+        <div className={cn("flex items-start justify-between gap-3", !fechada && "mb-3")}>
+          <div className="min-w-0 flex-1">
             <h3 className="flex items-center gap-1.5 text-lg font-bold leading-tight">
               <span className="truncate">{nome}</span>
               <RenomearRefeicao atual={nome} padrao={label(MEAL_LABELS, slot)} onSave={onRename} />
@@ -497,6 +551,7 @@ function MealCard({
                   {targetTime.slice(0, 5)}
                 </span>
               )}
+              {fechada && <span>{items.length} {items.length === 1 ? "alimento" : "alimentos"}</span>}
               {items.length > 0 && (
                 <span className="rounded-full bg-primary/15 px-2 py-0.5 font-bold tabular-nums text-primary">
                   {Math.round(totals.kcal)} kcal · P {Math.round(totals.proteinG)} g
@@ -505,6 +560,7 @@ function MealCard({
             </p>
           </div>
 
+          {!fechada && (
           <FoodPicker
             title={`Adicionar em ${nome.toLowerCase()}`}
             onPick={(food, grams) => onAdd(food.id, grams)}
@@ -516,9 +572,21 @@ function MealCard({
               </Button>
             }
           />
+          )}
+          {todosConsumidos && (
+            <button
+              type="button"
+              onClick={() => setAberta((v) => !v)}
+              aria-expanded={aberta}
+              aria-label={aberta ? `Fechar ${nome}` : `Abrir ${nome}`}
+              className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/15 text-primary transition-colors hover:bg-primary/25"
+            >
+              <ChevronDown className={cn("size-5 transition-transform duration-300", aberta && "rotate-180")} />
+            </button>
+          )}
         </div>
 
-        {isPending ? (
+        {fechada ? null : isPending ? (
           <div className="space-y-2 py-1">
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />

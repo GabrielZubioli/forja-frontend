@@ -126,7 +126,10 @@ export function TrainFab({
   if (!sessao) {
     return (
       <>
-        <span className="grid size-16 place-items-center rounded-full bg-[#01D798] shadow-lg shadow-[#01D798]/30 transition-transform active:scale-90">
+        <span
+          className="grid size-16 place-items-center rounded-full bg-[#01D798] transition-transform active:scale-90"
+          data-train-fab
+        >
           <BrandSymbol escuro className="w-9" />
         </span>
         <span className="text-[12px] font-bold text-primary">Treinar</span>
@@ -167,7 +170,7 @@ function Gravando({
 
   return (
     <>
-      <span className="relative block size-[76px]">
+      <span className="relative block size-[76px]" data-train-fab>
         <svg viewBox="0 0 76 76" className="absolute inset-0 size-full -rotate-90" aria-hidden>
           <circle cx="38" cy="38" r={R} fill="none" stroke="var(--border)" strokeWidth="4" />
           <circle
