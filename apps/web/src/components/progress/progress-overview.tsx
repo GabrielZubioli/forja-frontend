@@ -153,6 +153,7 @@ export function ProgressOverview() {
         <StatCard
           icon={<Scale className="size-4" />}
           label="Peso atual"
+          destaque
           value={pesoAtual !== undefined ? `${pesoAtual.toFixed(1)}` : "—"}
           unit="kg"
         />
@@ -224,7 +225,7 @@ export function ProgressOverview() {
       {/* Demais metas */}
       {(goals.data ?? []).filter((g) => g.metric_key !== "body_weight").length > 0 && (
         <section>
-          <h3 className="mb-2 flex items-center gap-1.5 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <h3 className="mb-2 flex items-center gap-1.5 px-1 text-xs font-bold uppercase tracking-wider text-primary">
             <Target className="size-3.5" aria-hidden />
             Suas metas
           </h3>
@@ -235,7 +236,7 @@ export function ProgressOverview() {
                 .map((g) => (
                   <div key={g.id} className="flex items-center justify-between gap-3 px-4 py-3">
                     <span className="min-w-0 truncate text-sm">{g.label}</span>
-                    <span className="shrink-0 text-sm font-semibold tabular-nums">
+                    <span className="shrink-0 rounded-full bg-primary/15 px-2.5 py-0.5 text-sm font-bold tabular-nums text-primary">
                       {num(g.target_value)} {g.unit}
                     </span>
                   </div>
@@ -246,9 +247,9 @@ export function ProgressOverview() {
       )}
 
       {!medida && (
-        <Card className="border-dashed">
+        <Card className="border border-dashed border-primary/35 bg-linear-to-b from-primary/10 to-card">
           <CardContent className="p-4 text-center">
-            <span className="mx-auto grid size-10 place-items-center rounded-xl bg-muted text-muted-foreground">
+            <span className="mx-auto grid size-11 place-items-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/30">
               <Ruler className="size-5" aria-hidden />
             </span>
             <p className="mt-2 text-sm font-medium">Registre suas medidas</p>
@@ -260,7 +261,7 @@ export function ProgressOverview() {
         </Card>
       )}
 
-      <Button asChild variant="ghost" className="w-full text-muted-foreground">
+      <Button asChild variant="ghost" className="w-full font-semibold text-primary">
         <Link to="/plan">Ver progressão de cargas nos treinos</Link>
       </Button>
     </div>
@@ -273,29 +274,46 @@ function StatCard({
   value,
   unit,
   hint,
+  destaque = false,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   unit?: string;
   hint?: string;
+  /** O número principal da aba: cartão sólido no verde da marca. */
+  destaque?: boolean;
 }) {
+  const suave = destaque ? "text-[#020306]/70" : "text-muted-foreground";
   return (
-    <Card>
-      <CardContent className="p-3.5">
-        <div className="flex items-center gap-1.5 text-muted-foreground">
-          <span aria-hidden>{icon}</span>
-          <span className="text-[11px] font-medium uppercase tracking-wider">{label}</span>
-        </div>
-        <p className="mt-2 text-2xl font-bold leading-none tracking-tight tabular-nums">
-          {value}
-          {unit && value !== "—" && (
-            <span className="ml-1 text-sm font-medium text-muted-foreground">{unit}</span>
+    <div
+      className={cn(
+        "rounded-[1.25rem] p-3.5 animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards duration-500",
+        destaque
+          ? "bg-[#01D798] text-[#020306] shadow-lg shadow-[#01D798]/25"
+          : "border border-primary/20 bg-card",
+      )}
+    >
+      <div className={cn("flex items-center gap-2", suave)}>
+        <span
+          className={cn(
+            "grid size-7 place-items-center rounded-lg",
+            destaque ? "bg-[#020306]/12 text-[#020306]" : "bg-primary/15 text-primary",
           )}
-        </p>
-        {hint && <p className="mt-1 truncate text-[11px] text-muted-foreground">{hint}</p>}
-      </CardContent>
-    </Card>
+          aria-hidden
+        >
+          {icon}
+        </span>
+        <span className="text-[11px] font-bold uppercase tracking-wider">{label}</span>
+      </div>
+      <p className="mt-2.5 text-[1.75rem] font-extrabold leading-none tracking-tight tabular-nums">
+        {value}
+        {unit && value !== "—" && (
+          <span className={cn("ml-1 text-sm font-semibold", suave)}>{unit}</span>
+        )}
+      </p>
+      {hint && <p className={cn("mt-1 truncate text-[11px]", suave)}>{hint}</p>}
+    </div>
   );
 }
 
@@ -346,7 +364,7 @@ function GoalCard({
         </div>
 
         <div
-          className="mt-3 h-2 overflow-hidden rounded-full bg-muted"
+          className="mt-3 h-2.5 overflow-hidden rounded-full bg-primary/15"
           role="progressbar"
           aria-label={`${label}: ${Math.round(pct)}%`}
           aria-valuenow={Math.round(pct)}
@@ -354,7 +372,7 @@ function GoalCard({
           aria-valuemax={100}
         >
           <div
-            className="h-full rounded-full transition-[width] duration-700 ease-out"
+            className="hf-cresce h-full rounded-full shadow-[0_0_10px_var(--primary)]"
             style={{ width: `${pct}%`, background: "var(--gradient-primary)" }}
           />
         </div>

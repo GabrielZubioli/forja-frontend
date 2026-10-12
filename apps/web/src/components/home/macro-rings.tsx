@@ -91,7 +91,8 @@ export function MacroRing({
             cy={size / 2}
             r={radius}
             fill="none"
-            stroke="var(--muted)"
+            stroke={color}
+            strokeOpacity={0.18}
             strokeWidth={stroke}
           />
           <circle
@@ -160,7 +161,8 @@ export function CalorieRing({
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="var(--muted)"
+          stroke="var(--primary)"
+          strokeOpacity={0.15}
           strokeWidth={stroke}
         />
         <circle
@@ -169,6 +171,7 @@ export function CalorieRing({
           r={radius}
           fill="none"
           stroke={excedeu ? "var(--destructive)" : "var(--primary)"}
+          style={{ filter: excedeu ? undefined : "drop-shadow(0 0 6px var(--primary))" }}
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={circumference}

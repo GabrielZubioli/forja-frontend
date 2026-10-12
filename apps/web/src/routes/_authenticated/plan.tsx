@@ -204,7 +204,13 @@ function PlanPage() {
               Cada rotina tem os seus dias. Dia sem rotina é descanso.
             </p>
 
-            <h2 className="mb-3 mt-4 px-1 text-lg text-muted-foreground">Agenda da semana</h2>
+            <h2 className="mb-3 mt-5 flex items-center gap-2 px-1 text-lg font-bold">
+              <span
+                className="h-5 w-1.5 rounded-full bg-primary shadow-[0_0_10px_var(--primary)]"
+                aria-hidden
+              />
+              Agenda da semana
+            </h2>
             <ul className="space-y-3">
               {ORDEM_SEMANA.map((dia) => (
                 <li key={dia}>
@@ -455,13 +461,20 @@ function DiaFixo({
     return adicionar(
       <button
         type="button"
-        className="flex w-full items-center gap-3 rounded-[1.25rem] bg-card px-5 py-5 text-left transition-colors hover:bg-elevated"
+        className={cn(
+          "flex w-full items-center gap-3 rounded-[1.25rem] border border-dashed px-5 py-5 text-left transition-colors hover:bg-elevated",
+          isToday ? "border-primary bg-primary/10" : "border-border bg-card/60",
+        )}
       >
         <span className="flex-1 text-xl font-medium">
           {WEEKDAY_LABELS[dia]}
-          {isToday && <span className="ml-2 text-sm font-semibold text-primary">hoje</span>}
+          {isToday && (
+            <span className="ml-2 rounded-full bg-[#01D798] px-2 py-0.5 align-middle text-xs font-extrabold text-[#020306]">
+              hoje
+            </span>
+          )}
         </span>
-        <span className="rounded-lg bg-elevated px-3 py-1 text-sm text-muted-foreground">
+        <span className="rounded-full bg-elevated px-3 py-1 text-sm font-medium text-muted-foreground">
           Descanso
         </span>
         <ChevronRight className="size-5 text-muted-foreground" aria-hidden />
@@ -470,17 +483,34 @@ function DiaFixo({
   }
 
   return (
-    <div className="rounded-[1.25rem] bg-card p-5">
-      <div className="mb-2 flex items-baseline justify-between">
-        <h3 className="text-xl font-medium">
+    <div
+      className={cn(
+        "relative overflow-hidden rounded-[1.25rem] p-5",
+        isToday
+          ? "border-2 border-primary bg-linear-to-br from-primary/20 via-card to-card shadow-lg shadow-primary/15"
+          : "border border-primary/15 bg-card",
+      )}
+    >
+      {isToday && (
+        <span
+          className="hf-halo pointer-events-none absolute -right-12 -top-12 size-32 rounded-full bg-primary/30 blur-2xl"
+          aria-hidden
+        />
+      )}
+      <div className="relative mb-2 flex items-baseline justify-between">
+        <h3 className="text-xl font-bold">
           {WEEKDAY_LABELS[dia]}
-          {isToday && <span className="ml-2 text-sm font-semibold text-primary">hoje</span>}
+          {isToday && (
+            <span className="ml-2 rounded-full bg-[#01D798] px-2 py-0.5 align-middle text-xs font-extrabold text-[#020306]">
+              hoje
+            </span>
+          )}
         </h3>
-        <span className="text-sm text-muted-foreground">
+        <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-bold text-primary">
           {doDia.length} {doDia.length === 1 ? "rotina" : "rotinas"}
         </span>
       </div>
-      <ul className="space-y-1">
+      <ul className="relative space-y-1">
         {doDia.map((s) => (
           <li key={s.templateId} className="flex items-center gap-3 py-1.5">
             <RoutineIcon icon={s.icon} name={splitDisplayName(s.name)} />
@@ -588,7 +618,11 @@ function Segmented<T extends string>({
   small?: boolean;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="flex rounded-2xl bg-card p-1">
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className="flex rounded-2xl border border-primary/20 bg-card p-1"
+    >
       {options.map((o) => (
         <button
           key={o.value}
@@ -597,9 +631,11 @@ function Segmented<T extends string>({
           aria-checked={value === o.value}
           onClick={() => value !== o.value && onChange(o.value)}
           className={cn(
-            "flex-1 rounded-xl font-medium transition-colors",
+            "flex-1 rounded-xl font-medium transition-all duration-300",
             small ? "py-2 text-sm" : "py-3 text-base",
-            value === o.value ? "bg-elevated text-foreground" : "text-muted-foreground",
+            value === o.value
+              ? "bg-primary font-bold text-primary-foreground shadow-md shadow-primary/30"
+              : "text-muted-foreground hover:text-foreground",
           )}
         >
           {o.label}

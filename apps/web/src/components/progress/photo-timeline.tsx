@@ -43,7 +43,10 @@ export function PhotoTimeline({
     <ol className="relative space-y-6">
       {/* A linha vertical liga as paradas. `aria-hidden` porque é desenho: a
           sequência já está na semântica da lista ordenada. */}
-      <span className="absolute inset-y-2 left-[7px] w-px bg-border" aria-hidden />
+      <span
+        className="absolute inset-y-2 left-[7px] w-0.5 rounded-full bg-linear-to-b from-primary via-primary/40 to-primary/5"
+        aria-hidden
+      />
 
       {sessions.map((sessao, i) => {
         const anterior = sessions[i + 1];
@@ -55,17 +58,24 @@ export function PhotoTimeline({
         const ordemSelecao = selection.indexOf(sessao.date);
 
         return (
-          <li key={sessao.date} className="relative pl-7">
+          <li
+            key={sessao.date}
+            className="relative pl-7 animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards duration-500"
+            style={{ animationDelay: `${i * 80}ms` }}
+          >
             <span
               className={cn(
-                "absolute left-0 top-1.5 size-[15px] rounded-full border-2 border-background",
-                selecionada ? "bg-primary" : "bg-border",
+                "absolute left-0 top-1.5 size-[15px] rounded-full border-2 border-background transition-all",
+                selecionada || i === 0
+                  ? "bg-primary shadow-[0_0_10px_var(--primary)]"
+                  : "bg-primary/40",
+                selecionada && "scale-125",
               )}
               aria-hidden
             />
 
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-              <h3 className="font-semibold">{formatShortDate(sessao.date)}</h3>
+              <h3 className="font-bold">{formatShortDate(sessao.date)}</h3>
 
               {sessao.weightKg !== null && (
                 <span className="text-sm tabular-nums text-muted-foreground">
@@ -85,10 +95,10 @@ export function PhotoTimeline({
                 onClick={() => onToggleSelect(sessao.date)}
                 aria-pressed={selecionada}
                 className={cn(
-                  "press-feedback ml-auto rounded-full border px-2.5 py-0.5 text-xs font-medium cursor-pointer",
+                  "press-feedback ml-auto rounded-full border px-3 py-1 text-xs font-bold cursor-pointer transition-colors",
                   selecionada
-                    ? "border-primary bg-primary-soft text-primary-soft-foreground"
-                    : "border-border text-muted-foreground hover:text-foreground",
+                    ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/30"
+                    : "border-primary/40 text-primary hover:bg-primary/10",
                 )}
               >
                 {selecionada ? `Comparando ${ordemSelecao + 1}` : "Comparar"}
@@ -103,7 +113,10 @@ export function PhotoTimeline({
                 return (
                   <figure
                     key={foto.id}
-                    className="group relative overflow-hidden rounded-lg border border-border"
+                    className={cn(
+                      "group relative overflow-hidden rounded-2xl border-2 transition-all duration-300",
+                      selecionada ? "border-primary shadow-lg shadow-primary/25" : "border-transparent",
+                    )}
                   >
                     {url ? (
                       <img
@@ -112,19 +125,19 @@ export function PhotoTimeline({
                         width={300}
                         height={400}
                         loading="lazy"
-                        className="aspect-[3/4] w-full object-cover"
+                        className="aspect-[3/4] w-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                     ) : (
                       <Skeleton className="aspect-[3/4] w-full rounded-none" />
                     )}
 
-                    <figcaption className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-foreground/70 px-2 py-1 text-[11px] text-background">
-                      <span className="truncate">{label(PHOTO_ANGLE_LABELS, foto.angle)}</span>
+                    <figcaption className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-linear-to-t from-black/80 to-transparent px-2 pb-1.5 pt-6 text-[11px] font-semibold text-white">
+                      <span className="truncate rounded-full bg-[#01D798] px-2 py-0.5 text-[#020306]">{label(PHOTO_ANGLE_LABELS, foto.angle)}</span>
                       <ConfirmButton
                         aria-label={`Excluir foto: ${descricao}`}
                         title="Excluir esta foto?"
                         description="A imagem é removida permanentemente do armazenamento."
-                        className="size-6 shrink-0 text-background hover:bg-background/20 hover:text-background"
+                        className="size-6 shrink-0 text-white hover:bg-white/20 hover:text-white"
                         onConfirm={() => onDelete(foto)}
                       >
                         <Trash2 className="size-3" />

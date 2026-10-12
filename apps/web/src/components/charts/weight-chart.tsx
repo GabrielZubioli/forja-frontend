@@ -57,7 +57,7 @@ export default function WeightChart({
     <ResponsiveContainer width="100%" height="100%">
       <ComposedChart
         data={data as WeightPoint[]}
-        margin={{ top: 8, right: 8, bottom: 0, left: -8 }}
+        margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
       >
         <defs>
           {/*
@@ -66,9 +66,13 @@ export default function WeightChart({
             visível através dele. Área sólida esconderia o eixo.
           */}
           <linearGradient id={gradiente} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.22} />
+            <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.45} />
+            <stop offset="60%" stopColor="var(--chart-1)" stopOpacity={0.12} />
             <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
           </linearGradient>
+          <filter id={`${gradiente}-glow`} x="-10%" y="-30%" width="120%" height="160%">
+            <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="var(--chart-1)" floodOpacity="0.55" />
+          </filter>
         </defs>
 
         <CartesianGrid {...CHART_GRID} />
@@ -76,7 +80,7 @@ export default function WeightChart({
         <YAxis
           {...CHART_AXIS}
           domain={goal ? [(min: number) => Math.min(min, goal) - 1, "auto"] : ["auto", "auto"]}
-          width={44}
+          width={52}
           unit=" kg"
         />
         {goal ? (
@@ -92,7 +96,7 @@ export default function WeightChart({
         <Tooltip
           contentStyle={CHART_TOOLTIP_STYLE}
           labelStyle={CHART_TOOLTIP_LABEL_STYLE}
-          cursor={{ stroke: "var(--border)", strokeWidth: 1 }}
+          cursor={{ stroke: "var(--chart-1)", strokeWidth: 1.5, strokeDasharray: "3 3" }}
           formatter={(value: number, name) => [
             `${value} kg`,
             name === "peso" ? "Peso" : "Tendência",
@@ -107,7 +111,7 @@ export default function WeightChart({
           // A área é o mesmo dado da linha da tendência; anunciá-la de novo
           // faria o tooltip repetir o valor.
           tooltipType="none"
-          isAnimationActive={false}
+          animationDuration={1100}
         />
         <Line
           type="monotone"
@@ -122,9 +126,12 @@ export default function WeightChart({
           type="monotone"
           dataKey="tendencia"
           stroke="var(--chart-1)"
-          strokeWidth={2.5}
+          strokeWidth={3}
+          strokeLinecap="round"
+          filter={`url(#${gradiente}-glow)`}
           dot={false}
-          activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--card)" }}
+          activeDot={{ r: 7, strokeWidth: 3, stroke: "var(--card)", fill: "var(--chart-1)" }}
+          animationDuration={1100}
         />
       </ComposedChart>
     </ResponsiveContainer>

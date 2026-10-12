@@ -30,14 +30,14 @@ export default function MeasurementSparkline({ data }: { data: readonly Measurem
       >
         <defs>
           <linearGradient id={gradiente} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.28} />
+            <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.5} />
             <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
           </linearGradient>
         </defs>
         <Tooltip
           contentStyle={CHART_TOOLTIP_STYLE}
           labelStyle={CHART_TOOLTIP_LABEL_STYLE}
-          cursor={{ stroke: "var(--border)", strokeWidth: 1 }}
+          cursor={{ stroke: "var(--chart-1)", strokeWidth: 1, strokeDasharray: "3 3" }}
         />
         <Area
           type="monotone"
@@ -46,7 +46,8 @@ export default function MeasurementSparkline({ data }: { data: readonly Measurem
           strokeWidth={2}
           fill={`url(#${gradiente})`}
           dot={false}
-          activeDot={{ r: 3, strokeWidth: 2, stroke: "var(--card)" }}
+          activeDot={{ r: 5, strokeWidth: 2, stroke: "var(--card)", fill: "var(--chart-1)" }}
+          animationDuration={900}
         />
       </AreaChart>
     </ResponsiveContainer>

@@ -14,6 +14,7 @@ import { PageBody, PageHeader, headerIconClass } from "@/components/page-header"
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/query-boundary";
 import { BodyMap } from "@/components/body-map/body-map";
+import { LazyWeeklyChart } from "@/components/charts/lazy-chart";
 import { ActivityHeatmap } from "@/components/workouts/activity-heatmap";
 import { RecoveryCard } from "@/components/workouts/progress-cards";
 import { formatDate, formatDuration, toISODate, todayISO } from "@/lib/date";
@@ -67,6 +68,22 @@ function StatsPage() {
         hoje,
       )
     : 0;
+
+  // Últimas 12 semanas (segunda a domingo), da mais antiga à atual.
+  const semanas = useMemo(() => {
+    const atual = startOfWeek(new Date(), { weekStartsOn: 1 });
+    return Array.from({ length: 12 }, (_, i) => {
+      const ini = toISODate(addDays(atual, -7 * (11 - i)));
+      const fim = toISODate(addDays(atual, -7 * (11 - i) + 6));
+      return {
+        semana: formatDate(ini, "d/MM"),
+        treinos: (recentes.data ?? []).filter((w) => w.date >= ini && w.date <= fim).length,
+      };
+    });
+  }, [recentes.data]);
+  const estaSemana = semanas[semanas.length - 1]!.treinos;
+  const meta = rotina.data?.daysPerWeek ?? null;
+
   const variacao =
     pesos.data && pesos.data.length >= 2
       ? pesos.data[pesos.data.length - 1]!.kg - pesos.data[0]!.kg
@@ -88,31 +105,95 @@ function StatsPage() {
         }
       />
       <PageBody>
-        <div className="grid grid-cols-2 gap-3">
-          <Numero icon={<Dumbbell />} rotulo="Treinos" valor={contagem.data?.total} />
-          <Numero icon={<CalendarDays />} rotulo="Este mês" valor={contagem.data?.month} />
+        {/* Herói: a semana atual contra a meta e as últimas 12 semanas. */}
+        <section
+          className="relative overflow-hidden rounded-[1.75rem] border border-primary/30 bg-linear-to-br from-primary/25 via-card to-card p-5 animate-in fade-in zoom-in-95 duration-500"
+          aria-label="Constância"
+        >
+          <span
+            className="hf-halo pointer-events-none absolute -right-20 -top-20 size-56 rounded-full bg-primary/35 blur-3xl"
+            aria-hidden
+          />
+          <div className="relative flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">
+                Esta semana
+              </p>
+              {recentes.isPending ? (
+                <Skeleton className="mt-2 h-12 w-24" />
+              ) : (
+                <p className="mt-1 flex items-baseline gap-1.5">
+                  <span className="text-6xl font-extrabold leading-none tabular-nums">
+                    {estaSemana}
+                  </span>
+                  {meta ? (
+                    <span className="text-xl font-bold text-muted-foreground">/ {meta}</span>
+                  ) : null}
+                  <span className="ml-1 text-sm text-muted-foreground">treinos</span>
+                </p>
+              )}
+            </div>
+            <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-[#01D798] px-3 py-1.5 text-sm font-extrabold text-[#020306] shadow-lg shadow-[#01D798]/30">
+              <Flame className="size-4" aria-hidden />
+              {rotina.isPending ? "…" : sequencia} {sequencia === 1 ? "semana" : "semanas"}
+            </span>
+          </div>
+          {meta && !recentes.isPending ? (
+            <div
+              className="relative mt-4 h-2 overflow-hidden rounded-full bg-primary/15"
+              role="progressbar"
+              aria-valuenow={estaSemana}
+              aria-valuemax={meta}
+              aria-label="Meta da semana"
+            >
+              <div
+                className="hf-cresce h-full rounded-full bg-linear-to-r from-primary/70 to-primary shadow-[0_0_12px_var(--primary)]"
+                style={{ width: `${Math.min(100, (estaSemana / meta) * 100)}%` }}
+              />
+            </div>
+          ) : null}
+          <div className="relative mt-4 h-40">
+            {recentes.isPending ? (
+              <Skeleton className="h-full w-full" />
+            ) : (
+              <LazyWeeklyChart data={semanas} goal={meta} />
+            )}
+          </div>
+          <p className="relative mt-1 text-center text-xs text-muted-foreground">
+            Treinos por semana · toque nas barras
+          </p>
+        </section>
+
+        <div className="mt-3 grid grid-cols-3 gap-2.5">
           <Numero
-            icon={<Flame />}
-            rotulo="Semanas seguidas"
-            valor={rotina.isPending ? undefined : sequencia}
+            icon={<Dumbbell />}
+            rotulo="Treinos"
+            valor={contagem.data?.total}
+            solido
+            indice={0}
+          />
+          <Numero
+            icon={<CalendarDays />}
+            rotulo="Este mês"
+            valor={contagem.data?.month}
+            indice={1}
           />
           <Numero
             icon={<Scale />}
-            rotulo="Peso 30 dias"
+            rotulo="Peso 30d"
             valor={
               pesos.isPending
                 ? undefined
                 : variacao === null
                   ? "—"
-                  : `${variacao > 0 ? "+" : ""}${variacao.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kg`
+                  : `${variacao > 0 ? "+" : ""}${variacao.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}`
             }
-            destaque={variacao !== null && variacao !== 0}
+            unidade={variacao === null ? undefined : "kg"}
+            indice={2}
           />
         </div>
 
-        <h2 className="mb-3 mt-6 px-1 text-lg text-muted-foreground">
-          Atividade — últimos 12 meses
-        </h2>
+        <Titulo>Atividade — últimos 12 meses</Titulo>
         <ActivityHeatmap />
 
         <MusculosCard />
@@ -123,30 +204,68 @@ function StatsPage() {
   );
 }
 
+function Titulo({ children, id }: { children: ReactNode; id?: string }) {
+  return (
+    <h2 id={id} className="mb-3 mt-7 flex items-center gap-2 px-1 text-lg font-bold">
+      <span
+        className="h-5 w-1.5 rounded-full bg-primary shadow-[0_0_10px_var(--primary)]"
+        aria-hidden
+      />
+      {children}
+    </h2>
+  );
+}
+
 function Numero({
   icon,
   rotulo,
   valor,
-  destaque = false,
+  unidade,
+  solido = false,
+  indice,
 }: {
   icon: ReactNode;
   rotulo: string;
   valor: number | string | undefined;
-  destaque?: boolean;
+  unidade?: string;
+  solido?: boolean;
+  indice: number;
 }) {
   return (
-    <div className="rounded-[1.25rem] bg-card p-4">
-      <p className="flex items-center gap-2 text-muted-foreground [&_svg]:size-4">
+    <div
+      className={cn(
+        "rounded-[1.25rem] p-3.5 animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards duration-500",
+        solido
+          ? "bg-[#01D798] text-[#020306] shadow-lg shadow-[#01D798]/25"
+          : "border border-primary/20 bg-card",
+      )}
+      style={{ animationDelay: `${120 + indice * 80}ms` }}
+    >
+      <span
+        className={cn(
+          "grid size-8 place-items-center rounded-lg [&_svg]:size-4",
+          solido ? "bg-[#020306]/12" : "bg-primary/15 text-primary",
+        )}
+        aria-hidden
+      >
         {icon}
-        {rotulo}
-      </p>
+      </span>
       {valor === undefined ? (
-        <Skeleton className="mt-2 h-9 w-16" />
+        <Skeleton className="mt-2 h-8 w-12" />
       ) : (
-        <p className={cn("mt-1 text-4xl font-extrabold tabular-nums", destaque && "text-primary")}>
+        <p className="mt-2 text-[1.75rem] font-extrabold leading-none tabular-nums">
           {valor}
+          {unidade ? <span className="ml-0.5 text-sm font-bold opacity-70">{unidade}</span> : null}
         </p>
       )}
+      <p
+        className={cn(
+          "mt-1 truncate text-xs font-medium",
+          solido ? "text-[#020306]/70" : "text-muted-foreground",
+        )}
+      >
+        {rotulo}
+      </p>
     </div>
   );
 }
@@ -184,8 +303,13 @@ function MusculosCard() {
     return [...soma].map(([muscle, sets]) => ({ muscle, intensity: sets / max, sets }));
   }, [series.data, periodo]);
 
+  const maxRecorde = Math.max(1, ...(recordes.data ?? []).map((r) => r.e1rm));
+
   return (
-    <section className="mt-6 rounded-[1.5rem] bg-card p-4" aria-label="Músculos">
+    <section
+      className="mt-7 rounded-[1.5rem] border border-primary/20 bg-card p-4"
+      aria-label="Músculos"
+    >
       <Abas
         value={aba}
         onChange={setAba}
@@ -197,7 +321,7 @@ function MusculosCard() {
       />
 
       {aba === "equilibrio" && (
-        <div className="mt-4">
+        <div className="mt-4 animate-in fade-in duration-300">
           <p className="mb-3 text-muted-foreground">Equilíbrio muscular · por séries feitas</p>
           <Abas
             value={periodo}
@@ -219,13 +343,13 @@ function MusculosCard() {
       )}
 
       {aba === "fadiga" && (
-        <div className="mt-4">
+        <div className="mt-4 animate-in fade-in duration-300">
           <RecoveryCard />
         </div>
       )}
 
       {aba === "forca" && (
-        <div className="mt-4">
+        <div className="mt-4 animate-in fade-in duration-300">
           {recordes.isPending ? (
             <Skeleton className="h-40 w-full" />
           ) : (recordes.data ?? []).length === 0 ? (
@@ -233,23 +357,51 @@ function MusculosCard() {
               Seus recordes aparecem aqui depois do primeiro treino com carga.
             </p>
           ) : (
-            <ul className="divide-y divide-border/60">
-              {(recordes.data ?? []).map((r) => (
-                <li key={r.exerciseId}>
+            <ul className="space-y-2">
+              {(recordes.data ?? []).map((r, i) => (
+                <li
+                  key={r.exerciseId}
+                  className="animate-in fade-in slide-in-from-bottom-1 fill-mode-backwards duration-300"
+                  style={{ animationDelay: `${i * 40}ms` }}
+                >
                   <Link
                     to="/exercises/$id"
                     params={{ id: r.exerciseId }}
-                    className="flex items-center gap-3 py-3"
+                    className="block rounded-2xl bg-elevated p-3 transition-colors hover:bg-primary/10"
                   >
-                    <Trophy className="size-5 shrink-0 text-warning" aria-hidden />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium">{r.exerciseName}</span>
-                      <span className="block text-sm text-muted-foreground">
-                        {formatDate(r.date, "d 'de' MMM")} · 1RM estimado {Math.round(r.e1rm)} kg
+                    <span className="flex items-center gap-3">
+                      <span
+                        className={cn(
+                          "grid size-9 shrink-0 place-items-center rounded-xl",
+                          i === 0 ? "bg-[#01D798] text-[#020306]" : "bg-primary/15 text-primary",
+                        )}
+                      >
+                        <Trophy className="size-4" aria-hidden />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-semibold">{r.exerciseName}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {formatDate(r.date, "d 'de' MMM")} · {r.weightKg.toLocaleString("pt-BR")}{" "}
+                          kg × {r.reps}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-right">
+                        <span className="block text-lg font-extrabold leading-none tabular-nums text-primary">
+                          {Math.round(r.e1rm)}
+                        </span>
+                        <span className="text-[10px] font-medium uppercase text-muted-foreground">
+                          1RM kg
+                        </span>
                       </span>
                     </span>
-                    <span className="shrink-0 font-semibold tabular-nums">
-                      {r.weightKg.toLocaleString("pt-BR")} kg × {r.reps}
+                    <span className="mt-2.5 block h-1.5 overflow-hidden rounded-full bg-primary/10">
+                      <span
+                        className="hf-cresce block h-full rounded-full bg-linear-to-r from-primary/60 to-primary"
+                        style={{
+                          width: `${(r.e1rm / maxRecorde) * 100}%`,
+                          animationDelay: `${150 + i * 40}ms`,
+                        }}
+                      />
                     </span>
                   </Link>
                 </li>
@@ -262,7 +414,7 @@ function MusculosCard() {
   );
 }
 
-/** Últimos treinos. */
+/** Últimos treinos, com o volume de cada um comparado ao maior da lista. */
 function Historico() {
   const historico = useQuery({
     queryKey: queryKeys.workouts.history(),
@@ -278,38 +430,63 @@ function Historico() {
           .limit(10),
       ),
   });
+  const lista = historico.data ?? [];
+  const maxVolume = Math.max(1, ...lista.map((s) => Number(s.total_volume_kg ?? 0)));
 
   return (
-    <section className="mt-6" aria-labelledby="historico-titulo">
-      <h2 id="historico-titulo" className="mb-3 px-1 text-lg text-muted-foreground">
-        Últimos treinos
-      </h2>
+    <section aria-labelledby="historico-titulo">
+      <Titulo id="historico-titulo">Últimos treinos</Titulo>
       {historico.isPending ? (
         <Skeleton className="h-32 w-full rounded-[1.25rem]" />
-      ) : (historico.data ?? []).length === 0 ? (
+      ) : lista.length === 0 ? (
         <p className="px-1 text-muted-foreground">Nenhum treino concluído ainda.</p>
       ) : (
-        <ul className="divide-y divide-border/60 rounded-[1.25rem] bg-card">
-          {(historico.data ?? []).map((s) => (
-            <li key={s.id}>
-              <Link
-                to="/workouts/session/$id"
-                params={{ id: s.id }}
-                className="flex items-center justify-between gap-3 px-4 py-3.5"
+        <ul className="space-y-2">
+          {lista.map((s, i) => {
+            const volume = Number(s.total_volume_kg ?? 0);
+            return (
+              <li
+                key={s.id}
+                className="animate-in fade-in slide-in-from-bottom-1 fill-mode-backwards duration-300"
+                style={{ animationDelay: `${i * 40}ms` }}
               >
-                <span className="min-w-0">
-                  <span className="block truncate font-medium">{s.name}</span>
-                  <span className="block text-sm text-muted-foreground">
-                    {formatDate(s.started_at, "EEE, d 'de' MMM")} ·{" "}
-                    {formatDuration(s.duration_seconds)}
+                <Link
+                  to="/workouts/session/$id"
+                  params={{ id: s.id }}
+                  className="flex items-center gap-3 rounded-[1.25rem] border border-transparent bg-card p-3.5 transition-colors hover:border-primary/30"
+                >
+                  <span className="flex size-11 shrink-0 flex-col items-center justify-center rounded-xl bg-primary/15 leading-none text-primary">
+                    <span className="text-base font-extrabold">
+                      {formatDate(s.started_at, "d")}
+                    </span>
+                    <span className="text-[10px] font-bold uppercase">
+                      {formatDate(s.started_at, "MMM")}
+                    </span>
                   </span>
-                </span>
-                <span className="shrink-0 tabular-nums text-muted-foreground">
-                  {Math.round(Number(s.total_volume_kg ?? 0)).toLocaleString("pt-BR")} kg
-                </span>
-              </Link>
-            </li>
-          ))}
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-baseline justify-between gap-2">
+                      <span className="truncate font-semibold">{s.name}</span>
+                      <span className="shrink-0 text-sm font-bold tabular-nums">
+                        {Math.round(volume).toLocaleString("pt-BR")} kg
+                      </span>
+                    </span>
+                    <span className="mt-0.5 block text-xs capitalize text-muted-foreground">
+                      {formatDate(s.started_at, "EEEE")} · {formatDuration(s.duration_seconds)}
+                    </span>
+                    <span className="mt-2 block h-1 overflow-hidden rounded-full bg-primary/10">
+                      <span
+                        className="hf-cresce block h-full rounded-full bg-primary"
+                        style={{
+                          width: `${(volume / maxVolume) * 100}%`,
+                          animationDelay: `${150 + i * 40}ms`,
+                        }}
+                      />
+                    </span>
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>
@@ -335,8 +512,10 @@ function Abas<T extends string | number>({
           aria-selected={value === o.value}
           onClick={() => onChange(o.value)}
           className={cn(
-            "flex-1 rounded-xl py-2.5 text-[15px] font-medium transition-colors",
-            value === o.value ? "bg-card text-foreground shadow-sm" : "text-muted-foreground",
+            "flex-1 rounded-xl py-2.5 text-[15px] font-medium transition-all duration-300",
+            value === o.value
+              ? "bg-primary font-bold text-primary-foreground shadow-md shadow-primary/30"
+              : "text-muted-foreground hover:text-foreground",
           )}
         >
           {o.label}

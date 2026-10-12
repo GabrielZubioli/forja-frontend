@@ -17,7 +17,7 @@ const TabsList = React.forwardRef<
       // `inline-flex` sem limite empurrava a página inteira para o lado. Agora a
       // faixa rola sozinha e o resto da tela fica no lugar.
       // `scrollbar-none` evita a barra cinza aparecendo sobre as abas no desktop.
-      "inline-flex h-11 max-w-full items-center justify-start overflow-x-auto rounded-lg border border-border bg-surface p-1 text-muted-foreground",
+      "inline-flex h-12 max-w-full items-center justify-start overflow-x-auto rounded-2xl border border-primary/20 bg-surface p-1 text-muted-foreground",
       "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
       className,
     )}
@@ -27,7 +27,7 @@ const TabsList = React.forwardRef<
 TabsList.displayName = TabsPrimitive.List.displayName;
 
 /**
- * A aba ativa sobe de superfície em vez de mudar de cor.
+ * A aba ativa acende em verde, a cor da marca — o resto da faixa recua.
  *
  * A faixa é `bg-surface` (recuada) e a aba ativa é `bg-card` (o nível do
  * conteúdo logo abaixo) — a seleção lê como "esta aba está conectada ao que
@@ -42,11 +42,11 @@ const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      "inline-flex h-9 items-center justify-center whitespace-nowrap rounded-md px-3 text-sm font-medium",
+      "inline-flex h-10 items-center justify-center whitespace-nowrap rounded-xl px-3 text-sm font-medium transition-all duration-300",
       "cursor-pointer press-feedback",
       "hover:text-foreground",
       "disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed",
-      "data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm",
+      "data-[state=active]:bg-primary data-[state=active]:font-bold data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:shadow-primary/30",
       "[&_svg]:size-4 [&_svg]:shrink-0",
       className,
     )}

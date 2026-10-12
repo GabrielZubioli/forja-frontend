@@ -182,15 +182,16 @@ function WeightPanel() {
             antes de digitar o de hoje agora é a primeira coisa que ela vê.
           */}
           {ultimo && (
-            <div className="rounded-lg border border-border bg-surface p-3">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">
+            <div className="relative overflow-hidden rounded-2xl bg-[#01D798] p-4 text-[#020306] shadow-lg shadow-[#01D798]/25">
+              <span className="absolute -right-6 -top-8 size-24 rounded-full bg-white/20" aria-hidden />
+              <p className="relative text-xs font-bold uppercase tracking-wider text-[#020306]/70">
                 Último registro
               </p>
-              <p className="mt-0.5 flex items-baseline gap-1.5">
-                <span className="text-2xl font-bold tabular-nums tracking-tight">
+              <p className="relative mt-0.5 flex items-baseline gap-1.5">
+                <span className="text-4xl font-extrabold tabular-nums tracking-tight">
                   {ultimo.peso.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}
                 </span>
-                <span className="text-sm text-muted-foreground">kg · {ultimo.date}</span>
+                <span className="text-sm font-semibold text-[#020306]/70">kg · {ultimo.date}</span>
               </p>
             </div>
           )}
@@ -233,11 +234,11 @@ function WeightPanel() {
         </CardContent>
       </Card>
 
-      <Card className="lg:col-span-2">
+      <Card className="border border-primary/25 bg-linear-to-b from-primary/10 to-card lg:col-span-2">
         <CardHeader className="flex-row items-baseline justify-between gap-2 space-y-0">
           <CardTitle className="text-base">Histórico — {HISTORY_DAYS} dias</CardTitle>
           {delta !== null && (
-            <span className="text-xs text-muted-foreground">
+            <span className="rounded-full bg-primary/15 px-2.5 py-1 text-xs font-bold text-primary">
               tendência {delta >= 0 ? "+" : ""}
               {delta.toFixed(2)} kg
             </span>
@@ -623,21 +624,48 @@ function PhotosPanel() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="font-semibold">Registro fotográfico</h2>
-          <p className="text-sm text-muted-foreground">
-            Suas fotos são privadas — visíveis só para você.
-          </p>
+      {/* Herói: quantas paradas a linha do tempo já tem e o atalho para a próxima. */}
+      <section className="relative overflow-hidden rounded-[1.75rem] border border-primary/30 bg-linear-to-br from-primary/25 via-card to-card p-5 animate-in fade-in zoom-in-95 duration-500">
+        <span
+          className="hf-halo pointer-events-none absolute -right-16 -top-16 size-48 rounded-full bg-primary/35 blur-3xl"
+          aria-hidden
+        />
+        <div className="relative flex items-center gap-4">
+          <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-[#01D798] text-[#020306] shadow-lg shadow-[#01D798]/30">
+            <Camera className="size-7" aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-xl font-extrabold">Registro fotográfico</h2>
+            <p className="text-sm text-muted-foreground">Privado — visível só para você.</p>
+          </div>
         </div>
-        <Button onClick={() => setNovaAberta(true)}>
-          <Camera aria-hidden />
+        <dl className="relative mt-4 grid grid-cols-3 gap-2 text-center">
+          {[
+            { k: "Registros", v: sessoes.length },
+            { k: "Fotos", v: lista.length },
+            {
+              k: "Último",
+              v: sessoes[0] ? formatDayMonth(sessoes[0].date) : "—",
+            },
+          ].map((d) => (
+            <div key={d.k} className="rounded-2xl bg-background/50 px-2 py-2.5">
+              <dd className="text-lg font-extrabold tabular-nums text-primary">{d.v}</dd>
+              <dt className="text-[11px] font-medium text-muted-foreground">{d.k}</dt>
+            </div>
+          ))}
+        </dl>
+        <button
+          type="button"
+          onClick={() => setNovaAberta(true)}
+          className="relative mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#01D798] font-extrabold text-[#020306] shadow-lg shadow-[#01D798]/30 transition active:scale-[0.98]"
+        >
+          <Camera className="size-5" aria-hidden />
           Nova evolução
-        </Button>
-      </div>
+        </button>
+      </section>
 
       {antes && depois && (
-        <Card>
+        <Card className="border border-primary/40 shadow-lg shadow-primary/10 animate-in fade-in zoom-in-95 duration-300">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">
               {formatShortDate(antes.date)} <span className="text-muted-foreground">vs.</span>{" "}
@@ -651,7 +679,7 @@ function PhotosPanel() {
       )}
 
       {selecao.length === 1 && (
-        <p className="rounded-lg border border-dashed border-border p-3 text-center text-sm text-muted-foreground">
+        <p className="rounded-2xl border border-dashed border-primary/40 bg-primary/5 p-3 text-center text-sm text-primary">
           Escolha uma segunda data na linha do tempo para comparar.
         </p>
       )}

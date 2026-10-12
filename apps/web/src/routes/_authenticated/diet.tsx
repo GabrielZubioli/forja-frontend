@@ -289,8 +289,12 @@ function DietPage() {
       />
 
       <PageBody>
-        <Card className="mb-4">
-          <CardContent className="p-4">
+        <Card className="relative mb-4 overflow-hidden border border-primary/25 bg-linear-to-b from-primary/15 via-card to-card">
+          <span
+            className="hf-halo pointer-events-none absolute left-1/2 top-0 size-56 -translate-x-1/2 -translate-y-1/3 rounded-full bg-primary/25 blur-3xl"
+            aria-hidden
+          />
+          <CardContent className="relative p-4">
             {entries.isPending || profile.isPending ? (
               <div className="flex flex-col items-center gap-5 sm:flex-row">
                 <Skeleton className="size-[148px] shrink-0 rounded-full" />
@@ -520,12 +524,15 @@ function MealCard({
 
   return (
     <Card
-      className={cn("transition-colors", todosConsumidos && "border-primary/25 bg-primary/[0.03]")}
+      className={cn(
+        "border border-primary/15 transition-colors",
+        todosConsumidos && "border-primary/50 bg-primary/[0.06] shadow-lg shadow-primary/10",
+      )}
     >
       <CardContent className="p-4">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="flex items-center gap-1.5 font-semibold leading-tight">
+            <h3 className="flex items-center gap-1.5 text-lg font-bold leading-tight">
               <span className="truncate">{nome}</span>
               <RenomearRefeicao atual={nome} padrao={label(MEAL_LABELS, slot)} onSave={onRename} />
               {todosConsumidos && (
@@ -544,7 +551,7 @@ function MealCard({
                 </span>
               )}
               {items.length > 0 && (
-                <span className="tabular-nums">
+                <span className="rounded-full bg-primary/15 px-2 py-0.5 font-bold tabular-nums text-primary">
                   {Math.round(totals.kcal)} kcal · P {Math.round(totals.proteinG)} g
                 </span>
               )}

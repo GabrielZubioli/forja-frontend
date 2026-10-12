@@ -487,10 +487,16 @@ function SequenciaCard() {
   return (
     <Link
       to="/workouts/calendar"
-      className="flex items-center gap-4 rounded-[1.5rem] bg-card p-5 transition-colors hover:bg-elevated"
+      className="relative flex items-center gap-4 overflow-hidden rounded-[1.5rem] border border-primary/30 bg-linear-to-br from-primary/25 via-card to-card p-5 transition-colors"
     >
-      <Flame className="size-7 shrink-0 text-warning" aria-hidden />
-      <span className="min-w-0 flex-1">
+      <span
+        className="hf-halo pointer-events-none absolute -left-10 -top-10 size-36 rounded-full bg-primary/30 blur-2xl"
+        aria-hidden
+      />
+      <span className="relative grid size-12 shrink-0 place-items-center rounded-2xl bg-[#01D798] text-[#020306] shadow-lg shadow-[#01D798]/30">
+        <Flame className="size-6" aria-hidden />
+      </span>
+      <span className="relative min-w-0 flex-1">
         <span className="block text-3xl font-extrabold">
           {semanas} {semanas === 1 ? "semana seguida" : "semanas seguidas"}
         </span>
@@ -499,7 +505,7 @@ function SequenciaCard() {
           {contagem.data && ` · ${contagem.data.total} treinos no total`}
         </span>
       </span>
-      <CalendarDays className="size-6 shrink-0" aria-label="Ver calendário" />
+      <CalendarDays className="relative size-6 shrink-0 text-primary" aria-label="Ver calendário" />
     </Link>
   );
 }

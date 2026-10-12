@@ -33,7 +33,8 @@ export const CHART_SERIES = [
 /** Caixa flutuante de valores. Elevada, porque flutua sobre o conteúdo. */
 export const CHART_TOOLTIP_STYLE = {
   background: "var(--elevated)",
-  border: "1px solid var(--border)",
+  border: "1px solid color-mix(in oklch, var(--chart-1) 45%, transparent)",
+  fontWeight: 600,
   borderRadius: "var(--radius-md)",
   boxShadow: "var(--elevation-md)",
   color: "var(--card-foreground)",
