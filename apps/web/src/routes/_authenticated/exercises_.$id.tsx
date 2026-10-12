@@ -15,6 +15,7 @@ import {
 import { ExternalLink, Flag, PlayCircle, Target, TrendingUp } from "lucide-react";
 import { isSafeUrl } from "@/components/exercise-demo";
 import { BackButton } from "@/components/back-button";
+import { FavoriteButton } from "@/components/exercises/favorite-button";
 import { BodyMap, aggregateMuscleIntensities } from "@/components/body-map/body-map";
 import { ExerciseHowTo } from "@/components/workouts/exercise-how-to";
 import { ExerciseMediaView } from "@/components/workouts/exercise-media-view";
@@ -210,7 +211,11 @@ function ExerciseDetail() {
         <span className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
           Exercício
         </span>
-        <span className="size-11" aria-hidden />
+        {ex ? (
+          <FavoriteButton exerciseId={ex.id} nome={ex.name} className="size-11 bg-card" />
+        ) : (
+          <span className="size-11" aria-hidden />
+        )}
       </div>
 
       {!ex ? (

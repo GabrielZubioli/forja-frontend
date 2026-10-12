@@ -3,7 +3,6 @@ import { useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { addDays, startOfWeek } from "date-fns";
 import { CalendarDays, Dumbbell, Flame, History, Scale, Trophy } from "lucide-react";
-import { weeklyStreak } from "@forja/domain";
 import { queryKeys } from "@/data/query-keys";
 import { errorMessage, unwrapList } from "@/data/supabase-helpers";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +18,7 @@ import { ActivityHeatmap } from "@/components/workouts/activity-heatmap";
 import { RecoveryCard } from "@/components/workouts/progress-cards";
 import { formatDate, formatDuration, toISODate, todayISO } from "@/lib/date";
 import { cn } from "@/lib/utils";
+import { diasSeguidos } from "@/lib/streak";
 
 /**
  * Estatísticas: os números, a constância do ano e o corpo — o que foi
@@ -61,13 +61,15 @@ function StatsPage() {
     queryFn: () => fetchWeighIns(30),
   });
 
-  const sequencia = rotina.data
-    ? weeklyStreak(
-        (recentes.data ?? []).map((w) => w.date),
-        rotina.data.daysPerWeek,
-        hoje,
-      )
-    : 0;
+  const r = rotina.data;
+  const diasDoPlano = new Set(
+    r ? (r.scheduleMode === "fixed" ? r.templates.flatMap((t) => t.weekdays) : r.trainingWeekdays) : [],
+  );
+  const sequencia = diasSeguidos(
+    new Set((recentes.data ?? []).map((w) => w.date)),
+    (wd) => diasDoPlano.has(wd),
+    hoje,
+  );
 
   // Últimas 12 semanas (segunda a domingo), da mais antiga à atual.
   const semanas = useMemo(() => {
@@ -107,7 +109,7 @@ function StatsPage() {
       <PageBody>
         {/* Herói: a semana atual contra a meta e as últimas 12 semanas. */}
         <section
-          className="relative overflow-hidden rounded-[1.75rem] border border-primary/30 bg-card p-5 animate-in fade-in zoom-in-95 duration-500"
+          className="animate-in fade-in duration-500"
           aria-label="Constância"
         >
           <div className="relative flex items-start justify-between gap-3">
@@ -129,9 +131,17 @@ function StatsPage() {
                 </p>
               )}
             </div>
-            <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-[#01D798] px-3 py-1.5 text-sm font-extrabold text-[#020306]">
-              <Flame className="size-4" aria-hidden />
-              {rotina.isPending ? "…" : sequencia} {sequencia === 1 ? "semana" : "semanas"}
+            <span
+              className={cn(
+                "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-extrabold",
+                sequencia > 0 ? "bg-[#FF7A1F]/15 text-[#FF7A1F]" : "bg-muted text-muted-foreground",
+              )}
+            >
+              <Flame
+                className={cn("size-4", sequencia > 0 && "fill-[#FFB01F]")}
+                aria-hidden
+              />
+              {rotina.isPending ? "…" : sequencia} {sequencia === 1 ? "dia" : "dias"}
             </span>
           </div>
           {meta && !recentes.isPending ? (
@@ -160,7 +170,7 @@ function StatsPage() {
           </p>
         </section>
 
-        <div className="mt-3 grid grid-cols-3 gap-2.5">
+        <div className="mt-6 grid grid-cols-3 divide-x divide-border border-y border-border py-4">
           <Numero
             icon={<Dumbbell />}
             rotulo="Treinos"
@@ -224,42 +234,30 @@ function Numero({
   rotulo: string;
   valor: number | string | undefined;
   unidade?: string;
+  /** O número principal da faixa: em verde. */
   solido?: boolean;
   indice: number;
 }) {
   return (
     <div
-      className={cn(
-        "rounded-[1.25rem] p-3.5 animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards duration-500",
-        solido
-          ? "bg-[#01D798] text-[#020306]"
-          : "border border-primary/20 bg-card",
-      )}
+      className="px-2 text-center animate-in fade-in fill-mode-backwards duration-500"
       style={{ animationDelay: `${120 + indice * 80}ms` }}
     >
-      <span
-        className={cn(
-          "grid size-8 place-items-center rounded-lg [&_svg]:size-4",
-          solido ? "bg-[#020306]/12" : "bg-primary/15 text-primary",
-        )}
-        aria-hidden
-      >
-        {icon}
-      </span>
       {valor === undefined ? (
-        <Skeleton className="mt-2 h-8 w-12" />
+        <Skeleton className="mx-auto h-8 w-12" />
       ) : (
-        <p className="mt-2 text-[1.75rem] font-extrabold leading-none tabular-nums">
+        <p
+          className={cn(
+            "text-3xl font-extrabold leading-none tabular-nums",
+            solido && "text-primary",
+          )}
+        >
           {valor}
-          {unidade ? <span className="ml-0.5 text-sm font-bold opacity-70">{unidade}</span> : null}
+          {unidade ? <span className="ml-0.5 text-sm font-bold text-muted-foreground">{unidade}</span> : null}
         </p>
       )}
-      <p
-        className={cn(
-          "mt-1 truncate text-xs font-medium",
-          solido ? "text-[#020306]/70" : "text-muted-foreground",
-        )}
-      >
+      <p className="mt-1.5 flex items-center justify-center gap-1 text-xs font-medium text-muted-foreground [&_svg]:size-3.5">
+        {icon}
         {rotulo}
       </p>
     </div>
@@ -302,10 +300,8 @@ function MusculosCard() {
   const maxRecorde = Math.max(1, ...(recordes.data ?? []).map((r) => r.e1rm));
 
   return (
-    <section
-      className="mt-7 rounded-[1.5rem] border border-primary/20 bg-card p-4"
-      aria-label="Músculos"
-    >
+    <section aria-label="Músculos">
+      <Titulo>Músculos</Titulo>
       <Abas
         value={aba}
         onChange={setAba}
@@ -353,7 +349,7 @@ function MusculosCard() {
               Seus recordes aparecem aqui depois do primeiro treino com carga.
             </p>
           ) : (
-            <ul className="space-y-2">
+            <ul className="divide-y divide-border/60">
               {(recordes.data ?? []).map((r, i) => (
                 <li
                   key={r.exerciseId}
@@ -363,7 +359,7 @@ function MusculosCard() {
                   <Link
                     to="/exercises/$id"
                     params={{ id: r.exerciseId }}
-                    className="block rounded-2xl bg-elevated p-3 transition-colors hover:bg-primary/10"
+                    className="block py-3 transition-colors hover:bg-primary/5"
                   >
                     <span className="flex items-center gap-3">
                       <span
@@ -437,7 +433,7 @@ function Historico() {
       ) : lista.length === 0 ? (
         <p className="px-1 text-muted-foreground">Nenhum treino concluído ainda.</p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="divide-y divide-border/60">
           {lista.map((s, i) => {
             const volume = Number(s.total_volume_kg ?? 0);
             return (
@@ -449,7 +445,7 @@ function Historico() {
                 <Link
                   to="/workouts/session/$id"
                   params={{ id: s.id }}
-                  className="flex items-center gap-3 rounded-[1.25rem] border border-transparent bg-card p-3.5 transition-colors hover:border-primary/30"
+                  className="flex items-center gap-3 py-3.5 transition-colors hover:bg-primary/5"
                 >
                   <span className="flex size-11 shrink-0 flex-col items-center justify-center rounded-xl bg-primary/15 leading-none text-primary">
                     <span className="text-base font-extrabold">

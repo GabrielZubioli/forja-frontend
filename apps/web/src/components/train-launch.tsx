@@ -92,24 +92,20 @@ export function TrainLaunchOverlay({ fase, cor }: { fase: Fase; cor: CorLancamen
   );
 }
 
-/** Punho cerrado visto de frente, com a base emendando no braço (a tela). */
+/**
+ * Punho cerrado visto de frente: os quatro dedos dobrados com os nós dos dedos
+ * no alto (cada um com a dobra e um brilho suave) e o polegar cruzando na
+ * frente. A base emenda no braço — a cor vem de `currentColor`.
+ */
 function Punho({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 400 300" className={className} preserveAspectRatio="xMidYMax meet">
-      <path
-        fill="currentColor"
-        d="M0 300 V200 C0 150 20 118 52 108 C58 82 86 70 112 78 C122 52 156 42 184 52 C200 32 240 30 262 48 C288 36 330 44 342 72 C372 76 396 104 398 140 L400 300 Z"
-      />
-      <g fill="none" stroke="#020306" strokeOpacity="0.35" strokeWidth="7" strokeLinecap="round">
-        {/* Os vãos entre os dedos dobrados. */}
-        <path d="M112 80 C108 105 110 128 116 148" />
-        <path d="M186 54 C182 85 184 120 190 150" />
-        <path d="M262 50 C260 85 262 120 268 150" />
-        <path d="M342 74 C344 100 344 125 340 148" />
-        {/* A dobra dos dedos e o polegar cruzando por baixo. */}
-        <path d="M48 150 C150 170 260 170 360 150" />
-        <path d="M400 176 C340 170 262 186 206 210 C178 222 172 246 196 256 C258 252 330 238 400 232" />
-      </g>
+    <svg viewBox="0 92 400 278" className={className} preserveAspectRatio="xMidYMax meet">
+      <rect x="0" y="230" width="400" height="140" fill="currentColor" />
+      <path d="M10 250 V166 A46 46 0 0 1 102 166 V250 Z" fill="currentColor" stroke="rgba(2,3,6,0.38)" strokeWidth="6" /><path d="M106 250 V146 A46 46 0 0 1 198 146 V250 Z" fill="currentColor" stroke="rgba(2,3,6,0.38)" strokeWidth="6" /><path d="M202 250 V152 A46 46 0 0 1 294 152 V250 Z" fill="currentColor" stroke="rgba(2,3,6,0.38)" strokeWidth="6" /><path d="M298 250 V174 A46 46 0 0 1 390 174 V250 Z" fill="currentColor" stroke="rgba(2,3,6,0.38)" strokeWidth="6" />
+      <path d="M24 194 C42 206 70 206 88 194" fill="none" stroke="rgba(2,3,6,0.38)" strokeWidth="6" strokeLinecap="round" /><path d="M120 174 C138 186 166 186 184 174" fill="none" stroke="rgba(2,3,6,0.38)" strokeWidth="6" strokeLinecap="round" /><path d="M216 180 C234 192 262 192 280 180" fill="none" stroke="rgba(2,3,6,0.38)" strokeWidth="6" strokeLinecap="round" /><path d="M312 202 C330 214 358 214 376 202" fill="none" stroke="rgba(2,3,6,0.38)" strokeWidth="6" strokeLinecap="round" />
+      <path d="M32 146 C44 132 68 132 80 146" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="7" strokeLinecap="round" /><path d="M128 126 C140 112 164 112 176 126" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="7" strokeLinecap="round" /><path d="M224 132 C236 118 260 118 272 132" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="7" strokeLinecap="round" /><path d="M320 154 C332 140 356 140 368 154" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="7" strokeLinecap="round" />
+      <path d="M-6 214 C50 196 170 196 236 206 C272 212 282 252 250 266 C180 284 70 290 -6 300 Z" fill="currentColor" stroke="rgba(2,3,6,0.38)" strokeWidth="6" strokeLinejoin="round" />
+      <path d="M206 212 C228 212 246 222 248 238" fill="none" stroke="rgba(2,3,6,0.38)" strokeWidth="5" strokeLinecap="round" />
     </svg>
   );
 }

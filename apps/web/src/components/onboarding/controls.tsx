@@ -47,7 +47,7 @@ interface ChoiceOption {
   emoji?: string;
 }
 
-/** Escolha única. A seleção avança sozinha — uma pergunta objetiva não precisa de "Próximo". */
+/** Escolha única. Tocar marca a opção; o "Continuar" da etapa é quem avança. */
 export function ChoiceList({
   options,
   selected,

@@ -1,17 +1,20 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Dumbbell, Loader2, Plus, SearchX, Search, Sparkles, X } from "lucide-react";
+import { ChevronRight, Dumbbell, Heart, Loader2, Plus, Search, SearchX, Sparkles, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { queryKeys } from "@/data/query-keys";
 import { errorMessage } from "@/data/supabase-helpers";
 import { fetchActiveRoutine, type ActiveRoutine } from "@/data/routines";
 import { addTemplateItem } from "@/data/workout-week";
+import { useFavoritos } from "@/data/exercise-favorites";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { PageBody, PageHeader } from "@/components/page-header";
+import { BackButton } from "@/components/back-button";
+import { BodyMap } from "@/components/body-map/body-map";
+import { FavoriteButton } from "@/components/exercises/favorite-button";
 import { CreateExerciseDialog } from "@/components/create-exercise-dialog";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,7 +26,9 @@ import { CardGridSkeleton, EmptyState, ErrorState } from "@/components/query-bou
 import { exerciseMedia } from "@/data/exercise-media";
 import { cn } from "@/lib/utils";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { EQUIPMENT_LABELS, MUSCLE_LABELS, label, type MuscleValue } from "@/lib/labels";
+import { EQUIPMENT_LABELS, MUSCLE_LABELS, label } from "@/lib/labels";
+
+type Aba = "musculos" | "equipamentos" | "favoritos";
 
 export const Route = createFileRoute("/_authenticated/exercises")({
   head: () => ({
@@ -32,260 +37,528 @@ export const Route = createFileRoute("/_authenticated/exercises")({
       { name: "description", content: "Mais de mil exercícios com demonstração animada." },
     ],
   }),
+  validateSearch: (s: Record<string, unknown>): { aba?: Aba; grupo?: string; equipamento?: string } => ({
+    aba: s.aba === "equipamentos" || s.aba === "favoritos" ? s.aba : undefined,
+    grupo: typeof s.grupo === "string" ? s.grupo : undefined,
+    equipamento: typeof s.equipamento === "string" ? s.equipamento : undefined,
+  }),
   component: ExerciseLibrary,
 });
 
-/**
- * Músculos oferecidos como filtro.
- *
- * Não são todos os valores do enum: `front_delts`, `side_delts` e afins são
- * precisão que só interessa a quem monta o plano, não a quem procura um
- * exercício. Filtro com 24 opções não é filtro, é uma segunda lista para
- * navegar antes da lista.
- */
-const FILTERABLE_MUSCLES: MuscleValue[] = [
-  "chest",
-  "back",
-  "lats",
-  "shoulders",
-  "biceps",
-  "triceps",
-  "forearms",
-  "quads",
-  "hamstrings",
-  "glutes",
-  "calves",
-  "abs",
-  "core",
-  "traps",
-  "lower_back",
-  "cardio",
-];
-
-const FILTERABLE_EQUIPMENT = [
-  "barbell",
-  "dumbbell",
-  "machine",
-  "cable",
-  "bodyweight",
-  "kettlebell",
-  "band",
-  "other",
+/** Grupos musculares da navegação: cada um junta os músculos do catálogo que fazem parte dele. */
+const GRUPOS = [
+  { key: "peito", nome: "Peito", musculos: ["chest"] },
+  { key: "costas", nome: "Costas", musculos: ["back", "lats", "lower_back"] },
+  { key: "ombros", nome: "Ombros", musculos: ["shoulders", "front_delts", "side_delts", "rear_delts"] },
+  { key: "biceps", nome: "Bíceps", musculos: ["biceps"] },
+  { key: "triceps", nome: "Tríceps", musculos: ["triceps"] },
+  { key: "antebraco", nome: "Antebraço", musculos: ["forearms"] },
+  { key: "abdomen", nome: "Abdômen", musculos: ["abs", "core", "obliques"] },
+  { key: "quadriceps", nome: "Quadríceps", musculos: ["quads"] },
+  { key: "posterior", nome: "Posterior de coxa", musculos: ["hamstrings"] },
+  { key: "gluteos", nome: "Glúteos", musculos: ["glutes", "abductors", "adductors"] },
+  { key: "panturrilhas", nome: "Panturrilhas", musculos: ["calves"] },
+  { key: "trapezio", nome: "Trapézio e pescoço", musculos: ["traps", "neck"] },
+  { key: "cardio", nome: "Cardio e corpo todo", musculos: ["cardio", "full_body"] },
 ] as const;
 
-/**
- * Quantos exercícios por página.
- *
- * A biblioteca passou de ~70 para mais de 1.400 itens. Trazer tudo de uma vez
- * seria alguns megabytes de JSON e um `<div>` com 1.400 filhos — o celular
- * engasga na rolagem antes mesmo de a rede terminar. A paginação por rolagem
- * mantém o custo constante, independentemente do tamanho do catálogo.
- */
+const EQUIPAMENTOS = [
+  { key: "barbell", nome: "Barra" },
+  { key: "dumbbell", nome: "Halteres" },
+  { key: "machine", nome: "Máquinas" },
+  { key: "cable", nome: "Polia" },
+  { key: "bodyweight", nome: "Peso corporal" },
+  { key: "kettlebell", nome: "Kettlebell" },
+  { key: "band", nome: "Elásticos" },
+  { key: "cardio", nome: "Cardio" },
+  { key: "other", nome: "Outros acessórios" },
+] as const;
+
+/** Estrutura de treino → equipamentos que ela tem. */
+const ESTRUTURAS = [
+  { key: "completa", nome: "Academia completa", equipamentos: EQUIPAMENTOS.map((e) => e.key) },
+  {
+    key: "pequena",
+    nome: "Academia pequena",
+    equipamentos: ["barbell", "dumbbell", "bodyweight", "kettlebell", "band", "other"],
+  },
+  { key: "sem", nome: "Sem equipamento", equipamentos: ["bodyweight"] },
+] as const;
+
+const NIVEIS = [
+  { value: "beginner", label: "Iniciante" },
+  { value: "intermediate", label: "Intermediário" },
+  { value: "advanced", label: "Avançado" },
+];
+
 const PAGE_SIZE = 24;
+const CAMPOS =
+  "id, name, name_en, primary_muscle, secondary_muscles, equipment, category, owner_id, image_urls, external_id, media_id, media_ref, media_source, video_url";
 
 function ExerciseLibrary() {
+  const { aba = "musculos", grupo, equipamento } = Route.useSearch();
+  const navigate = useNavigate({ from: "/exercises" });
   const [term, setTerm] = useState("");
-  const [muscle, setMuscle] = useState<string | null>(null);
-  const [equip, setEquip] = useState<string | null>(null);
-  const muscles = useMemo(() => (muscle ? [muscle] : []), [muscle]);
-  const equipment = useMemo(() => (equip ? [equip] : []), [equip]);
+  const termo = useDebouncedValue(term.trim(), 300);
 
-  const total = useQuery({
-    queryKey: [...queryKeys.exercises.all, "count"],
+  const rotina = useQuery({ queryKey: queryKeys.workouts.activeRoutine(), queryFn: fetchActiveRoutine });
+
+  // Quantos exercícios há por músculo e por equipamento (uma leitura só, leve).
+  const contagem = useQuery({
+    queryKey: [...queryKeys.exercises.all, "contagem"],
     queryFn: async () => {
-      const { count, error } = await supabase
+      const { data, error } = await supabase
         .from("exercises")
-        .select("id", { count: "exact", head: true })
-        .is("deleted_at", null);
-      if (error) throw error;
-      return count ?? 0;
-    },
-  });
-  const rotina = useQuery({
-    queryKey: queryKeys.workouts.activeRoutine(),
-    queryFn: fetchActiveRoutine,
-  });
-
-  // Sem debounce, cada tecla disparava uma requisição ao Supabase.
-  const debouncedTerm = useDebouncedValue(term.trim(), 300);
-
-  const lista = useInfiniteQuery({
-    queryKey: queryKeys.exercises.library(debouncedTerm, muscles, equipment),
-    initialPageParam: 0,
-    queryFn: async ({ pageParam }) => {
-      let query = supabase
-        .from("exercises")
-        .select(
-          "id, name, name_en, primary_muscle, secondary_muscles, equipment, category, owner_id, image_urls, external_id, media_id, media_ref, media_source, video_url",
-        )
+        .select("primary_muscle, equipment")
         .is("deleted_at", null)
-        // Popularidade antes do nome: em ordem alfabética a primeira tela da
-        // biblioteca seria "3/4 Abdominal" e variações exóticas, e o supino
-        // reto ficaria a dezenas de rolagens de distância.
-        .order("popularity", { ascending: false })
-        .order("name")
-        .range(pageParam * PAGE_SIZE, pageParam * PAGE_SIZE + PAGE_SIZE - 1);
-
-      if (debouncedTerm) {
-        // Busca no nome em português **e** no original em inglês: quem treina
-        // há anos procura por "romanian deadlift", não por "terra romeno".
-        const escapado = debouncedTerm.replace(/[%,()]/g, " ");
-        query = query.or(`name.ilike.%${escapado}%,name_en.ilike.%${escapado}%`);
+        .limit(5000);
+      if (error) throw error;
+      const porMusculo = new Map<string, number>();
+      const porEquip = new Map<string, number>();
+      for (const r of data ?? []) {
+        if (r.primary_muscle) porMusculo.set(r.primary_muscle, (porMusculo.get(r.primary_muscle) ?? 0) + 1);
+        if (r.equipment) porEquip.set(r.equipment, (porEquip.get(r.equipment) ?? 0) + 1);
       }
-      if (muscles.length > 0) query = query.in("primary_muscle", muscles as never[]);
-      if (equipment.length > 0) query = query.in("equipment", equipment as never[]);
-
-      const { data, error } = await query;
-      if (error) throw new Error(`Não foi possível carregar os exercícios: ${error.message}`);
-      return data ?? [];
+      return { total: data?.length ?? 0, porMusculo, porEquip };
     },
-    // Uma página menor que o tamanho pedido significa que o catálogo acabou.
-    getNextPageParam: (ultima, todas) => (ultima.length < PAGE_SIZE ? undefined : todas.length),
   });
 
-  const exercicios = useMemo(() => lista.data?.pages.flat() ?? [], [lista.data]);
+  const g = GRUPOS.find((x) => x.key === grupo);
+  const e = EQUIPAMENTOS.find((x) => x.key === equipamento);
+  if (g || e) {
+    return (
+      <TelaFiltrada
+        titulo={g ? g.nome : e!.nome}
+        musculos={g ? [...g.musculos] : undefined}
+        equipamento={e?.key}
+        rotina={rotina.data ?? null}
+      />
+    );
+  }
 
-  const filtrosAtivos = muscles.length + equipment.length;
-  const limparFiltros = () => {
-    setMuscle(null);
-    setEquip(null);
-  };
-
-  const sentinelaRef = useInfiniteScroll(() => {
-    if (lista.hasNextPage && !lista.isFetchingNextPage) void lista.fetchNextPage();
-  });
+  const irPara = (a: Aba) => void navigate({ search: { aba: a === "musculos" ? undefined : a } });
 
   return (
     <>
       <PageHeader
         title="Exercícios"
         description={
-          total.data
-            ? `${total.data.toLocaleString("pt-BR")} exercícios com demonstração`
-            : undefined
+          contagem.data ? `${contagem.data.total.toLocaleString("pt-BR")} exercícios com demonstração` : undefined
         }
       />
       <PageBody>
-        <div className="mb-4 space-y-3">
-          <div className="relative">
-            <Search
-              className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground"
-              aria-hidden
-            />
-            <Input
-              placeholder="Buscar…"
-              value={term}
-              onChange={(e) => setTerm(e.target.value)}
-              className="h-14 rounded-2xl border-transparent bg-card pl-12 pr-10 text-lg"
-              aria-label="Buscar exercício"
-            />
-            {lista.isFetching && !lista.isFetchingNextPage ? (
-              <Loader2
-                className="absolute right-4 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground"
-                aria-hidden
-              />
-            ) : (
-              term && (
-                <button
-                  type="button"
-                  onClick={() => setTerm("")}
-                  aria-label="Limpar busca"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="size-4" />
-                </button>
-              )
-            )}
+        <Busca term={term} setTerm={setTerm} carregando={false} />
+
+        {termo ? (
+          <div className="mt-4">
+            <ListaExercicios termo={termo} rotina={rotina.data ?? null} />
           </div>
-
-          <FilaDeChips
-            rotulo="Filtrar por músculo"
-            todos="Todos"
-            valor={muscle}
-            onChange={setMuscle}
-            opcoes={FILTERABLE_MUSCLES.map((m) => ({ value: m, label: MUSCLE_LABELS[m] }))}
-          />
-          <FilaDeChips
-            rotulo="Filtrar por equipamento"
-            todos="Qualquer equipamento"
-            valor={equip}
-            onChange={setEquip}
-            opcoes={FILTERABLE_EQUIPMENT.map((e) => ({
-              value: e,
-              label: label(EQUIPMENT_LABELS, e),
-            }))}
-          />
-        </div>
-
-        <CreateExerciseDialog
-          trigger={
-            <button
-              type="button"
-              className="mb-3 flex w-full items-center gap-4 rounded-[1.25rem] border border-dashed border-primary/40 p-3 text-left transition-colors hover:bg-primary/5"
-            >
-              <span className="grid size-14 shrink-0 place-items-center rounded-xl bg-primary/12 text-primary">
-                <Sparkles className="size-6" aria-hidden />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block font-bold">Criar seu exercício</span>
-                <span className="block text-sm text-muted-foreground">Nome e músculo, sem animação</span>
-              </span>
-              <Plus className="mr-2 size-5 shrink-0 text-primary" aria-hidden />
-            </button>
-          }
-        />
-
-        {lista.isError ? (
-          <ErrorState
-            message={lista.error instanceof Error ? lista.error.message : "Erro ao carregar."}
-            onRetry={lista.refetch}
-          />
-        ) : lista.isPending ? (
-          <CardGridSkeleton count={6} />
-        ) : exercicios.length === 0 ? (
-          <EmptyState
-            icon={<SearchX className="size-6" />}
-            title="Nenhum exercício encontrado"
-            description={
-              debouncedTerm
-                ? `Nada corresponde a “${debouncedTerm}”. Tente outro termo — a busca também aceita o nome em inglês.`
-                : "Nenhum exercício com esta combinação de filtros."
-            }
-            action={
-              filtrosAtivos > 0 ? (
-                <Button variant="outline" onClick={limparFiltros}>
-                  Limpar filtros
-                </Button>
-              ) : undefined
-            }
-          />
         ) : (
           <>
-            <ul className="space-y-3">
-              {exercicios.map((ex) => (
-                <ExerciseListRow key={ex.id} exercise={ex} rotina={rotina.data ?? null} />
+            <div role="tablist" aria-label="Navegar exercícios" className="mt-4 flex rounded-2xl bg-card p-1">
+              {(
+                [
+                  ["musculos", "Músculos"],
+                  ["equipamentos", "Equipamentos"],
+                  ["favoritos", "Favoritos"],
+                ] as const
+              ).map(([v, rotulo]) => (
+                <button
+                  key={v}
+                  type="button"
+                  role="tab"
+                  aria-selected={aba === v}
+                  onClick={() => irPara(v)}
+                  className={cn(
+                    "flex-1 rounded-xl py-2.5 text-sm font-semibold transition-colors",
+                    aba === v ? "bg-primary font-bold text-primary-foreground" : "text-muted-foreground",
+                  )}
+                >
+                  {rotulo}
+                </button>
               ))}
-            </ul>
+            </div>
 
-            {/* Sentinela: entra na viewport e dispara a próxima página. */}
-            <div ref={sentinelaRef} className="h-px" aria-hidden />
-
-            {lista.isFetchingNextPage && (
-              <p className="py-6 text-center text-sm text-muted-foreground">
-                <Loader2 className="mr-2 inline size-4 animate-spin" aria-hidden />
-                Carregando mais…
-              </p>
-            )}
-
-            {!lista.hasNextPage && exercicios.length > PAGE_SIZE && (
-              <p className="py-6 text-center text-sm text-muted-foreground">
-                {exercicios.length} exercícios — fim da lista.
-              </p>
-            )}
+            <div className="mt-4 animate-in fade-in duration-300" key={aba}>
+              {aba === "musculos" && (
+                <AbaMusculos porMusculo={contagem.data?.porMusculo} />
+              )}
+              {aba === "equipamentos" && <AbaEquipamentos porEquip={contagem.data?.porEquip} />}
+              {aba === "favoritos" && <AbaFavoritos rotina={rotina.data ?? null} />}
+            </div>
           </>
         )}
       </PageBody>
     </>
+  );
+}
+
+function Busca({
+  term,
+  setTerm,
+  carregando,
+}: {
+  term: string;
+  setTerm: (t: string) => void;
+  carregando: boolean;
+}) {
+  return (
+    <div className="relative">
+      <Search
+        className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground"
+        aria-hidden
+      />
+      <Input
+        placeholder="Buscar exercício…"
+        value={term}
+        onChange={(ev) => setTerm(ev.target.value)}
+        className="h-13 rounded-2xl border-transparent bg-card pl-12 pr-10 text-base"
+        aria-label="Buscar exercício"
+      />
+      {carregando ? (
+        <Loader2
+          className="absolute right-4 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground"
+          aria-hidden
+        />
+      ) : (
+        term && (
+          <button
+            type="button"
+            onClick={() => setTerm("")}
+            aria-label="Limpar busca"
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:text-foreground"
+          >
+            <X className="size-4" />
+          </button>
+        )
+      )}
+    </div>
+  );
+}
+
+/** Grupos musculares em cards com o corpo destacando os músculos do grupo. */
+function AbaMusculos({ porMusculo }: { porMusculo?: Map<string, number> }) {
+  return (
+    <>
+      <ul className="grid grid-cols-2 gap-2.5">
+        {GRUPOS.map((g, i) => {
+          const n = porMusculo ? g.musculos.reduce((s, m) => s + (porMusculo.get(m) ?? 0), 0) : null;
+          return (
+            <li
+              key={g.key}
+              className="animate-in fade-in slide-in-from-bottom-1 fill-mode-backwards duration-300"
+              style={{ animationDelay: `${i * 30}ms` }}
+            >
+              <Link
+                to="/exercises"
+                search={{ grupo: g.key }}
+                className="flex h-full flex-col items-center rounded-[1.25rem] bg-card p-3 text-center transition-colors hover:bg-elevated active:scale-[0.98]"
+              >
+                <BodyMap
+                  muscles={g.musculos.map((m) => ({ muscle: m, intensity: 1 }))}
+                  size="sm"
+                  showLegend={false}
+                  showToggle={false}
+                  className="pointer-events-none h-28 [&_svg]:h-28"
+                />
+                <span className="mt-2 font-bold leading-tight">{g.nome}</span>
+                <span className="text-xs text-muted-foreground">
+                  {n === null ? "…" : `${n} ${n === 1 ? "exercício" : "exercícios"}`}
+                </span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+      <CriarExercicio />
+    </>
+  );
+}
+
+/** Equipamentos com a foto do exercício mais popular de cada um, filtrados pela estrutura. */
+function AbaEquipamentos({ porEquip }: { porEquip?: Map<string, number> }) {
+  const [estrutura, setEstrutura] = useState<(typeof ESTRUTURAS)[number]["key"]>("completa");
+  const disponiveis = ESTRUTURAS.find((x) => x.key === estrutura)!.equipamentos as readonly string[];
+  return (
+    <>
+      <Chips
+        rotulo="Estrutura de treino"
+        valor={estrutura}
+        onChange={(v) => v && setEstrutura(v as typeof estrutura)}
+        opcoes={ESTRUTURAS.map((x) => ({ value: x.key, label: x.nome }))}
+        semTodos
+      />
+      <ul className="mt-3 grid grid-cols-2 gap-2.5">
+        {EQUIPAMENTOS.filter((e) => disponiveis.includes(e.key)).map((e, i) => (
+          <li
+            key={e.key}
+            className="animate-in fade-in slide-in-from-bottom-1 fill-mode-backwards duration-300"
+            style={{ animationDelay: `${i * 30}ms` }}
+          >
+            <CartaoEquipamento equipamento={e} n={porEquip?.get(e.key) ?? null} />
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
+function CartaoEquipamento({
+  equipamento,
+  n,
+}: {
+  equipamento: (typeof EQUIPAMENTOS)[number];
+  n: number | null;
+}) {
+  const capa = useQuery({
+    queryKey: [...queryKeys.exercises.all, "capa", equipamento.key],
+    staleTime: Infinity,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("exercises")
+        .select(CAMPOS)
+        .is("deleted_at", null)
+        .eq("equipment", equipamento.key as never)
+        .order("popularity", { ascending: false })
+        .limit(6);
+      for (const ex of data ?? []) {
+        const m = miniaturaDe(ex);
+        if (m) return m;
+      }
+      return null;
+    },
+  });
+  return (
+    <Link
+      to="/exercises"
+      search={{ equipamento: equipamento.key }}
+      className="block overflow-hidden rounded-[1.25rem] bg-card transition-colors hover:bg-elevated active:scale-[0.98]"
+    >
+      <span className="block aspect-[4/3] bg-white">
+        {capa.data ? (
+          <img src={capa.data} alt="" loading="lazy" className="size-full object-cover" />
+        ) : (
+          <span className="grid size-full place-items-center bg-elevated">
+            <Dumbbell className="size-8 text-muted-foreground" aria-hidden />
+          </span>
+        )}
+      </span>
+      <span className="block p-3">
+        <span className="block font-bold leading-tight">{equipamento.nome}</span>
+        <span className="text-xs text-muted-foreground">
+          {n === null ? "…" : `${n} ${n === 1 ? "exercício" : "exercícios"}`}
+        </span>
+      </span>
+    </Link>
+  );
+}
+
+function AbaFavoritos({ rotina }: { rotina: ActiveRoutine | null }) {
+  const { ordem, carregando } = useFavoritos();
+  const exercicios = useQuery({
+    queryKey: [...queryKeys.exercises.all, "favoritos", ordem],
+    enabled: ordem.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("exercises").select(CAMPOS).in("id", ordem);
+      if (error) throw error;
+      const porId = new Map((data ?? []).map((x) => [x.id, x]));
+      return ordem.flatMap((id) => {
+        const x = porId.get(id);
+        return x ? [x as ExerciseRow] : [];
+      });
+    },
+  });
+
+  if (carregando || (ordem.length > 0 && exercicios.isPending)) return <CardGridSkeleton count={3} />;
+  if (ordem.length === 0) {
+    return (
+      <EmptyState
+        icon={<Heart className="size-6" />}
+        title="Nenhum favorito ainda"
+        description="Toque no coração de um exercício para guardá-lo aqui."
+      />
+    );
+  }
+  return (
+    <ul className="space-y-2.5">
+      {(exercicios.data ?? []).map((ex) => (
+        <ExerciseListRow key={ex.id} exercise={ex} rotina={rotina} />
+      ))}
+    </ul>
+  );
+}
+
+/** Tela de um grupo muscular ou de um equipamento: busca, filtros e a lista. */
+function TelaFiltrada({
+  titulo,
+  musculos,
+  equipamento,
+  rotina,
+}: {
+  titulo: string;
+  musculos?: string[];
+  equipamento?: string;
+  rotina: ActiveRoutine | null;
+}) {
+  const [term, setTerm] = useState("");
+  const termo = useDebouncedValue(term.trim(), 300);
+  const [nivel, setNivel] = useState<string | null>(null);
+  const [equip, setEquip] = useState<string | null>(null);
+  const [grupo, setGrupo] = useState<string | null>(null);
+
+  const musculosFiltro = musculos ?? (grupo ? [...GRUPOS.find((g) => g.key === grupo)!.musculos] : undefined);
+  const equipFiltro = equipamento ? [equipamento] : equip ? [equip] : undefined;
+
+  return (
+    <PageBody>
+      <div className="flex items-center gap-3 pb-3 pt-2">
+        <BackButton fallback="/exercises" />
+        <h1 className="min-w-0 truncate text-2xl font-extrabold">{titulo}</h1>
+      </div>
+      <Busca term={term} setTerm={setTerm} carregando={false} />
+      <div className="mt-3 space-y-2">
+        <Chips
+          rotulo="Nível"
+          valor={nivel}
+          onChange={setNivel}
+          todos="Todos os níveis"
+          opcoes={NIVEIS}
+        />
+        {musculos ? (
+          <Chips
+            rotulo="Equipamento"
+            valor={equip}
+            onChange={setEquip}
+            todos="Qualquer equipamento"
+            opcoes={EQUIPAMENTOS.map((e) => ({ value: e.key, label: e.nome }))}
+          />
+        ) : (
+          <Chips
+            rotulo="Músculo"
+            valor={grupo}
+            onChange={setGrupo}
+            todos="Todos os músculos"
+            opcoes={GRUPOS.map((g) => ({ value: g.key, label: g.nome }))}
+          />
+        )}
+      </div>
+      <div className="mt-4">
+        <ListaExercicios
+          termo={termo}
+          musculos={musculosFiltro}
+          equipamentos={equipFiltro}
+          nivel={nivel}
+          rotina={rotina}
+        />
+      </div>
+    </PageBody>
+  );
+}
+
+/** Lista paginada por rolagem com os filtros recebidos. */
+function ListaExercicios({
+  termo,
+  musculos,
+  equipamentos,
+  nivel,
+  rotina,
+}: {
+  termo: string;
+  musculos?: string[];
+  equipamentos?: string[];
+  nivel?: string | null;
+  rotina: ActiveRoutine | null;
+}) {
+  const lista = useInfiniteQuery({
+    queryKey: [...queryKeys.exercises.all, "lista", termo, musculos ?? [], equipamentos ?? [], nivel ?? ""],
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
+      let query = supabase
+        .from("exercises")
+        .select(CAMPOS)
+        .is("deleted_at", null)
+        // Popularidade antes do nome: o supino reto vem antes das variações exóticas.
+        .order("popularity", { ascending: false })
+        .order("name")
+        .range(pageParam * PAGE_SIZE, pageParam * PAGE_SIZE + PAGE_SIZE - 1);
+      if (termo) {
+        // Busca no nome em português e no original em inglês.
+        const escapado = termo.replace(/[%,()]/g, " ");
+        query = query.or(`name.ilike.%${escapado}%,name_en.ilike.%${escapado}%`);
+      }
+      if (musculos?.length) query = query.in("primary_muscle", musculos as never[]);
+      if (equipamentos?.length) query = query.in("equipment", equipamentos as never[]);
+      if (nivel) query = query.eq("level", nivel as "beginner");
+      const { data, error } = await query;
+      if (error) throw new Error(`Não foi possível carregar os exercícios: ${error.message}`);
+      return data ?? [];
+    },
+    getNextPageParam: (ultima, todas) => (ultima.length < PAGE_SIZE ? undefined : todas.length),
+  });
+  const exercicios = useMemo(() => lista.data?.pages.flat() ?? [], [lista.data]);
+  const sentinelaRef = useInfiniteScroll(() => {
+    if (lista.hasNextPage && !lista.isFetchingNextPage) void lista.fetchNextPage();
+  });
+
+  if (lista.isError) {
+    return (
+      <ErrorState
+        message={lista.error instanceof Error ? lista.error.message : "Erro ao carregar."}
+        onRetry={lista.refetch}
+      />
+    );
+  }
+  if (lista.isPending) return <CardGridSkeleton count={6} />;
+  if (exercicios.length === 0) {
+    return (
+      <EmptyState
+        icon={<SearchX className="size-6" />}
+        title="Nenhum exercício encontrado"
+        description={
+          termo
+            ? `Nada corresponde a “${termo}”. A busca também aceita o nome em inglês.`
+            : "Nenhum exercício com esta combinação de filtros."
+        }
+      />
+    );
+  }
+  return (
+    <>
+      <ul className="space-y-2.5">
+        {exercicios.map((ex) => (
+          <ExerciseListRow key={ex.id} exercise={ex} rotina={rotina} />
+        ))}
+      </ul>
+      <div ref={sentinelaRef} className="h-px" aria-hidden />
+      {lista.isFetchingNextPage && (
+        <p className="py-6 text-center text-sm text-muted-foreground">
+          <Loader2 className="mr-2 inline size-4 animate-spin" aria-hidden />
+          Carregando mais…
+        </p>
+      )}
+    </>
+  );
+}
+
+function CriarExercicio() {
+  return (
+    <CreateExerciseDialog
+      trigger={
+        <button
+          type="button"
+          className="mt-3 flex w-full items-center gap-4 rounded-[1.25rem] border border-dashed border-primary/40 p-3 text-left transition-colors hover:bg-primary/5"
+        >
+          <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-primary/12 text-primary">
+            <Sparkles className="size-5" aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-bold">Criar seu exercício</span>
+            <span className="block text-sm text-muted-foreground">Nome e músculo, sem animação</span>
+          </span>
+          <ChevronRight className="mr-1 size-5 shrink-0 text-primary" aria-hidden />
+        </button>
+      }
+    />
   );
 }
 
@@ -306,15 +579,7 @@ type ExerciseRow = {
   video_url: string | null;
 };
 
-/** Uma linha: miniatura, nome, "músculo · equipamento" e "+ Plano". */
-function ExerciseListRow({
-  exercise,
-  rotina,
-}: {
-  exercise: ExerciseRow;
-  rotina: ActiveRoutine | null;
-}) {
-  const qc = useQueryClient();
+function miniaturaDe(exercise: ExerciseRow): string | null {
   const media = exerciseMedia({
     name: exercise.name,
     imageUrls: exercise.image_urls,
@@ -324,7 +589,13 @@ function ExerciseListRow({
     mediaSource: exercise.media_source,
     videoUrl: exercise.video_url,
   });
-  const miniatura = media.gif ?? media.images[0] ?? null;
+  return media.gif ?? media.images[0] ?? null;
+}
+
+/** Uma linha: miniatura, nome, "músculo · equipamento", favorito e "+ Plano". */
+function ExerciseListRow({ exercise, rotina }: { exercise: ExerciseRow; rotina: ActiveRoutine | null }) {
+  const qc = useQueryClient();
+  const miniatura = miniaturaDe(exercise);
 
   const adicionar = useMutation({
     mutationFn: (t: { id: string; exerciseCount: number }) =>
@@ -341,11 +612,11 @@ function ExerciseListRow({
   });
 
   return (
-    <li className="flex items-center gap-4 rounded-[1.25rem] bg-card p-3">
+    <li className="flex items-center gap-3 rounded-[1.25rem] bg-card p-3">
       <Link
         to="/exercises/$id"
         params={{ id: exercise.id }}
-        className="flex min-w-0 flex-1 items-center gap-4"
+        className="flex min-w-0 flex-1 items-center gap-3.5"
         aria-label={`Abrir ${exercise.name}`}
       >
         <span className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-xl bg-white">
@@ -356,24 +627,23 @@ function ExerciseListRow({
           )}
         </span>
         <span className="min-w-0">
-          <span className="block text-lg leading-snug">{exercise.name}</span>
-          <span className="block text-muted-foreground">
-            {label(MUSCLE_LABELS, exercise.primary_muscle)} ·{" "}
-            {label(EQUIPMENT_LABELS, exercise.equipment)}
+          <span className="block font-semibold leading-snug">{exercise.name}</span>
+          <span className="block text-sm text-muted-foreground">
+            {label(MUSCLE_LABELS, exercise.primary_muscle)} · {label(EQUIPMENT_LABELS, exercise.equipment)}
             {exercise.owner_id && " · seu"}
           </span>
         </span>
       </Link>
+      <FavoriteButton exerciseId={exercise.id} nome={exercise.name} />
       {rotina && rotina.templates.length > 0 && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="flex shrink-0 items-center gap-1 rounded-full border border-primary/40 px-3 py-1.5 text-sm font-bold text-primary transition-colors hover:bg-primary/10"
+              className="grid size-10 shrink-0 place-items-center rounded-full border border-primary/40 text-primary transition-colors hover:bg-primary/10"
               aria-label={`Adicionar ${exercise.name} a uma rotina`}
             >
-              <Plus className="size-4" aria-hidden />
-              Plano
+              <Plus className="size-5" aria-hidden />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -390,24 +660,26 @@ function ExerciseListRow({
   );
 }
 
-/** Uma fila de chips de escolha única, rolando na horizontal. */
-function FilaDeChips({
+/** Fila de chips de escolha única, rolando na horizontal. */
+function Chips({
   rotulo,
-  todos,
+  todos = "Todos",
   valor,
   onChange,
   opcoes,
+  semTodos = false,
 }: {
   rotulo: string;
-  todos: string;
+  todos?: string;
   valor: string | null;
   onChange: (v: string | null) => void;
   opcoes: { value: string; label: string }[];
+  semTodos?: boolean;
 }) {
   const chip = (ativo: boolean) =>
     cn(
-      "shrink-0 rounded-full px-4 py-2 text-lg transition-colors",
-      ativo ? "bg-primary text-primary-foreground" : "bg-card text-foreground hover:bg-elevated",
+      "shrink-0 rounded-full px-3.5 py-2 text-sm font-semibold transition-colors",
+      ativo ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground",
     );
   return (
     <div
@@ -415,22 +687,24 @@ function FilaDeChips({
       aria-label={rotulo}
       className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] md:mx-0 md:px-0 [&::-webkit-scrollbar]:hidden"
     >
-      <button
-        type="button"
-        role="radio"
-        aria-checked={valor === null}
-        onClick={() => onChange(null)}
-        className={chip(valor === null)}
-      >
-        {todos}
-      </button>
+      {!semTodos && (
+        <button
+          type="button"
+          role="radio"
+          aria-checked={valor === null}
+          onClick={() => onChange(null)}
+          className={chip(valor === null)}
+        >
+          {todos}
+        </button>
+      )}
       {opcoes.map((o) => (
         <button
           key={o.value}
           type="button"
           role="radio"
           aria-checked={valor === o.value}
-          onClick={() => onChange(valor === o.value ? null : o.value)}
+          onClick={() => onChange(valor === o.value && !semTodos ? null : o.value)}
           className={chip(valor === o.value)}
         >
           {o.label}
@@ -441,36 +715,27 @@ function FilaDeChips({
 }
 
 /**
- * Dispara uma função quando o elemento observado entra na tela.
- *
- * Rolagem infinita em vez de um botão "carregar mais": o gesto de rolar já é o
- * que a pessoa está fazendo, e a lista é longa o bastante para o botão virar
- * uma interrupção a cada 24 itens.
- *
- * A margem de 400 px faz a próxima página começar a carregar **antes** de a
- * atual acabar — o objetivo é que a lista nunca pareça terminar.
+ * Dispara uma função quando o elemento observado entra na tela (rolagem
+ * infinita). A margem de 400 px começa a próxima página antes de a atual acabar.
  */
 function useInfiniteScroll(onReach: () => void) {
   const ref = useRef<HTMLDivElement>(null);
-  // A função muda a cada render; guardá-la numa ref evita reconectar o
-  // observador (e perder o estado dele) a cada renderização.
   const callbackRef = useRef(onReach);
   callbackRef.current = onReach;
 
   useEffect(() => {
     const alvo = ref.current;
     if (!alvo || typeof IntersectionObserver === "undefined") return;
-
     const observer = new IntersectionObserver(
       (entradas) => {
         if (entradas[0]?.isIntersecting) callbackRef.current();
       },
       { rootMargin: "400px" },
     );
-
     observer.observe(alvo);
     return () => observer.disconnect();
   }, []);
 
   return ref;
 }
+

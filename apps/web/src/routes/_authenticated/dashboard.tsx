@@ -588,26 +588,28 @@ function SequenciaCard() {
   return (
     <Link
       to="/workouts/calendar"
-      className="relative block rounded-[1.5rem] border border-border bg-card px-5 pb-5 pt-6 text-center transition-colors hover:bg-elevated"
+      className="relative block rounded-[1.5rem] border border-border bg-card p-5 transition-colors hover:bg-elevated"
       aria-label={`${dias} ${dias === 1 ? "dia seguido" : "dias seguidos"} de treino. Ver calendário`}
     >
       <CalendarDays className="absolute right-4 top-4 size-5 text-muted-foreground" aria-hidden />
-      <Flame
-        className={cn(
-          "mx-auto size-20 transition-colors duration-500",
-          aceso ? "fill-[#FFB01F] text-[#FF5A1F]" : "fill-muted text-muted-foreground/40",
-        )}
-        strokeWidth={1.5}
-        aria-hidden
-      />
-      <p className="mt-2 text-6xl font-extrabold leading-none tabular-nums">{dias}</p>
-      <p className="mt-1.5 text-lg font-semibold">{dias === 1 ? "dia seguido" : "dias seguidos"}</p>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {aceso ? "Não deixe o fogo apagar." : "Treine hoje para acender o fogo."}
-      </p>
+      {/* Fogo à esquerda, número e legenda à direita, alinhados pelo meio. */}
+      <div className="flex items-center gap-4">
+        <Flame
+          className={cn(
+            "size-20 shrink-0 transition-colors duration-500",
+            aceso ? "fill-[#FFB01F] text-[#FF5A1F]" : "fill-muted text-muted-foreground/40",
+          )}
+          strokeWidth={1.5}
+          aria-hidden
+        />
+        <div className="min-w-0 text-left">
+          <p className="text-6xl font-extrabold leading-none tabular-nums">{dias}</p>
+          <p className="mt-1 text-lg font-semibold">{dias === 1 ? "dia seguido" : "dias seguidos"}</p>
+        </div>
+      </div>
 
       {/* A semana: laranja nos dias treinados, anel no dia de hoje. */}
-      <div className="mx-auto mt-4 grid max-w-xs grid-cols-7 gap-1.5" aria-hidden>
+      <div className="mt-4 grid grid-cols-7 gap-1.5" aria-hidden>
         {semana.map((d) => (
           <span key={d} className="flex flex-col items-center gap-1">
             <span

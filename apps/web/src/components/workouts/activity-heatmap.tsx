@@ -42,7 +42,7 @@ export function ActivityHeatmap() {
   ).size;
 
   return (
-    <div className="rounded-[1.5rem] border border-primary/20 bg-card p-4">
+    <div>
       <div className="mb-3 flex items-end justify-between gap-3">
         <p>
           <span className="text-3xl font-extrabold tabular-nums text-primary">{total}</span>{" "}

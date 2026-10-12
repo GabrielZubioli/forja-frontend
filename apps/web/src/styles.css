@@ -412,6 +412,17 @@
     scrollbar-gutter: stable;
   }
 
+  /* A página nunca rola para o lado. Durante a troca de telas algum elemento
+     pode passar da largura por um instante; no celular isso deixava a página
+     "escorregar" de lado e arrastava a barra inferior junto. `clip` corta sem
+     criar contêiner de rolagem — o cabeçalho fixo e os carrosséis seguem
+     funcionando. */
+  html,
+  body {
+    overflow-x: clip;
+    overscroll-behavior-x: none;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);

@@ -88,6 +88,19 @@ export const Route = createFileRoute("/")({
   component: OnboardingQuiz,
 });
 
+/** Etapa de escolha única → a resposta que ela preenche. */
+const ESCOLHA_UNICA = {
+  objective: "objective",
+  sex: "sex",
+  experience: "experience",
+  consistency: "consistency",
+  place: "place",
+  duration: "duration",
+  focus: "focus",
+  mealsPerDay: "mealsPerDay",
+  cooking: "cookingSkill",
+} as const satisfies Record<string, keyof Answers>;
+
 function OnboardingQuiz() {
   const navigate = useNavigate();
 
@@ -138,18 +151,10 @@ function OnboardingQuiz() {
   const back = useCallback(() => goTo(Math.max(0, safeIndex - 1)), [goTo, safeIndex]);
 
   /**
-   * Responde e avança num gesto só.
-   *
-   * O atraso curto existe para a marca de seleção ser vista antes da troca de
-   * tela — sem ele, o usuário fica sem confirmação de que o toque registrou.
+   * Marca a resposta e fica na pergunta: a pessoa confere e avança no
+   * "Continuar" — tocar numa opção por engano não pula a etapa.
    */
-  const choose = useCallback(
-    (patch: Partial<Answers>) => {
-      update(patch);
-      window.setTimeout(() => goTo(Math.min(steps.length - 1, safeIndex + 1)), 160);
-    },
-    [update, goTo, safeIndex, steps.length],
-  );
+  const choose = useCallback((patch: Partial<Answers>) => update(patch), [update]);
 
   const toggle = useCallback(
     (
@@ -615,6 +620,14 @@ function OnboardingQuiz() {
                 onSelect={(v) => choose({ cookingSkill: v as Answers["cookingSkill"] })}
               />
             </Question>
+          )}
+
+          {/* Perguntas de escolha única: o "Continuar" libera depois de responder. */}
+          {step.id in ESCOLHA_UNICA && (
+            <NextButton
+              onClick={next}
+              disabled={!answers[ESCOLHA_UNICA[step.id as keyof typeof ESCOLHA_UNICA]]}
+            />
           )}
 
           {step.id === "review" && (

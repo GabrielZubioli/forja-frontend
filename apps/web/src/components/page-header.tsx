@@ -25,15 +25,26 @@ export function PageHeader({
   title,
   description,
   action,
+  topo,
   wide = false,
 }: {
   title: string;
   description?: string;
   action?: ReactNode;
+  /** Ação secundária numa linha acima do título (ex.: "Agora não"), para o
+   *  título ocupar a largura toda. */
+  topo?: ReactNode;
   wide?: boolean;
 }) {
   return (
-    <div className="px-4 pb-2 pt-6 md:px-8 md:pt-8">
+    // Fixo no topo, em vidro fosco: o conteúdo passa por trás, desfocado, e o
+    // título e as ações continuam à mão durante a rolagem.
+    <div className="sticky top-0 z-20 bg-background/55 px-4 pb-3 pt-[max(1.5rem,env(safe-area-inset-top))] backdrop-blur-xl backdrop-saturate-150 md:px-8 md:pt-8">
+      {topo && (
+        <div className={cn("mx-auto mb-2 flex w-full justify-end", LARGURA[wide ? "wide" : "default"])}>
+          {topo}
+        </div>
+      )}
       <div
         className={cn(
           "mx-auto flex w-full items-start justify-between gap-3",
@@ -45,7 +56,7 @@ export function PageHeader({
             {title}
           </h1>
           {description && (
-            <p className="mt-1 text-pretty text-lg text-muted-foreground">{description}</p>
+            <p className="mt-1 text-pretty text-base text-muted-foreground">{description}</p>
           )}
         </div>
         {action && <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div>}

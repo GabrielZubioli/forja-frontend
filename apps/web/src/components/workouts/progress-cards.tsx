@@ -46,8 +46,7 @@ export function RecoveryCard() {
   }
 
   return (
-    <Card>
-      <CardContent className="grid gap-4 p-4 sm:grid-cols-[auto_1fr]">
+    <div className="grid gap-4 sm:grid-cols-[auto_1fr]">
         <div>
           <BodyMap
             muscles={musculos.map((m) => ({
@@ -90,8 +89,7 @@ export function RecoveryCard() {
             </li>
           ))}
         </ul>
-      </CardContent>
-    </Card>
+    </div>
   );
 }
 

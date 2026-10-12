@@ -9,6 +9,7 @@ import {
   Info,
   Sparkles,
   TriangleAlert,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageBody, PageHeader } from "@/components/page-header";
@@ -166,9 +167,11 @@ function RoutineWizard() {
       <PageHeader
         title="Montar meu plano"
         description="Quatro perguntas e sua divisão de treino fica pronta."
-        action={
+        topo={
           <Button
-            variant="outline"
+            variant="ghost"
+            size="sm"
+            className="rounded-full text-muted-foreground"
             onClick={() => {
               // Registra a recusa para não ser redirecionado de novo a cada abertura.
               try {
@@ -179,8 +182,8 @@ function RoutineWizard() {
               void navigate({ to: "/plan" });
             }}
           >
-            <ArrowLeft className="mr-1 size-4" />
             Agora não
+            <X className="ml-1 size-4" />
           </Button>
         }
       />
@@ -217,7 +220,6 @@ function RoutineWizard() {
               selected={level}
               onSelect={(v) => {
                 setLevel(v);
-                setStep(1);
               }}
             />
           )}
@@ -227,7 +229,6 @@ function RoutineWizard() {
               selected={goal}
               onSelect={(v) => {
                 setGoal(v);
-                setStep(2);
               }}
             />
           )}
@@ -237,7 +238,6 @@ function RoutineWizard() {
               selected={equipment}
               onSelect={(v) => {
                 setEquipment(v);
-                setStep(3);
               }}
             />
           )}
@@ -252,7 +252,6 @@ function RoutineWizard() {
                     // Pré-seleciona dias espalhados na semana; o usuário ajusta
                     // no passo seguinte se a agenda dele for outra.
                     setWeekdays(suggestWeekdays(dias));
-                    setStep(4);
                   }}
                   className={cn(
                     "rounded-xl border p-4 text-center transition-colors hover:bg-accent",
