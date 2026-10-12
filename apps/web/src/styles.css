@@ -404,12 +404,17 @@
     border-color: var(--color-border);
   }
 
+  /* Reserva o espaço da barra de rolagem sempre. Precisa estar no `html`
+     (quem rola é a janela, não o body): sem isso, ao trocar uma tela longa
+     por uma curta — como ao tocar em Treinar — a barra some, a largura muda e
+     a barra inferior e o botão Treinar pulam para o lado. */
+  html {
+    scrollbar-gutter: stable;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
-    /* Evita o "pulo" horizontal quando uma tela com rolagem dá lugar a outra
-       sem — visível a cada troca de aba no desktop. */
-    scrollbar-gutter: stable;
     /* Sem isso o texto fica com o peso levemente inflado no macOS, e o mesmo
        `font-medium` parece bold ali e regular no Windows. */
     -webkit-font-smoothing: antialiased;
