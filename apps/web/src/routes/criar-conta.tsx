@@ -78,6 +78,7 @@ function SignUpForm() {
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<{ name?: string; email?: string; password?: string }>({});
   const [loading, setLoading] = useState<"email" | "google" | null>(null);
+  const [contaExiste, setContaExiste] = useState<string | null>(null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,14 +105,17 @@ function SignUpForm() {
     });
     setLoading(null);
 
-    if (error) {
-      toast.error(
-        error.message.includes("already registered")
-          ? "Este e-mail já tem conta. Faça login para continuar."
-          : error.message,
-      );
-      return;
+    // Conta já existente: com a confirmação desligada vem o erro; ligada, o
+    // Supabase não acusa (para não revelar contas) e devolve um usuário sem
+    // identidades — nos dois casos, o aviso fica na tela.
+    if (
+      error?.code === "user_already_exists" ||
+      /already registered/i.test(error?.message ?? "") ||
+      (!error && data.user?.identities?.length === 0)
+    ) {
+      return setContaExiste(em.data);
     }
+    if (error) return void toast.error(error.message);
 
     // Confirmação desligada no projeto: já veio sessão, segue para o questionário.
     if (data.session) return void navigate({ to: "/", replace: true });
@@ -154,7 +158,10 @@ function SignUpForm() {
             type="email"
             inputMode="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setContaExiste(null);
+            }}
             autoComplete="email"
             placeholder="voce@email.com"
             aria-invalid={!!errors.email}
@@ -179,6 +186,29 @@ function SignUpForm() {
           />
           <PasswordStrength value={password} />
         </Field>
+
+        {contaExiste && (
+          <div
+            role="alert"
+            className="rounded-2xl border border-primary/40 bg-primary/10 p-4 animate-in fade-in slide-in-from-bottom-1 duration-300"
+          >
+            <p className="font-semibold">Este e-mail já tem uma conta</p>
+            <p className="mt-1 text-pretty text-sm text-muted-foreground">
+              <span className="break-all font-medium text-foreground">{contaExiste}</span> já está
+              cadastrado. Entre com ele ou recupere a senha.
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <Button asChild className="h-11 rounded-xl">
+                <Link to="/auth">Entrar</Link>
+              </Button>
+              <Button asChild variant="outline" className="h-11 rounded-xl">
+                <Link to="/esqueci-senha" search={{ email: contaExiste }}>
+                  Esqueci a senha
+                </Link>
+              </Button>
+            </div>
+          </div>
+        )}
 
         <Button
           type="submit"
