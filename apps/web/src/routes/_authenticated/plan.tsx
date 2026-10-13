@@ -2,14 +2,26 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight, Pencil, Play, Plus, Trash2, Wand2, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  PencilRuler,
+  Pencil,
+  Play,
+  Plus,
+  Sparkles,
+  Trash2,
+  Wand2,
+  X,
+} from "lucide-react";
 import { TRAINING_PROGRAMS, WEEKDAY_LABELS, weekdayOf, type Weekday } from "@forja/domain";
 import { queryKeys } from "@/data/query-keys";
 import { errorMessage } from "@/data/supabase-helpers";
 import {
+  createEmptyRoutine,
   createTemplate,
   deleteTemplate,
-  ensureActiveRoutine,
+  saveSuggestedRoutine,
   renameRoutine,
   renameTemplate,
   setTemplateIcon,
@@ -39,7 +51,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ErrorState } from "@/components/query-boundary";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { NoRoutineCard } from "@/components/home/today-workout-card";
+import { AvisoProfissional } from "@/components/aviso-profissional";
 import { ExercisePicker } from "@/components/pickers/exercise-picker";
 import { RoutineExerciseRow, estimarDuracao } from "@/components/workouts/routine-exercise-row";
 import { RoutineIcon, RoutineIconPicker } from "@/components/workouts/routine-icon";
@@ -85,15 +97,9 @@ function PlanPage() {
 
   const week = useQuery({
     queryKey: [...queryKeys.workouts.all, "week"],
-    queryFn: async () => {
-      const atual = await fetchWorkoutWeek();
-      const vazia =
-        !atual || atual.splits.length === 0 || atual.splits.every((s) => s.exercises.length === 0);
-      if (!vazia) return atual;
-      // Rotina quebrada (geração que falhou): remonta a partir do questionário.
-      await ensureActiveRoutine(userId);
-      return fetchWorkoutWeek();
-    },
+    // Nunca remonta sozinho: um plano vazio pode ser a escolha da pessoa. Trocar
+    // pelo sugerido é uma ação explícita, mais abaixo.
+    queryFn: fetchWorkoutWeek,
   });
 
   const invalidar = () => qc.invalidateQueries({ queryKey: queryKeys.workouts.all });
@@ -122,6 +128,20 @@ function PlanPage() {
     onSuccess: () => {
       setAberta(null);
       toast.success("Rotina excluída");
+      void invalidar();
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+
+  /** Troca de plano pedida ("sugerido" ou "zero"), aguardando confirmação. */
+  const [trocando, setTrocando] = useState<"sugerido" | "zero" | null>(null);
+  const trocar = useMutation({
+    mutationFn: (para: "sugerido" | "zero") =>
+      para === "sugerido" ? saveSuggestedRoutine(userId) : createEmptyRoutine(userId),
+    onSuccess: (_, para) => {
+      setAberta(null);
+      setAba(para === "sugerido" ? "agenda" : "rotinas");
+      toast.success(para === "sugerido" ? "Plano sugerido ativado" : "Plano em branco criado");
       void invalidar();
     },
     onError: (e) => toast.error(errorMessage(e)),
@@ -158,12 +178,39 @@ function PlanPage() {
     />
   );
 
-  if (!week.data || week.data.splits.length === 0) {
+  if (!week.data) {
     return (
       <>
         {header}
         <PageBody>
-          <NoRoutineCard />
+          {/* Sem plano nenhum: as mesmas duas saídas do fim do questionário. */}
+          <section className="rounded-[1.25rem] border border-dashed border-primary/40 bg-primary/5 p-5">
+            <h2 className="text-lg font-bold">Você ainda não tem um plano de treino</h2>
+            <p className="mt-1 text-pretty text-sm text-muted-foreground">
+              Use o plano sugerido para as suas respostas ou comece um plano em branco e monte tudo
+              do seu jeito.
+            </p>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <Button
+                className="h-12 rounded-xl"
+                disabled={trocar.isPending}
+                onClick={() => trocar.mutate("sugerido")}
+              >
+                <Sparkles className="mr-1.5 size-4" aria-hidden />
+                Usar o plano sugerido
+              </Button>
+              <Button
+                variant="outline"
+                className="h-12 rounded-xl"
+                disabled={trocar.isPending}
+                onClick={() => trocar.mutate("zero")}
+              >
+                <PencilRuler className="mr-1.5 size-4" aria-hidden />
+                Começar do zero
+              </Button>
+            </div>
+          </section>
+          <AvisoProfissional tipos={["treino"]} className="mt-4" />
         </PageBody>
       </>
     );
@@ -186,6 +233,7 @@ function PlanPage() {
     setNomeando(null);
   };
   const hoje = weekdayOf(todayISO());
+  const emBranco = dados.splits.length === 0;
 
   return (
     <>
@@ -200,6 +248,30 @@ function PlanPage() {
           ]}
           label="Seção do plano"
         />
+
+        {emBranco && (
+          <section className="mt-5 rounded-[1.25rem] border border-dashed border-primary/40 bg-primary/5 p-5">
+            <h2 className="text-lg font-bold">Seu plano está em branco</h2>
+            <p className="mt-1 text-pretty text-sm text-muted-foreground">
+              Crie suas rotinas, escolha os exercícios e vincule cada uma aos dias da semana. Se
+              preferir, use o plano sugerido para as suas respostas.
+            </p>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <Button className="h-12 rounded-xl" onClick={() => setNomeando({ tipo: "nova" })}>
+                <Plus className="mr-1.5 size-4" aria-hidden />
+                Criar rotina
+              </Button>
+              <Button
+                variant="outline"
+                className="h-12 rounded-xl"
+                onClick={() => setTrocando("sugerido")}
+              >
+                <Sparkles className="mr-1.5 size-4" aria-hidden />
+                Usar o plano sugerido
+              </Button>
+            </div>
+          </section>
+        )}
 
         {aba === "agenda" ? (
           <section aria-label="Agenda da semana" className="mt-5">
@@ -338,23 +410,19 @@ function PlanPage() {
                             </Button>
                           }
                         />
-                        {/* A última rotina fica: um plano sem nenhuma seria remontado
-                            do zero a partir do questionário. */}
-                        {dados.splits.length > 1 && (
-                          <Button
-                            variant="ghost"
-                            className="mt-1 w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            onClick={() =>
-                              setExcluindo({
-                                templateId: split.templateId,
-                                nome: splitDisplayName(split.name),
-                              })
-                            }
-                          >
-                            <Trash2 className="mr-1.5 size-4" aria-hidden />
-                            Excluir rotina
-                          </Button>
-                        )}
+                        <Button
+                          variant="ghost"
+                          className="mt-1 w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() =>
+                            setExcluindo({
+                              templateId: split.templateId,
+                              nome: splitDisplayName(split.name),
+                            })
+                          }
+                        >
+                          <Trash2 className="mr-1.5 size-4" aria-hidden />
+                          Excluir rotina
+                        </Button>
                       </div>
                     )}
                   </li>
@@ -386,6 +454,44 @@ function PlanPage() {
               <Pencil className="size-4" aria-hidden />
               Renomear o plano “{dados.routineName}”
             </button>
+
+            {!emBranco && (
+              <>
+                <h2 className="mb-1 mt-8 px-1 text-lg font-semibold">Trocar de plano</h2>
+                <p className="mb-3 px-1 text-sm text-muted-foreground">
+                  As rotinas atuais saem do plano; os treinos que você já fez continuam no
+                  histórico.
+                </p>
+                <div className="grid gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTrocando("sugerido")}
+                    className="flex items-center gap-3 rounded-[1.25rem] bg-card p-4 text-left transition-colors hover:bg-elevated"
+                  >
+                    <Sparkles className="size-5 shrink-0 text-primary" aria-hidden />
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-semibold">Usar o plano sugerido</span>
+                      <span className="block text-sm text-muted-foreground">
+                        Montado a partir das suas respostas do questionário
+                      </span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTrocando("zero")}
+                    className="flex items-center gap-3 rounded-[1.25rem] bg-card p-4 text-left transition-colors hover:bg-elevated"
+                  >
+                    <PencilRuler className="size-5 shrink-0 text-primary" aria-hidden />
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-semibold">Começar do zero</span>
+                      <span className="block text-sm text-muted-foreground">
+                        Um plano em branco, sem rotinas nem exercícios
+                      </span>
+                    </span>
+                  </button>
+                </div>
+              </>
+            )}
 
             <h2 className="mb-3 mt-8 px-1 text-lg text-muted-foreground">Programas prontos</h2>
             <ul className="space-y-3">
@@ -434,6 +540,22 @@ function PlanPage() {
         confirmLabel="Excluir rotina"
         destructive
         onConfirm={() => excluindo && excluir.mutate(excluindo.templateId)}
+      />
+
+      <ConfirmDialog
+        open={trocando !== null}
+        onOpenChange={(o) => !o && setTrocando(null)}
+        title={trocando === "zero" ? "Começar um plano do zero?" : "Usar o plano sugerido?"}
+        description={
+          trocando === "zero"
+            ? "Suas rotinas atuais saem do plano e você começa com um plano em branco. Os treinos que você já fez continuam no histórico."
+            : emBranco
+              ? "Montamos as rotinas, os exercícios e os dias a partir das suas respostas do questionário. Você pode ajustar tudo depois. Lembre: é uma referência geral, que não substitui a orientação de um profissional de educação física."
+              : "Suas rotinas atuais saem do plano e dão lugar às sugeridas para as suas respostas. Os treinos que você já fez continuam no histórico. O plano sugerido é uma referência geral, que não substitui a orientação de um profissional de educação física."
+        }
+        confirmLabel={trocando === "zero" ? "Começar do zero" : "Usar o plano sugerido"}
+        destructive={trocando === "zero" || !emBranco}
+        onConfirm={() => trocando && trocar.mutate(trocando)}
       />
 
       <NomeDialog
@@ -485,7 +607,9 @@ function DiaFixo({
       <DropdownMenuTrigger asChild>{gatilho}</DropdownMenuTrigger>
       <DropdownMenuContent align={doDia.length === 0 ? "end" : "start"}>
         <DropdownMenuLabel>Rotina para {WEEKDAY_LABELS[dia].toLowerCase()}</DropdownMenuLabel>
-        {outras.length === 0 ? (
+        {dados.splits.length === 0 ? (
+          <DropdownMenuItem disabled>Crie uma rotina na aba Rotinas primeiro</DropdownMenuItem>
+        ) : outras.length === 0 ? (
           <DropdownMenuItem disabled>Todas as rotinas já estão neste dia</DropdownMenuItem>
         ) : (
           outras.map((s) => (

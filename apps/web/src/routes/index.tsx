@@ -14,7 +14,6 @@ import {
   ProgressBar,
   Question,
   Stepper,
-  TagInput,
   TimeField,
   WeekdayPicker,
 } from "@/components/onboarding/controls";
@@ -22,11 +21,7 @@ import { answersSchema, type Answers } from "@/lib/onboarding/schema";
 import { loadDraft, loadStep, saveDraft, saveStep } from "@/lib/onboarding/storage";
 import { visibleSteps } from "@/lib/onboarding/steps";
 import {
-  ALLERGEN_OPTIONS,
-  COMMON_FOODS,
   CONSISTENCY_OPTIONS,
-  COOKING_OPTIONS,
-  DIET_OPTIONS,
   DURATION_OPTIONS,
   EQUIPMENT_OPTIONS,
   EXPERIENCE_OPTIONS,
@@ -48,6 +43,7 @@ import {
 import { WEEKDAY_LABELS, type Weekday } from "@forja/domain";
 import { BrandSymbol } from "@/components/brand-logo";
 import { hasCompletedOnboarding } from "@/data/onboarding";
+import { PlanChoice } from "@/components/onboarding/plan-choice";
 
 /**
  * A raiz do app: boas-vindas e, para quem já tem conta, o questionário.
@@ -94,7 +90,6 @@ const ESCOLHA_UNICA = {
   duration: "duration",
   focus: "focus",
   mealsPerDay: "mealsPerDay",
-  cooking: "cookingSkill",
 } as const satisfies Record<string, keyof Answers>;
 
 function OnboardingQuiz() {
@@ -152,28 +147,20 @@ function OnboardingQuiz() {
    */
   const choose = useCallback((patch: Partial<Answers>) => update(patch), [update]);
 
-  const toggle = useCallback(
-    (
-      key: "equipment" | "injuries" | "diets" | "allergies" | "likedFoods" | "dislikedFoods",
-      value: string,
-    ) => {
-      setAnswers((prev) => {
-        const list = (prev[key] ?? []) as string[];
-        const nextList = list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
-        const next = { ...prev, [key]: nextList } as Answers;
-        saveDraft(next);
-        return next;
-      });
-    },
-    [],
-  );
+  const toggle = useCallback((key: "equipment" | "injuries", value: string) => {
+    setAnswers((prev) => {
+      const list = (prev[key] ?? []) as string[];
+      const nextList = list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
+      const next = { ...prev, [key]: nextList } as Answers;
+      saveDraft(next);
+      return next;
+    });
+  }, []);
 
   if (!hydrated || !step || logado === null) return <QuizSkeleton />;
 
   const level = derivedLevel(answers);
   const objective = derivedObjective(answers);
-  const customLiked = answers.likedFoods.filter((f) => !COMMON_FOODS.includes(f as never));
-  const customDisliked = answers.dislikedFoods.filter((f) => !COMMON_FOODS.includes(f as never));
 
   return (
     <div className="min-h-dvh bg-background">
@@ -466,29 +453,11 @@ function OnboardingQuiz() {
             </Question>
           )}
 
-          {step.id === "routine" && (
-            <Question
-              title="Como é sua rotina?"
-              subtitle="Distribuímos suas refeições dentro do seu dia, não num horário genérico."
-            >
-              <div className="space-y-3">
-                <TimeField
-                  value={answers.wakeTime}
-                  onChange={(v) => update({ wakeTime: v })}
-                  label="Acordo às"
-                />
-                <TimeField
-                  value={answers.sleepTime}
-                  onChange={(v) => update({ sleepTime: v })}
-                  label="Durmo às"
-                />
-              </div>
-              <NextButton onClick={next} label={answers.wakeTime ? "Continuar" : "Pular"} />
-            </Question>
-          )}
-
           {step.id === "mealsPerDay" && (
-            <Question title="Quantas refeições por dia você faz?">
+            <Question
+              title="Quantas refeições por dia você faz?"
+              subtitle="Criamos essas refeições vazias na sua dieta, para você preencher como quiser."
+            >
               <ChoiceList
                 options={MEALS_PER_DAY_OPTIONS.map((n) => ({
                   value: String(n),
@@ -510,115 +479,6 @@ function OnboardingQuiz() {
             </Question>
           )}
 
-          {step.id === "diets" && (
-            <Question
-              title="Você segue alguma dieta específica?"
-              subtitle="Marque tudo que se aplica."
-            >
-              <ChipGroup
-                options={DIET_OPTIONS}
-                selected={answers.diets}
-                onToggle={(v) => toggle("diets", v)}
-              />
-              <NextButton onClick={next} label={answers.diets.length ? "Continuar" : "Nenhuma"} />
-            </Question>
-          )}
-
-          {step.id === "allergies" && (
-            <Question
-              title="Tem alguma alergia ou intolerância alimentar?"
-              subtitle="Esses alimentos são excluídos por completo do seu plano."
-            >
-              <ChipGroup
-                options={ALLERGEN_OPTIONS}
-                selected={answers.allergies}
-                onToggle={(v) => toggle("allergies", v)}
-              />
-              {answers.allergies.length > 0 && (
-                <Feedback title="Exclusão total">
-                  Diferente de "não gosto", alergia não é preferência: nada com esses ingredientes
-                  entra no plano nem aparece como substituição.
-                </Feedback>
-              )}
-              <NextButton
-                onClick={next}
-                label={answers.allergies.length ? "Continuar" : "Não tenho nenhuma"}
-              />
-            </Question>
-          )}
-
-          {step.id === "likedFoods" && (
-            <Question
-              title="Quais alimentos você gosta?"
-              subtitle="Eles vão aparecer mais no seu plano."
-            >
-              <ChipGroup
-                options={COMMON_FOODS.map((f) => ({ value: f, label: f }))}
-                selected={answers.likedFoods}
-                onToggle={(v) => toggle("likedFoods", v)}
-              />
-              <div className="mt-4">
-                <TagInput
-                  values={customLiked}
-                  onChange={(extras) =>
-                    update({
-                      likedFoods: [
-                        ...answers.likedFoods.filter((f) => COMMON_FOODS.includes(f as never)),
-                        ...extras,
-                      ],
-                    })
-                  }
-                  placeholder="Outro alimento…"
-                />
-              </div>
-              <NextButton
-                onClick={next}
-                label={answers.likedFoods.length ? "Continuar" : "Pular"}
-              />
-            </Question>
-          )}
-
-          {step.id === "dislikedFoods" && (
-            <Question
-              title="E o que você não gosta?"
-              subtitle="Evitamos ao montar o plano — mas continuam disponíveis se você quiser registrar."
-            >
-              <ChipGroup
-                options={COMMON_FOODS.map((f) => ({ value: f, label: f }))}
-                selected={answers.dislikedFoods}
-                onToggle={(v) => toggle("dislikedFoods", v)}
-              />
-              <div className="mt-4">
-                <TagInput
-                  values={customDisliked}
-                  onChange={(extras) =>
-                    update({
-                      dislikedFoods: [
-                        ...answers.dislikedFoods.filter((f) => COMMON_FOODS.includes(f as never)),
-                        ...extras,
-                      ],
-                    })
-                  }
-                  placeholder="Outro alimento…"
-                />
-              </div>
-              <NextButton
-                onClick={next}
-                label={answers.dislikedFoods.length ? "Continuar" : "Pular"}
-              />
-            </Question>
-          )}
-
-          {step.id === "cooking" && (
-            <Question title="Você cozinha?">
-              <ChoiceList
-                options={COOKING_OPTIONS}
-                selected={answers.cookingSkill}
-                onSelect={(v) => choose({ cookingSkill: v as Answers["cookingSkill"] })}
-              />
-            </Question>
-          )}
-
           {/* Perguntas de escolha única: o "Continuar" libera depois de responder. */}
           {step.id in ESCOLHA_UNICA && (
             <NextButton
@@ -627,7 +487,11 @@ function OnboardingQuiz() {
             />
           )}
 
-          {step.id === "review" && <Review answers={answers} onEdit={goTo} steps={steps} />}
+          {step.id === "review" && (
+            <Review answers={answers} onEdit={goTo} steps={steps} onConfirm={next} />
+          )}
+
+          {step.id === "plan" && <PlanChoice answers={answers} />}
         </main>
       </div>
     </div>
@@ -775,12 +639,13 @@ function Review({
   answers,
   onEdit,
   steps,
+  onConfirm,
 }: {
   answers: Answers;
   onEdit: (index: number) => void;
   steps: { id: string }[];
+  onConfirm: () => void;
 }) {
-  const navigate = useNavigate();
   const objective = derivedObjective(answers);
   const indexOf = (id: string) => steps.findIndex((s) => s.id === id);
 
@@ -826,23 +691,12 @@ function Review({
           },
         ]
       : []),
-    ...(answers.allergies.length
-      ? [
-          {
-            label: "Alergias",
-            value: answers.allergies
-              .map((a) => ALLERGEN_OPTIONS.find((o) => o.value === a)?.label ?? a)
-              .join(" · "),
-            step: "allergies",
-          },
-        ]
-      : []),
   ];
 
   return (
     <Question
       title="É isso mesmo?"
-      subtitle="Confira antes de montarmos seu plano. Toque em qualquer linha para corrigir."
+      subtitle="Confira antes de ver o plano sugerido. Toque em qualquer linha para corrigir."
     >
       <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border">
         {linhas.map((l) => {
@@ -865,12 +719,11 @@ function Review({
       </ul>
 
       <Feedback title="O que vem agora">
-        Montamos na hora, e salvamos na sua conta: a divisão semanal com os exercícios escolhidos
-        para o seu equipamento, o cardápio com as porções calculadas e suas metas de calorias,
-        macros e água.
+        Mostramos o plano de treino sugerido para as suas respostas. Você escolhe se segue com ele
+        ou se monta o seu do zero.
       </Feedback>
 
-      <NextButton onClick={() => void navigate({ to: "/preparando" })} label="Montar meu plano" />
+      <NextButton onClick={onConfirm} label="Ver plano sugerido" />
     </Question>
   );
 }

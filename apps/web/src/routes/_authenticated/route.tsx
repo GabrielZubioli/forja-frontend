@@ -11,6 +11,7 @@ import {
   BarChart3,
   BookOpen,
   CalendarDays,
+  Compass,
   HeartPulse,
   Home,
   List,
@@ -40,6 +41,8 @@ import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { BrandLogo } from "@/components/brand-logo";
+import { Tutorial, TUTORIAL_EVENT } from "@/components/tutorial";
+import { useCurrentUserId } from "@/hooks/use-current-user";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -84,6 +87,7 @@ function AuthLayout() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const userId = useCurrentUserId();
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
@@ -174,6 +178,7 @@ function AuthLayout() {
             to={sessao ? "/workouts/session/$id" : "/train"}
             params={sessao ? { id: sessao.id } : undefined}
             onClick={aoTocarTreinar}
+            data-tour="nav-treinar"
             className={cn(
               "mb-2 flex items-center justify-center gap-2 rounded-full px-3 py-2.5 text-sm font-bold transition-colors",
               emTreino ? "bg-(--treino) text-(--treino-ink)" : "bg-[#01D798] text-[#020306]",
@@ -192,6 +197,7 @@ function AuthLayout() {
               <Link
                 key={item.to}
                 to={item.to}
+                data-tour={`nav-${item.to.slice(1)}`}
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
@@ -214,6 +220,7 @@ function AuthLayout() {
               <Link
                 key={item.to}
                 to={item.to}
+                data-tour={`nav-${item.to.slice(1)}`}
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
@@ -242,7 +249,15 @@ function AuthLayout() {
           </Link>
         </nav>
 
-        <div className="p-3">
+        <div className="space-y-1 p-3">
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-3"
+            onClick={() => window.dispatchEvent(new Event(TUTORIAL_EVENT))}
+          >
+            <Compass className="size-4" aria-hidden />
+            Ver tutorial
+          </Button>
           <Button variant="ghost" className="w-full justify-start gap-3" onClick={signOut}>
             <LogOut className="size-4" aria-hidden />
             Sair
@@ -284,6 +299,7 @@ function AuthLayout() {
               <li key={item.to}>
                 <Link
                   to={item.to}
+                  data-tour={`nav-${item.to.slice(1)}`}
                   aria-current={active ? "page" : undefined}
                   className={cn(
                     "flex min-h-[3.75rem] flex-col items-center justify-center gap-1 px-1 py-2 text-[12px] transition-colors",
@@ -300,6 +316,7 @@ function AuthLayout() {
             <button
               type="button"
               onClick={() => setMenuAberto(true)}
+              data-tour="nav-menu"
               aria-haspopup="dialog"
               aria-expanded={menuAberto}
               className={cn(
@@ -327,6 +344,7 @@ function AuthLayout() {
 
       <CommandPalette />
       <TrainLaunchOverlay fase={fase} cor={cor} />
+      <Tutorial userId={userId} enabled={pathname === "/dashboard"} />
     </div>
   );
 }

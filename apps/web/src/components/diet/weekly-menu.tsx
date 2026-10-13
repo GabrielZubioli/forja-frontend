@@ -2,9 +2,23 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, Plus, X } from "lucide-react";
 import { toast } from "sonner";
-import { WEEKDAY_LABELS, portionMacros, weekdayOf, type Weekday } from "@forja/domain";
+import {
+  KCAL_TOLERANCE,
+  WEEKDAY_LABELS,
+  nutritionTotals,
+  portionMacros,
+  toleranceStatus,
+  weekdayOf,
+  type Weekday,
+} from "@forja/domain";
 import { ensureActiveMealPlan, type ActiveMealPlan } from "@/data/meal-plans";
-import { addPlanItem, copyDay, itensDoDia, refreshFutureDays, removePlanItem } from "@/data/diet-week";
+import {
+  addPlanItem,
+  copyDay,
+  itensDoDia,
+  refreshFutureDays,
+  removePlanItem,
+} from "@/data/diet-week";
 import { queryKeys } from "@/data/query-keys";
 import { errorMessage } from "@/data/supabase-helpers";
 import { useCurrentUserId } from "@/hooks/use-current-user";
@@ -34,27 +48,42 @@ import { cn } from "@/lib/utils";
 
 /** Segunda primeiro, como no Plano. */
 const ORDEM: Weekday[] = [1, 2, 3, 4, 5, 6, 0];
-const SIGLA: Record<Weekday, string> = { 0: "DOM", 1: "SEG", 2: "TER", 3: "QUA", 4: "QUI", 5: "SEX", 6: "SÁB" };
+const SIGLA: Record<Weekday, string> = {
+  0: "DOM",
+  1: "SEG",
+  2: "TER",
+  3: "QUA",
+  4: "QUI",
+  5: "SEX",
+  6: "SÁB",
+};
 
 type Meal = ActiveMealPlan["meals"][number];
 type Item = Meal["items"][number];
 
-const macrosDe = (i: Item) =>
-  portionMacros({ food: i.food, grams: i.grams, servings: 1 });
+const macrosDe = (i: Item) => portionMacros({ food: i.food, grams: i.grams, servings: 1 });
 
-function totais(plan: ActiveMealPlan, dia: number) {
-  const t = { kcal: 0, proteinG: 0, carbsG: 0, fatG: 0 };
-  for (const m of plan.meals)
-    for (const i of itensDoDia(m.items, dia)) {
-      const x = macrosDe(i);
-      t.kcal += x.kcal;
-      t.proteinG += x.proteinG;
-      t.carbsG += x.carbsG;
-      t.fatG += x.fatG;
-    }
-  return t;
+/** Totais do dia pela mesma função do diário. */
+const totais = (plan: ActiveMealPlan, dia: number) =>
+  nutritionTotals(
+    plan.meals.flatMap((m) =>
+      itensDoDia(m.items, dia).map((i) => ({ food: i.food, grams: i.grams, servings: 1 })),
+    ),
+  );
+
+/** Situação do dia diante da meta — calculada do que está no cardápio agora. */
+function situacao(total: number, meta: number): { texto: string; cor: string } {
+  const d = Math.round(total - meta);
+  const sinal = d > 0 ? "+" : "";
+  switch (toleranceStatus(total, meta)) {
+    case "ideal":
+      return { texto: `Dentro da meta (±${KCAL_TOLERANCE.ideal} kcal)`, cor: "text-primary" };
+    case "acceptable":
+      return { texto: `Perto da meta: ${sinal}${d} kcal`, cor: "text-muted-foreground" };
+    default:
+      return { texto: `Fora da meta: ${sinal}${d} kcal`, cor: "text-destructive" };
+  }
 }
-
 
 /**
  * O cardápio da semana: um dia de cada vez, como a agenda do Plano.
@@ -93,6 +122,9 @@ export function WeeklyMenu() {
 
   const t = totais(p, dia);
   const metaKcal = p.kcalTarget;
+  // Plano sem meta (o padrão agora: o app não prescreve) mostra só os totais.
+  const semMeta = metaKcal <= 0;
+  const status = semMeta ? null : situacao(t.kcal, metaKcal);
   const nomeDia = WEEKDAY_LABELS[dia];
 
   return (
@@ -140,9 +172,12 @@ export function WeeklyMenu() {
                 {Math.round(t.kcal).toLocaleString("pt-BR")}
               </span>
               <span className="text-sm text-muted-foreground tabular-nums">
-                / {Math.round(metaKcal).toLocaleString("pt-BR")} kcal
+                {semMeta ? "kcal" : `/ ${Math.round(metaKcal).toLocaleString("pt-BR")} kcal`}
               </span>
             </p>
+            {status && (
+              <p className={cn("mt-1 text-xs font-semibold", status.cor)}>{status.texto}</p>
+            )}
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -159,9 +194,7 @@ export function WeeklyMenu() {
               {ORDEM.filter((d) => d !== dia).map((d) => (
                 <DropdownMenuItem
                   key={d}
-                  onSelect={() =>
-                    salvar.mutate({ acao: () => copyDay(p, dia, d), afeta: d })
-                  }
+                  onSelect={() => salvar.mutate({ acao: () => copyDay(p, dia, d), afeta: d })}
                 >
                   {WEEKDAY_LABELS[d]}
                 </DropdownMenuItem>
@@ -179,11 +212,24 @@ export function WeeklyMenu() {
               <p className="text-[11px] font-semibold text-muted-foreground">{nome}</p>
               <p className="text-sm font-extrabold tabular-nums">
                 {Math.round(v as number)}
-                <span className="font-medium text-muted-foreground"> / {Math.round(meta as number)} g</span>
+                <span className="font-medium text-muted-foreground">
+                  {semMeta ? " g" : ` / ${Math.round(meta as number)} g`}
+                </span>
               </p>
             </div>
           ))}
         </div>
+        {p.generation && p.generation.warnings.length > 0 && (
+          <ul className="mt-3 space-y-1 rounded-xl bg-elevated px-3 py-2 text-xs text-muted-foreground">
+            {p.generation.warnings.map((w) => (
+              <li key={w}>• {w}</li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-3 text-[11px] text-muted-foreground">
+          O app não prescreve dietas: monte o cardápio por conta própria ou com a orientação de um
+          nutricionista.
+        </p>
       </section>
 
       {/* Refeições do dia. */}
@@ -192,6 +238,8 @@ export function WeeklyMenu() {
           const itens = itensDoDia(m.items, dia);
           const kcalRefeicao = itens.reduce((n, i) => n + macrosDe(i).kcal, 0);
           const nome = m.label?.trim() || label(MEAL_LABELS, m.slot);
+          // Receita de que os itens fazem parte (gravada pelo gerador).
+          const receita = [...new Set(itens.map((i) => i.prepNotes).filter(Boolean))].join(" · ");
           return (
             <section key={m.id} className="rounded-[1.5rem] bg-card p-4">
               <div className="mb-2 flex items-center justify-between gap-3">
@@ -200,6 +248,7 @@ export function WeeklyMenu() {
                   <p className="text-xs text-muted-foreground tabular-nums">
                     {m.targetTime ? `${m.targetTime.slice(0, 5)} · ` : ""}
                     {Math.round(kcalRefeicao)} kcal
+                    {receita && ` · ${receita}`}
                   </p>
                 </div>
                 <FoodPicker

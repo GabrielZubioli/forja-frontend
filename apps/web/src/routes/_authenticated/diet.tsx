@@ -63,6 +63,7 @@ import { addDays } from "date-fns";
 import { nutritionTotals, portionMacros, type FoodCandidate } from "@forja/domain";
 import { CATEGORY_EMOJI } from "@/lib/food-emoji";
 import { WeeklyMenu } from "@/components/diet/weekly-menu";
+import { AvisoProfissional } from "@/components/aviso-profissional";
 
 /**
  * O diário alimentar — agora um **plano executável**, não um registro.
@@ -121,16 +122,8 @@ function DietPage() {
   });
 
   /**
-   * O plano ativo — criado na hora se não existir ou se vier vazio.
-   *
-   * Era aqui que o app quebrava a promessa que faz no questionário. A geração
-   * inicial podia falhar (catálogo de alimentos ausente, restrição que zerava o
-   * pool, conexão caindo no meio) e o resultado era esta tela com oito caixas
-   * escritas "Nada planejado" — sem erro, sem explicação e sem saída, porque o
-   * rascunho do questionário já tinha sido apagado.
-   *
-   * `ensureActiveMealPlan` devolve o plano saudável que existir e só regenera
-   * quando não há nada utilizável, usando as respostas guardadas no banco.
+   * O plano ativo — a estrutura das refeições, preenchida pela pessoa. Sem
+   * nenhum, nasce vazio (com as refeições do questionário); nunca é gerado.
    */
   const plan = useQuery({
     queryKey: queryKeys.diet.activePlan(),
@@ -280,7 +273,12 @@ function DietPage() {
   const mudarHorario = useMutation({
     mutationFn: async ({ slot, hora }: { slot: MealValue; hora: string }) => {
       if (!plan.data) throw new Error("O plano alimentar ainda está carregando.");
-      await setMealTime(plan.data.id, slot, hora, MEALS.findIndex((m) => m.key === slot));
+      await setMealTime(
+        plan.data.id,
+        slot,
+        hora,
+        MEALS.findIndex((m) => m.key === slot),
+      );
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: queryKeys.diet.activePlan() }),
     onError: (e) => toast.error(errorMessage(e)),
@@ -293,18 +291,22 @@ function DietPage() {
         description={aba === "cardapio" ? "Cardápio da semana" : date === hoje ? "Hoje" : undefined}
         action={
           aba === "diario" && (
-          <DatePicker
-            value={date}
-            onChange={setDate}
-            className="h-11 w-auto rounded-2xl border-transparent bg-card"
-            aria-label="Data do diário"
-          />
+            <DatePicker
+              value={date}
+              onChange={setDate}
+              className="h-11 w-auto rounded-2xl border-transparent bg-card"
+              aria-label="Data do diário"
+            />
           )
         }
       />
 
       <PageBody>
-        <div role="tablist" aria-label="Seção da dieta" className="mb-4 flex rounded-2xl bg-card p-1">
+        <div
+          role="tablist"
+          aria-label="Seção da dieta"
+          className="mb-4 flex rounded-2xl bg-card p-1"
+        >
           {(
             [
               ["diario", "Diário"],
@@ -319,7 +321,9 @@ function DietPage() {
               onClick={() => setAba(v)}
               className={cn(
                 "flex-1 rounded-xl py-2.5 text-[15px] font-medium transition-colors",
-                aba === v ? "bg-primary font-bold text-primary-foreground" : "text-muted-foreground",
+                aba === v
+                  ? "bg-primary font-bold text-primary-foreground"
+                  : "text-muted-foreground",
               )}
             >
               {rotulo}
@@ -329,111 +333,124 @@ function DietPage() {
         {aba === "cardapio" ? (
           <WeeklyMenu />
         ) : (
-        <>
-        {/* Resumo do dia direto no fundo: a caloria em destaque, os macros abaixo. */}
-        <section className="mb-6" aria-label="Resumo do dia">
-          {entries.isPending || profile.isPending ? (
-            <>
-              <Skeleton className="mx-auto size-[200px] rounded-full" />
-              <div className="mt-6 grid grid-cols-2 gap-4">
-                {[0, 1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-12 rounded-xl" />
+          <>
+            {/* Resumo do dia direto no fundo: a caloria em destaque, os macros abaixo. */}
+            <section className="mb-6" aria-label="Resumo do dia">
+              {entries.isPending || profile.isPending ? (
+                <>
+                  <Skeleton className="mx-auto size-[200px] rounded-full" />
+                  <div className="mt-6 grid grid-cols-2 gap-4">
+                    {[0, 1, 2, 3].map((i) => (
+                      <Skeleton key={i} className="h-12 rounded-xl" />
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="mx-auto w-full max-w-[200px]">
+                    <CalorieRing
+                      consumed={totaisConsumidos.kcal}
+                      target={num(profile.data?.daily_kcal_target)}
+                      size={200}
+                    />
+                  </div>
+                  <div className="mt-7 grid grid-cols-4 gap-2">
+                    <MacroLinha
+                      nome="Proteína"
+                      valor={totaisConsumidos.proteinG}
+                      meta={num(profile.data?.protein_g_target)}
+                      cor={MACRO_COLORS.protein}
+                    />
+                    <MacroLinha
+                      nome="Carbo"
+                      valor={totaisConsumidos.carbsG}
+                      meta={num(profile.data?.carbs_g_target)}
+                      cor={MACRO_COLORS.carbs}
+                    />
+                    <MacroLinha
+                      nome="Gordura"
+                      valor={totaisConsumidos.fatG}
+                      meta={num(profile.data?.fat_g_target)}
+                      cor={MACRO_COLORS.fat}
+                    />
+                    <MacroLinha
+                      nome="Fibra"
+                      valor={totaisConsumidos.fiberG}
+                      meta={num(profile.data?.fiber_g_target)}
+                      cor={MACRO_COLORS.fiber}
+                    />
+                  </div>
+                  {rows.length > 0 && totaisPlanejados.kcal - totaisConsumidos.kcal > 50 && (
+                    <p className="mt-5 text-center text-xs text-muted-foreground">
+                      Planejado para o dia:{" "}
+                      <span className="font-semibold tabular-nums text-foreground">
+                        {Math.round(totaisPlanejados.kcal).toLocaleString("pt-BR")} kcal
+                      </span>{" "}
+                      · P {Math.round(totaisPlanejados.proteinG)} g
+                    </p>
+                  )}
+                </>
+              )}
+            </section>
+
+            {rows.length === 0 && !entries.isPending && !entries.isError && (
+              <section className="mb-4 rounded-[1.25rem] border border-dashed border-primary/40 bg-primary/5 p-5">
+                <h2 className="text-lg font-bold">Monte suas refeições</h2>
+                <p className="mt-1 text-pretty text-sm text-muted-foreground">
+                  Suas refeições estão vazias. Toque em <b className="text-foreground">Adicionar</b>{" "}
+                  em cada uma para incluir alimentos ou receitas, e no nome para renomear ou definir
+                  o horário. Monte por conta própria ou siga a orientação do seu nutricionista.
+                </p>
+              </section>
+            )}
+
+            {entries.isError ? (
+              <ErrorState message={errorMessage(entries.error)} onRetry={entries.refetch} />
+            ) : (
+              <div className="space-y-3">
+                {slotsExibidos.map((slot) => (
+                  <MealCard
+                    key={slot}
+                    slot={slot}
+                    nome={nomeDe(slot)}
+                    onRename={(nome) => renomear.mutateAsync({ slot, nome })}
+                    onChangeTime={(hora) => mudarHorario.mutate({ slot, hora })}
+                    date={date}
+                    items={rows.filter((r) => r.slot === slot)}
+                    targetTime={plan.data?.meals.find((m) => m.slot === slot)?.targetTime ?? null}
+                    isPending={entries.isPending}
+                    userId={userId}
+                    onAdd={(foodId, grams) => addEntry.mutateAsync({ foodId, grams, slot })}
+                    onAddRecipe={async (recipe, portions) => {
+                      try {
+                        await addRecipeToMeal({ userId, date, slot, recipe, portions });
+                        toast.success(`${recipe.name} adicionada`);
+                        await invalidate();
+                      } catch (e) {
+                        toast.error(errorMessage(e));
+                      }
+                    }}
+                    onRemove={(id) => remove.mutate(id)}
+                    onChanged={invalidate}
+                  />
                 ))}
               </div>
-            </>
-          ) : (
-            <>
-              <div className="mx-auto w-full max-w-[200px]">
-                <CalorieRing
-                  consumed={totaisConsumidos.kcal}
-                  target={num(profile.data?.daily_kcal_target)}
-                  size={200}
-                />
-              </div>
-              <div className="mt-7 grid grid-cols-4 gap-2">
-                <MacroLinha
-                  nome="Proteína"
-                  valor={totaisConsumidos.proteinG}
-                  meta={num(profile.data?.protein_g_target)}
-                  cor={MACRO_COLORS.protein}
-                />
-                <MacroLinha
-                  nome="Carbo"
-                  valor={totaisConsumidos.carbsG}
-                  meta={num(profile.data?.carbs_g_target)}
-                  cor={MACRO_COLORS.carbs}
-                />
-                <MacroLinha
-                  nome="Gordura"
-                  valor={totaisConsumidos.fatG}
-                  meta={num(profile.data?.fat_g_target)}
-                  cor={MACRO_COLORS.fat}
-                />
-                <MacroLinha
-                  nome="Fibra"
-                  valor={totaisConsumidos.fiberG}
-                  meta={num(profile.data?.fiber_g_target)}
-                  cor={MACRO_COLORS.fiber}
-                />
-              </div>
-              {rows.length > 0 && totaisPlanejados.kcal - totaisConsumidos.kcal > 50 && (
-                <p className="mt-5 text-center text-xs text-muted-foreground">
-                  Planejado para o dia:{" "}
-                  <span className="font-semibold tabular-nums text-foreground">
-                    {Math.round(totaisPlanejados.kcal).toLocaleString("pt-BR")} kcal
-                  </span>{" "}
-                  · P {Math.round(totaisPlanejados.proteinG)} g
-                </p>
-              )}
-            </>
-          )}
-        </section>
+            )}
 
-        {entries.isError ? (
-          <ErrorState message={errorMessage(entries.error)} onRetry={entries.refetch} />
-        ) : (
-          <div className="space-y-3">
-            {slotsExibidos.map((slot) => (
-              <MealCard
-                key={slot}
-                slot={slot}
-                nome={nomeDe(slot)}
-                onRename={(nome) => renomear.mutateAsync({ slot, nome })}
-                onChangeTime={(hora) => mudarHorario.mutate({ slot, hora })}
-                date={date}
-                items={rows.filter((r) => r.slot === slot)}
-                targetTime={plan.data?.meals.find((m) => m.slot === slot)?.targetTime ?? null}
-                isPending={entries.isPending}
-                userId={userId}
-                onAdd={(foodId, grams) => addEntry.mutateAsync({ foodId, grams, slot })}
-                onAddRecipe={async (recipe, portions) => {
-                  try {
-                    await addRecipeToMeal({ userId, date, slot, recipe, portions });
-                    toast.success(`${recipe.name} adicionada`);
-                    await invalidate();
-                  } catch (e) {
-                    toast.error(errorMessage(e));
-                  }
-                }}
-                onRemove={(id) => remove.mutate(id)}
-                onChanged={invalidate}
-              />
-            ))}
-          </div>
-        )}
+            {rows.length === 0 && !entries.isPending && (
+              <Button
+                variant="outline"
+                className="mt-4 w-full"
+                onClick={() => copyPreviousDay.mutate()}
+                disabled={copyPreviousDay.isPending}
+              >
+                <CopyPlus className="mr-1.5 size-4" />
+                Copiar o dia anterior
+              </Button>
+            )}
 
-        {rows.length === 0 && !entries.isPending && (
-          <Button
-            variant="outline"
-            className="mt-4 w-full"
-            onClick={() => copyPreviousDay.mutate()}
-            disabled={copyPreviousDay.isPending}
-          >
-            <CopyPlus className="mr-1.5 size-4" />
-            Copiar o dia anterior
-          </Button>
-        )}
-        </>
+            <AvisoProfissional tipos={["dieta"]} className="mt-6" />
+          </>
         )}
       </PageBody>
     </>
@@ -589,7 +606,11 @@ function MealCard({
                 nome={nome}
                 onSalvar={onChangeTime}
               />
-              {fechada && <span>{items.length} {items.length === 1 ? "alimento" : "alimentos"}</span>}
+              {fechada && (
+                <span>
+                  {items.length} {items.length === 1 ? "alimento" : "alimentos"}
+                </span>
+              )}
               {items.length > 0 && (
                 <span className="whitespace-nowrap rounded-full bg-primary/15 px-2 py-0.5 font-bold tabular-nums text-primary">
                   {Math.round(totals.kcal)} kcal · P {Math.round(totals.proteinG)} g
@@ -599,17 +620,17 @@ function MealCard({
           </div>
 
           {!fechada && (
-          <FoodPicker
-            title={`Adicionar em ${nome.toLowerCase()}`}
-            onPick={(food, grams) => onAdd(food.id, grams)}
-            onPickRecipe={onAddRecipe}
-            trigger={
-              <Button size="sm" variant="ghost" className="shrink-0">
-                <Plus className="mr-1 size-4" />
-                Adicionar
-              </Button>
-            }
-          />
+            <FoodPicker
+              title={`Adicionar em ${nome.toLowerCase()}`}
+              onPick={(food, grams) => onAdd(food.id, grams)}
+              onPickRecipe={onAddRecipe}
+              trigger={
+                <Button size="sm" variant="ghost" className="shrink-0">
+                  <Plus className="mr-1 size-4" />
+                  Adicionar
+                </Button>
+              }
+            />
           )}
           {todosConsumidos && (
             <button
@@ -619,7 +640,9 @@ function MealCard({
               aria-label={aberta ? `Fechar ${nome}` : `Abrir ${nome}`}
               className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/15 text-primary transition-colors hover:bg-primary/25"
             >
-              <ChevronDown className={cn("size-5 transition-transform duration-300", aberta && "rotate-180")} />
+              <ChevronDown
+                className={cn("size-5 transition-transform duration-300", aberta && "rotate-180")}
+              />
             </button>
           )}
         </div>
@@ -991,15 +1014,34 @@ function RenomearRefeicao({
  * Um macro do dia: anel grosso com o percentual no centro, o nome e as
  * gramas contra a meta logo abaixo. Os quatro lado a lado leem como um painel.
  */
-function MacroLinha({ nome, valor, meta, cor }: { nome: string; valor: number; meta: number; cor: string }) {
+function MacroLinha({
+  nome,
+  valor,
+  meta,
+  cor,
+}: {
+  nome: string;
+  valor: number;
+  meta: number;
+  cor: string;
+}) {
   const r = 26;
   const c = 2 * Math.PI * r;
-  const pct = meta > 0 ? Math.min(1, valor / meta) : 0;
+  const semMeta = meta <= 0;
+  const pct = semMeta ? 0 : Math.min(1, valor / meta);
   return (
     <div className="flex min-w-0 flex-col items-center text-center">
       <div className="relative size-16">
         <svg viewBox="0 0 64 64" className="size-full -rotate-90" aria-hidden>
-          <circle cx="32" cy="32" r={r} fill="none" stroke={cor} strokeOpacity={0.16} strokeWidth="9" />
+          <circle
+            cx="32"
+            cy="32"
+            r={r}
+            fill="none"
+            stroke={cor}
+            strokeOpacity={0.16}
+            strokeWidth="9"
+          />
           <circle
             cx="32"
             cy="32"
@@ -1014,12 +1056,19 @@ function MacroLinha({ nome, valor, meta, cor }: { nome: string; valor: number; m
           />
         </svg>
         <span className="absolute inset-0 grid place-items-center text-xs font-extrabold tabular-nums">
-          {Math.round(pct * 100)}%
+          {semMeta ? `${Math.round(valor)}g` : `${Math.round(pct * 100)}%`}
         </span>
       </div>
       <p className="mt-1.5 w-full truncate text-xs font-semibold">{nome}</p>
       <p className="text-[11px] tabular-nums text-muted-foreground">
-        <span className="font-bold text-foreground">{Math.round(valor)}</span>/{Math.round(meta)}g
+        {semMeta ? (
+          "sem meta"
+        ) : (
+          <>
+            <span className="font-bold text-foreground">{Math.round(valor)}</span>/
+            {Math.round(meta)}g
+          </>
+        )}
       </p>
     </div>
   );

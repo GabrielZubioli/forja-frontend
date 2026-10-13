@@ -16,14 +16,7 @@ import { fetchPersonalRecords } from "@/data/workouts";
 import { toISODate, todayISO } from "@/lib/date";
 
 export type FaqKey =
-  | "calorias"
-  | "proteina"
-  | "treino-hoje"
-  | "semana"
-  | "peso"
-  | "agua"
-  | "recordes"
-  | "carga";
+  "calorias" | "proteina" | "treino-hoje" | "semana" | "peso" | "agua" | "recordes" | "carga";
 
 export const COACH_FAQ: { key: FaqKey; pergunta: string }[] = [
   { key: "treino-hoje", pergunta: "Qual é o meu treino de hoje?" },
@@ -58,23 +51,30 @@ export async function answerFaq(key: FaqKey): Promise<string> {
     case "calorias": {
       const p = await perfil();
       const kcal = num(p?.daily_kcal_target);
-      if (!kcal) return "Ainda não calculei suas metas. Preencha altura e data de nascimento no Perfil e registre seu peso em Corpo — aí eu te digo exatamente.";
-      return [
-        `Sua meta é de ${n(kcal)} kcal por dia${p?.goal ? `, pensada para ${OBJETIVO[p.goal] ?? "o seu objetivo"}` : ""}.`,
-        `Divididas assim: ${n(num(p?.protein_g_target))} g de proteína, ${n(num(p?.carbs_g_target))} g de carboidrato e ${n(num(p?.fat_g_target))} g de gordura.`,
-        "Se o peso parar de mudar por 2–3 semanas, ajuste em Metas nutricionais — o app sugere um valor a partir dos seus registros.",
-      ].join("\n\n");
+      const naoPrescreve =
+        "O Habitual Fit não calcula nem prescreve calorias: quanto comer depende de você e deve ser orientado por um nutricionista.";
+      if (!kcal) {
+        return [
+          naoPrescreve,
+          "Se você já tem metas definidas com o seu nutricionista, registre-as em Configurações → Metas nutricionais para acompanhar o dia a dia na Dieta.",
+        ].join("\n\n");
+      }
+      return [`A meta que você registrou é de ${n(kcal)} kcal por dia.`, naoPrescreve].join("\n\n");
     }
     case "proteina": {
-      const [p, kg] = await Promise.all([perfil(), ultimoPeso()]);
+      const p = await perfil();
       const g = num(p?.protein_g_target);
-      if (!g) return "Sem metas calculadas ainda. Uma boa referência é 1,6 a 2,2 g de proteína por kg de peso por dia.";
-      const porKg = kg ? ` — cerca de ${n(g / kg, 1)} g por kg do seu peso atual (${n(kg, 1)} kg)` : "";
-      return `Sua meta é de ${n(g)} g de proteína por dia${porKg}.\n\nDividir em 3 a 5 refeições, com 25–40 g em cada, ajuda a aproveitar melhor. Ovos, frango, carne magra, peixe, iogurte e whey são os caminhos mais fáceis.`;
+      const naoPrescreve =
+        "A quantidade de proteína ideal é individual — defina-a com um nutricionista.";
+      if (!g) {
+        return `${naoPrescreve}\n\nSe já tiver uma meta, registre em Configurações → Metas nutricionais e acompanhe o consumo na Dieta.`;
+      }
+      return `A meta que você registrou é de ${n(g)} g de proteína por dia.\n\n${naoPrescreve}`;
     }
     case "treino-hoje": {
       const semana = await fetchWorkoutWeek();
-      if (!semana) return "Você ainda não tem um plano de treino. Monte um na tela Plano e eu passo a te dizer o treino de cada dia.";
+      if (!semana)
+        return "Você ainda não tem um plano de treino. Monte um na tela Plano e eu passo a te dizer o treino de cada dia.";
       const hoje = weekdayOf(todayISO());
       const doDia = semana.splits.filter((s) => s.weekdays.includes(hoje));
       if (doDia.length === 0) {
@@ -85,7 +85,9 @@ export async function answerFaq(key: FaqKey): Promise<string> {
       }
       return doDia
         .map((s) => {
-          const nomes = s.exercises.slice(0, 6).map((e) => `• ${e.name} — ${e.targetSets}×${e.targetReps}`);
+          const nomes = s.exercises
+            .slice(0, 6)
+            .map((e) => `• ${e.name} — ${e.targetSets}×${e.targetReps}`);
           return `Hoje é ${s.name.replace(/^[A-Z]\s*—\s*/, "")}:\n${nomes.join("\n")}`;
         })
         .join("\n\n")
@@ -99,19 +101,28 @@ export async function answerFaq(key: FaqKey): Promise<string> {
       ]);
       const meta = semana?.daysPerWeek ?? 0;
       const nestaSemana = treinos.filter((t) => t.date >= toISODate(inicio)).length;
-      const seq = meta ? weeklyStreak(treinos.map((t) => t.date), meta, todayISO()) : 0;
+      const seq = meta
+        ? weeklyStreak(
+            treinos.map((t) => t.date),
+            meta,
+            todayISO(),
+          )
+        : 0;
       const falta = Math.max(0, meta - nestaSemana);
       return [
         `Esta semana você fez ${nestaSemana} de ${meta || "?"} treinos${falta === 0 && meta ? " — meta batida! 🎉" : "."}`,
         falta > 0 ? `Faltam ${falta} para fechar a semana.` : null,
-        seq > 0 ? `Você está há ${seq} ${seq === 1 ? "semana" : "semanas"} seguidas cumprindo a meta.` : "Cumpra a meta desta semana para começar uma sequência.",
+        seq > 0
+          ? `Você está há ${seq} ${seq === 1 ? "semana" : "semanas"} seguidas cumprindo a meta.`
+          : "Cumpra a meta desta semana para começar uma sequência.",
       ]
         .filter(Boolean)
         .join("\n\n");
     }
     case "peso": {
       const [pesos, p] = await Promise.all([fetchWeighIns(60), perfil()]);
-      if (pesos.length === 0) return "Você ainda não registrou nenhum peso. Registre em Corpo — com 2 ou mais pesagens eu te mostro a tendência.";
+      if (pesos.length === 0)
+        return "Você ainda não registrou nenhum peso. Registre em Corpo — com 2 ou mais pesagens eu te mostro a tendência.";
       const ultimo = pesos[pesos.length - 1]!;
       const linhas = [`Seu último registro: ${n(ultimo.kg, 1)} kg.`];
       if (pesos.length >= 2) {
@@ -129,20 +140,27 @@ export async function answerFaq(key: FaqKey): Promise<string> {
             : `Faltam ${n(Math.abs(falta), 1)} kg para a meta de ${n(alvo, 1)} kg.`,
         );
       }
-      linhas.push("Dica: pese-se sempre no mesmo horário, de manhã, em jejum — e olhe a tendência, não o dia.");
+      linhas.push(
+        "Dica: pese-se sempre no mesmo horário, de manhã, em jejum — e olhe a tendência, não o dia.",
+      );
       return linhas.join("\n\n");
     }
     case "agua": {
       const [p, kg] = await Promise.all([perfil(), ultimoPeso()]);
       const ml = p?.water_ml_target ?? (kg ? Math.round((kg * 35) / 250) * 250 : null);
-      if (!ml) return "Registre seu peso em Corpo e eu calculo sua meta de água (cerca de 35 ml por kg).";
+      if (!ml)
+        return "Registre seu peso em Corpo e eu calculo sua meta de água (cerca de 35 ml por kg).";
       return `Sua meta é de ${n(ml / 1000, 2)} L por dia — uns ${Math.round(ml / 250)} copos de 250 ml.${p?.water_ml_target ? "" : ` Calculei pelo seu peso (${n(kg ?? 0, 1)} kg × 35 ml).`}\n\nNos dias de treino, some mais 500 ml a 1 L.`;
     }
     case "recordes": {
       const rs = await fetchPersonalRecords(5);
-      if (rs.length === 0) return "Você ainda não tem recordes. Eles aparecem depois do primeiro treino com carga registrada.";
+      if (rs.length === 0)
+        return "Você ainda não tem recordes. Eles aparecem depois do primeiro treino com carga registrada.";
       return `Seus melhores (1RM estimado):\n${rs
-        .map((r) => `• ${r.exerciseName}: ${n(r.weightKg, 1)} kg × ${r.reps} (≈ ${Math.round(r.e1rm)} kg)`)
+        .map(
+          (r) =>
+            `• ${r.exerciseName}: ${n(r.weightKg, 1)} kg × ${r.reps} (≈ ${Math.round(r.e1rm)} kg)`,
+        )
         .join("\n")}`;
     }
     case "carga":

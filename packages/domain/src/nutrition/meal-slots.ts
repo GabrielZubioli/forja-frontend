@@ -69,8 +69,15 @@ const SLOT_PRIORITY: readonly MealSlot[] = [
   "supper",
 ];
 
+/**
+ * Refeições quando o usuário não escolhe: café, almoço, lanche da tarde,
+ * pós-treino e jantar. Oito não é o ideal para todo mundo, e uma ceia só para
+ * completar a grade é exatamente o que a especificação proíbe.
+ */
+export const DEFAULT_MEALS_PER_DAY = 5;
+
 export interface SlotSelectionInput {
-  /** Quantas refeições o usuário quer por dia (3 a 8). Padrão: o dia completo. */
+  /** Quantas refeições o usuário quer por dia (3 a 8). Padrão: `DEFAULT_MEALS_PER_DAY`. */
   mealsPerDay?: number | undefined;
   /** Horário do treino em minutos desde a meia-noite, quando informado. */
   workoutMinutes?: number | undefined;
@@ -87,7 +94,7 @@ export interface SlotSelectionInput {
  * aproximação editável, não um motivo para suprimir a refeição.
  */
 export function selectMealSlots({ mealsPerDay }: SlotSelectionInput = {}): MealSlot[] {
-  const pedidas = mealsPerDay ?? MEAL_SLOTS.length;
+  const pedidas = mealsPerDay ?? DEFAULT_MEALS_PER_DAY;
   const wanted = Math.max(3, Math.min(MEAL_SLOTS.length, Math.round(pedidas)));
 
   const escolhidos = SLOT_PRIORITY.slice(0, wanted);

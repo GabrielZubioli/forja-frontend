@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { profileFor, type CulinaryRole, type FoodProfile } from "./curated-foods";
 
 /**
  * Vocabulário de alimentos usado pelo domínio.
@@ -102,4 +103,98 @@ export function foodRole(food: FoodCandidate): FoodRole {
 /** Densidade calórica por grama. Usada para não prescrever 700 g de alface. */
 export function kcalPerGram(food: FoodCandidate): number {
   return food.kcal / 100;
+}
+
+/**
+ * Papéis culinários possíveis de um alimento sem perfil curado — só para
+ * substituição. A categoria é ambígua ("grain" é arroz e é pão), então vale
+ * mais de um papel; com perfil curado, vale exatamente o dele.
+ */
+const CULINARY_BY_CATEGORY: Record<FoodCategory, readonly CulinaryRole[]> = {
+  protein_meat: ["protein"],
+  protein_egg: ["protein"],
+  dairy: ["dairy"],
+  supplement: ["protein", "dairy"],
+  legume: ["legume"],
+  grain: ["starch", "bread"],
+  tuber: ["starch"],
+  sweet: ["bread"],
+  fat: ["fat", "nuts"],
+  vegetable: ["vegetable"],
+  fruit: ["fruit"],
+  beverage: ["fruit", "dairy"],
+  condiment: ["fat"],
+  prepared: ["starch"],
+  other: ["starch", "bread"],
+};
+
+export function culinaryRolesOf(
+  food: FoodCandidate & { profile?: FoodProfile },
+): readonly CulinaryRole[] {
+  return food.profile ? [food.profile.role] : CULINARY_BY_CATEGORY[food.category];
+}
+
+/** Alimento prescritível: macros do banco (por 100 g) + perfil curado. */
+export interface CatalogFood extends FoodCandidate {
+  profile: FoodProfile;
+}
+
+/**
+ * Por que os macros de um alimento não servem para prescrição — ou `null`.
+ *
+ * O seed da TACO tem itens com tudo zerado ("Leite, de vaca, integral") e o
+ * gerador não pode tratar ausência de dado como "zero caloria". A conferência
+ * de Atwater (4·P + 4·C + 9·G ≈ kcal) pega valores trocados ou truncados; a
+ * folga absoluta cobre vegetais, em que fibra e arredondamento pesam muito.
+ */
+export function nutritionDataIssue(food: FoodCandidate): string | null {
+  const valores = [food.kcal, food.proteinG, food.carbsG, food.fatG, food.fiberG];
+  if (valores.some((v) => !Number.isFinite(v) || v < 0)) return "macros inválidos";
+  if (food.kcal <= 0) return "sem calorias declaradas";
+  const atwater = food.proteinG * 4 + food.carbsG * 4 + food.fatG * 9;
+  if (Math.abs(atwater - food.kcal) > Math.max(food.kcal * 0.25, 15)) {
+    return "calorias incoerentes com os macros";
+  }
+  return null;
+}
+
+export interface CatalogRow extends FoodCandidate {
+  externalId?: string | null | undefined;
+  isPublic?: boolean | undefined;
+}
+
+/**
+ * Do banco para o catálogo prescritível.
+ *
+ * Fica só o que tem perfil curado **e** macros confiáveis. Um mesmo alimento
+ * pode chegar por apelidos diferentes (TACO, catálogo local, base original):
+ * fica um por conceito, na ordem de preferência declarada em `ids`.
+ */
+export function buildCatalog(rows: readonly CatalogRow[]): {
+  foods: CatalogFood[];
+  rejected: { name: string; reason: string }[];
+} {
+  const porConceito = new Map<string, { food: CatalogFood; rank: number }>();
+  const rejected: { name: string; reason: string }[] = [];
+
+  for (const row of rows) {
+    const profile = profileFor(row);
+    if (!profile) continue;
+    const issue = nutritionDataIssue(row);
+    if (issue) {
+      rejected.push({ name: row.name, reason: issue });
+      continue;
+    }
+    const id = row.externalId ?? `name:${row.name}`;
+    const rank = profile.ids.indexOf(id);
+    const atual = porConceito.get(profile.key);
+    if (atual && atual.rank <= rank) continue;
+    const { externalId: _e, isPublic: _p, ...candidate } = row;
+    porConceito.set(profile.key, { food: { ...candidate, profile }, rank });
+  }
+
+  const foods = [...porConceito.values()]
+    .map((x) => x.food)
+    .sort((a, b) => a.profile.key.localeCompare(b.profile.key));
+  return { foods, rejected };
 }

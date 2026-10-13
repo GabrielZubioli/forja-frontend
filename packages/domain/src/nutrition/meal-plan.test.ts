@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { generateMealPlan } from "./meal-plan";
 import { distributeMeals, selectMealSlots, minutesToTime, timeToMinutes } from "./meal-slots";
 import { foodRole, type FoodCandidate } from "./food-catalog";
-import type { MealSlot } from "./meal-slots";
 
 /** Catálogo mínimo com um representante forte de cada papel. */
 const FOODS: FoodCandidate[] = [
@@ -162,18 +160,6 @@ const FOODS: FoodCandidate[] = [
   },
 ];
 
-const BASE = {
-  kcalTarget: 2400,
-  proteinTarget: 160,
-  carbsTarget: 260,
-  fatTarget: 67,
-  // Anotado em vez de `as const`: a tupla readonly que o `as const` produz não é
-  // atribuível ao `MealSlot[]` que o schema espera, e o erro aparecia em cada
-  // um dos 15 usos deste fixture.
-  slots: ["breakfast", "lunch", "afternoon_snack", "dinner"] as MealSlot[],
-  foods: FOODS,
-};
-
 describe("foodRole", () => {
   it("classifica pelo papel no prato, não só pela categoria", () => {
     expect(foodRole(FOODS[0]!)).toBe("protein");
@@ -222,8 +208,14 @@ describe("selectMealSlots", () => {
     ]);
   });
 
-  it("sem nenhum parâmetro, entrega o dia completo", () => {
-    expect(selectMealSlots()).toHaveLength(8);
+  it("sem nenhum parâmetro, entrega o padrão de cinco refeições", () => {
+    expect(selectMealSlots()).toEqual([
+      "breakfast",
+      "lunch",
+      "afternoon_snack",
+      "post_workout",
+      "dinner",
+    ]);
   });
 
   it("inclui pós-treino antes dos lanches secundários", () => {
@@ -277,7 +269,14 @@ describe("distributeMeals", () => {
   });
 
   it("cada refeição fica no seu período e com folga entre elas", () => {
-    const slots = ["breakfast", "morning_snack", "lunch", "afternoon_snack", "dinner", "supper"] as const;
+    const slots = [
+      "breakfast",
+      "morning_snack",
+      "lunch",
+      "afternoon_snack",
+      "dinner",
+      "supper",
+    ] as const;
     const m = distributeMeals({ slots, wakeMinutes: 6 * 60, sleepMinutes: 22 * 60 + 30 });
     const por = Object.fromEntries(m.map((x) => [x.slot, x.minutes]));
     expect(por.lunch).toBeGreaterThanOrEqual(11 * 60 + 30);
@@ -317,120 +316,5 @@ describe("minutesToTime / timeToMinutes", () => {
     expect(timeToMinutes(null)).toBeUndefined();
     expect(timeToMinutes("25:00")).toBeUndefined();
     expect(timeToMinutes("abc")).toBeUndefined();
-  });
-});
-
-describe("generateMealPlan", () => {
-  it("gera uma refeição por slot pedido", () => {
-    const plan = generateMealPlan(BASE);
-    expect(plan.meals.map((m) => m.slot)).toEqual([
-      "breakfast",
-      "lunch",
-      "afternoon_snack",
-      "dinner",
-    ]);
-  });
-
-  it("nenhuma refeição sai vazia", () => {
-    const plan = generateMealPlan(BASE);
-    for (const meal of plan.meals) expect(meal.items.length).toBeGreaterThan(0);
-  });
-
-  it("nenhuma refeição sai vazia nem com o dia completo de oito", () => {
-    const plan = generateMealPlan({ ...BASE, slots: selectMealSlots({ mealsPerDay: 8 }) });
-    expect(plan.meals).toHaveLength(8);
-    for (const meal of plan.meals) expect(meal.items.length).toBeGreaterThan(0);
-  });
-
-  it("nenhuma refeição sai vazia com um catálogo mínimo de um papel só", () => {
-    // O caso que produzia "Nada planejado" na tela: pool sem carboidrato, sem
-    // gordura e sem vegetal. Cada refeição ainda tem de sair com comida.
-    const soProteina = FOODS.filter((f) => foodRole(f) === "protein").slice(0, 2);
-    const plan = generateMealPlan({
-      ...BASE,
-      slots: selectMealSlots({ mealsPerDay: 8 }),
-      foods: soProteina,
-    });
-
-    for (const meal of plan.meals) expect(meal.items.length).toBeGreaterThan(0);
-  });
-
-  it("chega perto da meta calórica", () => {
-    const plan = generateMealPlan(BASE);
-    const desvio = Math.abs(plan.totals.kcal - BASE.kcalTarget) / BASE.kcalTarget;
-    expect(desvio).toBeLessThan(0.25);
-  });
-
-  it("entrega a maior parte da proteína alvo — é o macro que não se compensa", () => {
-    const plan = generateMealPlan(BASE);
-    expect(plan.totals.proteinG).toBeGreaterThan(BASE.proteinTarget * 0.75);
-  });
-
-  it("é determinístico: mesma entrada, mesmo plano", () => {
-    const a = generateMealPlan(BASE);
-    const b = generateMealPlan(BASE);
-    expect(JSON.stringify(a)).toBe(JSON.stringify(b));
-  });
-
-  it("sementes diferentes produzem cardápios diferentes", () => {
-    const a = generateMealPlan({ ...BASE, seed: 0 });
-    const b = generateMealPlan({ ...BASE, seed: 3 });
-    expect(JSON.stringify(a.meals)).not.toBe(JSON.stringify(b.meals));
-  });
-
-  it("respeita os limites de porção — nada de 700 g de azeite", () => {
-    const plan = generateMealPlan(BASE);
-    for (const meal of plan.meals) {
-      for (const item of meal.items) {
-        expect(item.grams).toBeGreaterThan(0);
-        if (item.role === "fat") expect(item.grams).toBeLessThanOrEqual(60);
-        else expect(item.grams).toBeLessThanOrEqual(400);
-      }
-    }
-  });
-
-  it("prioriza alimentos que o usuário disse gostar", () => {
-    const semPref = generateMealPlan(BASE);
-    const comPref = generateMealPlan({ ...BASE, preferred: ["batata"] });
-    const usaBatata = (p: typeof comPref) =>
-      p.meals.some((m) => m.items.some((i) => i.foodId === "batata"));
-    expect(usaBatata(comPref)).toBe(true);
-    expect(usaBatata(semPref)).toBe(false);
-  });
-
-  it("avisa quando o catálogo é pequeno demais para variar", () => {
-    const plan = generateMealPlan({ ...BASE, foods: FOODS.slice(0, 4) });
-    expect(plan.warnings.some((w) => w.includes("Poucos alimentos"))).toBe(true);
-  });
-
-  it("varia os alimentos dentro do mesmo dia", () => {
-    const plan = generateMealPlan(BASE);
-    const proteinas = plan.meals
-      .flatMap((m) => m.items)
-      .filter((i) => i.role === "protein")
-      .map((i) => i.foodId);
-    expect(new Set(proteinas).size).toBeGreaterThan(1);
-  });
-
-  it("pré-treino não leva gordura", () => {
-    const plan = generateMealPlan({
-      ...BASE,
-      slots: ["breakfast", "lunch", "pre_workout", "dinner"],
-      workoutMinutes: 18 * 60,
-    });
-    const pre = plan.meals.find((m) => m.slot === "pre_workout")!;
-    expect(pre.items.every((i) => i.role !== "fat")).toBe(true);
-  });
-
-  it("os alvos das refeições somam o alvo do dia", () => {
-    const plan = generateMealPlan(BASE);
-    const soma = plan.meals.reduce((s, m) => s + m.kcalTarget, 0);
-    // Tolerância de arredondamento: cada alvo é arredondado para inteiro.
-    expect(Math.abs(soma - BASE.kcalTarget)).toBeLessThan(plan.meals.length);
-  });
-
-  it("rejeita entrada inválida em vez de gerar plano sem sentido", () => {
-    expect(() => generateMealPlan({ ...BASE, kcalTarget: -100 })).toThrow();
-    expect(() => generateMealPlan({ ...BASE, foods: [] })).toThrow();
   });
 });

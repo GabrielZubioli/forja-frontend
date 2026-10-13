@@ -8,14 +8,7 @@ import {
   derivedObjective,
   suggestWeekdays,
 } from "@/lib/onboarding/options";
-import {
-  bmrMifflin,
-  goalCalories,
-  macroTargets,
-  tdee,
-  waterTargetMl,
-  type SessionDuration,
-} from "@forja/domain";
+import { assessEnergy, kcalRangeIssue, waterTargetMl, type SessionDuration } from "@forja/domain";
 
 /**
  * As respostas do questionário, recuperadas do banco — e o que elas viram.
@@ -35,8 +28,8 @@ import {
  * 1. `onboarding_answers.payload` — as respostas cruas, é o ideal.
  * 2. `profiles` — a leitura estruturada que a geração gravou. Perde nuance
  *    (consistência de treino, por exemplo), mas basta para regerar.
- * 3. Padrões — para que a função nunca falhe. Um plano genérico é infinitamente
- *    melhor que uma tela vazia, e o usuário pode ajustá-lo.
+ * 3. Nada inventado: dado do corpo ausente fica ausente, e as metas dizem o que
+ *    falta (`TargetsResult`) em vez de nascerem de um peso fictício.
  */
 
 /** Minutos de treino por sessão, para a meta de água. */
@@ -59,39 +52,66 @@ export interface NutritionTargets {
   waterMl: number;
 }
 
-/** Metas calóricas e de macros a partir das respostas. Pura, sem banco. */
-export function computeTargets(answers: Answers): NutritionTargets {
+/**
+ * A geração automática não pode seguir: perfil incompleto, fora do escopo
+ * (menor de idade, baixo peso querendo emagrecer) ou meta fora dos limites
+ * seguros. A mensagem é para o usuário — diz o que fazer, não o que quebrou.
+ */
+export class PlanBlockedError extends Error {
+  constructor(
+    message: string,
+    public readonly reason: string,
+  ) {
+    super(message);
+    this.name = "PlanBlockedError";
+  }
+}
+
+export type TargetsResult =
+  { ok: true; targets: NutritionTargets } | { ok: false; reason: string; message: string };
+
+/**
+ * Metas calóricas e de macros a partir das respostas. Pura, sem banco.
+ *
+ * Sem peso, altura, idade ou sexo não há conta: o resultado diz o que falta,
+ * em vez de calcular com um "75 kg" inventado. O fator de atividade é uma
+ * estimativa derivada dos dias de treino.
+ */
+export function computeTargets(answers: Answers): TargetsResult {
   const objetivo = derivedObjective(answers);
-  const weightKg = answers.weightKg ?? 75;
+  const avaliacao = assessEnergy({
+    sex: answers.sex,
+    weightKg: answers.weightKg,
+    heightCm: answers.heightCm,
+    ageYears: answers.age,
+    activity: derivedActivityLevel(answers),
+    goal: objetivo.weightGoal,
+  });
+  if (!avaliacao.ok) return { ok: false, reason: avaliacao.reason, message: avaliacao.message };
+
   const duration = (answers.duration ?? "average") as SessionDuration;
   const daysPerWeek = answers.daysPerWeek ?? 3;
-
-  const bmr = bmrMifflin({
-    sex: answers.sex ?? "other",
-    weightKg,
-    heightCm: answers.heightCm ?? 172,
-    ageYears: answers.age ?? 28,
-  });
-
-  const kcal = goalCalories(tdee(bmr, derivedActivityLevel(answers)), objetivo.weightGoal);
-  const macros = macroTargets(kcal, weightKg);
-
+  const { macros } = avaliacao;
   return {
-    kcal,
-    proteinG: macros.protein_g,
-    carbsG: macros.carbs_g,
-    fatG: macros.fat_g,
-    fiberG: macros.fiber_g,
-    waterMl: waterTargetMl({
-      weightKg,
-      trainingMinutes: (SESSION_MINUTES[duration] * daysPerWeek) / 7,
-    }),
+    ok: true,
+    targets: {
+      kcal: avaliacao.kcal,
+      proteinG: macros.protein_g,
+      carbsG: macros.carbs_g,
+      fatG: macros.fat_g,
+      fiberG: macros.fiber_g,
+      waterMl: waterTargetMl({
+        weightKg: answers.weightKg!,
+        trainingMinutes: (SESSION_MINUTES[duration] * daysPerWeek) / 7,
+      }),
+    },
   };
 }
 
 export interface PlanningInputs {
   answers: Answers;
-  targets: NutritionTargets;
+  /** Metas da dieta — ou o motivo de a geração automática não seguir. */
+  targets: TargetsResult;
   /** Rótulo do objetivo, usado nos nomes da rotina e do cardápio. */
   objectiveLabel: string;
   /** Dias da semana em que o usuário planeja treinar. */
@@ -100,35 +120,52 @@ export interface PlanningInputs {
   workoutTime: string;
 }
 
+/** Bloqueios de escopo: valem mesmo com metas gravadas no perfil. */
+const FORA_DE_ESCOPO = new Set(["under_age", "underweight_weight_loss"]);
+
 /**
  * Tudo o que os geradores precisam, reconstruído do banco.
  *
- * As metas vêm de `profiles` quando já foram calculadas (elas podem ter sido
- * ajustadas à mão desde então, e recalcular apagaria esse ajuste); só caem no
- * cálculo quando não existem.
+ * As metas vêm de `profiles` quando já existem (podem ter sido ajustadas à mão,
+ * e recalcular apagaria o ajuste); só caem no cálculo quando não existem. Em
+ * qualquer caso, a meta final passa pelos limites de segurança.
  */
 export async function loadPlanningInputs(userId: string): Promise<PlanningInputs> {
   const [answers, profile] = await Promise.all([loadAnswers(userId), loadProfile()]);
-
-  const calculadas = computeTargets(answers);
-  const targets: NutritionTargets = {
-    kcal: num(profile?.daily_kcal_target) || calculadas.kcal,
-    proteinG: num(profile?.protein_g_target) || calculadas.proteinG,
-    carbsG: num(profile?.carbs_g_target) || calculadas.carbsG,
-    fatG: num(profile?.fat_g_target) || calculadas.fatG,
-    fiberG: num(profile?.fiber_g_target) || calculadas.fiberG,
-    waterMl: num(profile?.water_ml_target) || calculadas.waterMl,
-  };
-
   const daysPerWeek = answers.daysPerWeek ?? 3;
 
   return {
     answers,
-    targets,
+    targets: resolveTargets(answers, profile),
     objectiveLabel: derivedObjective(answers).label,
     weekdays: answers.weekdays.length > 0 ? answers.weekdays : suggestWeekdays(daysPerWeek),
     workoutTime: answers.workoutTime ?? DEFAULT_WORKOUT_TIME,
   };
+}
+
+function resolveTargets(answers: Answers, profile: ProfileRow | null): TargetsResult {
+  const calculadas = computeTargets(answers);
+  if (!calculadas.ok && FORA_DE_ESCOPO.has(calculadas.reason)) return calculadas;
+
+  const kcalGravada = num(profile?.daily_kcal_target);
+  if (kcalGravada > 0) {
+    const fora = kcalRangeIssue(kcalGravada, answers.sex);
+    if (fora) return { ok: false, reason: "kcal_out_of_range", message: fora };
+    const base = calculadas.ok ? calculadas.targets : null;
+    const gravada = (v: number | null | undefined, calc: number | undefined) => num(v) || calc || 0;
+    return {
+      ok: true,
+      targets: {
+        kcal: kcalGravada,
+        proteinG: gravada(profile?.protein_g_target, base?.proteinG),
+        carbsG: gravada(profile?.carbs_g_target, base?.carbsG),
+        fatG: gravada(profile?.fat_g_target, base?.fatG),
+        fiberG: gravada(profile?.fiber_g_target, base?.fiberG),
+        waterMl: gravada(profile?.water_ml_target, base?.waterMl),
+      },
+    };
+  }
+  return calculadas;
 }
 
 /** Conveniências derivadas, para quem só precisa do treino. */
@@ -208,12 +245,13 @@ async function reconstructFromProfile(): Promise<Answers> {
   const objetivoPorMeta = { lose: "lose_fat", gain: "build_muscle", maintain: "recomp" } as const;
 
   // `safeParse` de novo: o perfil pode ter valores fora dos enums atuais (uma
-  // coluna TEXT aceita qualquer coisa). O que não validar cai no padrão.
+  // coluna TEXT aceita qualquer coisa). Dado do corpo ausente fica ausente —
+  // nunca vira um "28 anos, 172 cm, 75 kg" inventado que geraria metas falsas.
   const parsed = answersSchema.safeParse({
-    sex: profile?.sex ?? "other",
-    age: profile?.birth_date ? idadeEm(profile.birth_date) : 28,
-    heightCm: num(profile?.height_cm, 172),
-    weightKg: num(peso?.weight_kg, 75),
+    sex: profile?.sex ?? undefined,
+    age: profile?.birth_date ? idadeEm(profile.birth_date) : undefined,
+    heightCm: profile?.height_cm ? num(profile.height_cm) : undefined,
+    weightKg: peso?.weight_kg ? num(peso.weight_kg) : undefined,
     ...(profile?.goal_weight_kg ? { goalWeightKg: num(profile.goal_weight_kg) } : {}),
     objective: objetivoPorMeta[(profile?.goal ?? "maintain") as keyof typeof objetivoPorMeta],
     experience: profile?.experience_level ?? "beginner",

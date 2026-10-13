@@ -63,6 +63,8 @@ export function CalorieRing({
   const offset = circumference * (1 - Math.min(1, ratio));
   const restante = Math.round(target - consumed);
   const excedeu = ratio > 1.05;
+  // Sem meta (o app não prescreve): o centro mostra só o que foi consumido.
+  const semMeta = target <= 0;
 
   return (
     // `max-width` em vez de `width`: em telas muito estreitas o anel acompanha a
@@ -100,19 +102,34 @@ export function CalorieRing({
             excedeu && "text-destructive",
           )}
         >
-          {Math.abs(restante).toLocaleString("pt-BR")}
+          {(semMeta ? Math.round(consumed) : Math.abs(restante)).toLocaleString("pt-BR")}
         </p>
         <p className={cn("mt-1 text-muted-foreground", compacto ? "text-[9px]" : "text-xs")}>
-          {restante >= 0 ? (compacto ? "restantes" : "kcal restantes") : "kcal acima"}
+          {semMeta
+            ? compacto
+              ? "kcal"
+              : "kcal consumidas"
+            : restante >= 0
+              ? compacto
+                ? "restantes"
+                : "kcal restantes"
+              : "kcal acima"}
         </p>
-        <p className={cn("mt-1.5 text-[11px] tabular-nums text-muted-foreground", compacto && "hidden")}>
+        <p
+          className={cn(
+            "mt-1.5 text-[11px] tabular-nums text-muted-foreground",
+            (compacto || semMeta) && "hidden",
+          )}
+        >
           {Math.round(consumed).toLocaleString("pt-BR")} /{" "}
           {Math.round(target).toLocaleString("pt-BR")}
         </p>
       </div>
 
       <span className="sr-only">
-        {Math.round(consumed)} de {Math.round(target)} calorias consumidas hoje.
+        {semMeta
+          ? `${Math.round(consumed)} calorias consumidas.`
+          : `${Math.round(consumed)} de ${Math.round(target)} calorias consumidas.`}
       </span>
     </div>
   );

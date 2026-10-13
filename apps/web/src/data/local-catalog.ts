@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { assertOk, unwrapList } from "@/data/supabase-helpers";
-import type { FoodCategory } from "@forja/domain";
+import { CURATED_EXTERNAL_IDS, type FoodCategory } from "@forja/domain";
 
 /**
  * Base local de alimentos — a rede de segurança do gerador de dieta.
@@ -691,7 +691,8 @@ async function contarPrescritiveis(): Promise<number> {
     .from("foods")
     .select("id", { count: "exact", head: true })
     .is("deleted_at", null)
-    .eq("is_staple", true);
+    // Prescritível = curado (o gerador ignora o resto), não `is_staple`.
+    .in("external_id", [...CURATED_EXTERNAL_IDS]);
 
   assertOk("contar alimentos prescritíveis", resultado);
   return resultado.count ?? 0;

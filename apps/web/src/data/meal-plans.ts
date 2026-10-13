@@ -1,514 +1,142 @@
 import { supabase } from "@/integrations/supabase/client";
 import { assertOk, num, unwrap, unwrapList, unwrapMaybe } from "@/data/supabase-helpers";
-import { ensureFoodCatalog } from "@/data/local-catalog";
-import { loadPlanningInputs } from "@/data/planning-profile";
-import { todayISO } from "@/lib/date";
 import {
-  distributeMeals,
-  generateMealPlan,
-  minutesToTime,
+  buildCatalog,
   selectMealSlots,
-  timeToMinutes,
-  MEAL_SLOTS,
+  CURATED_EXTERNAL_IDS,
+  CURATED_PUBLIC_NAMES,
+  DEFAULT_MEALS_PER_DAY,
+  type CatalogFood,
+  type CatalogRow,
+  type DietaryRestrictions,
   type FoodCandidate,
-  type GeneratedMealPlan,
   type MealSlot,
+  type ToleranceStatus,
 } from "@forja/domain";
 
 /**
- * Plano alimentar — geração, leitura e materialização do dia.
+ * Plano alimentar — a estrutura que a pessoa preenche, sem geração automática.
  *
- * A regra de programação nutricional vive em `@forja/domain` (pura, testada);
- * aqui fica o que depende do banco: escolher o pool de alimentos respeitando
- * restrições, gravar o plano e transformar o plano em um dia executável.
+ * Aqui fica o que depende do banco: criar o plano vazio, lê-lo de volta,
+ * renomear e mudar horários das refeições, e o catálogo curado das trocas.
  */
 
-/**
- * Alimentos que servem de base para montar a dieta.
- *
- * O filtro por `is_staple` é o que separa "registrável" de "prescritível": o
- * catálogo tem refrigerante e torresmo, e ambos existem para serem registrados
- * quando a pessoa os come — não para o app recomendá-los.
- */
-export async function fetchStapleFoods(limit = 400): Promise<FoodCandidate[]> {
-  const staples = await queryFoods(limit, true);
-  if (staples.length >= MIN_POOL) return staples;
+const FOOD_COLUMNS =
+  "id, name, category, kcal, protein_g, carbs_g, fat_g, fiber_g, popularity, serving_size_g, external_id, owner_id" as const;
 
-  // `is_staple` nasce `false` e é ligado por uma migration de dados. Onde ela
-  // não rodou, o filtro devolve zero alimentos e o gerador não tem o que
-  // prescrever — o usuário recebe um cardápio de caixas vazias sem nenhuma
-  // pista do motivo. Cair para o catálogo inteiro entrega uma dieta um pouco
-  // menos curada em vez de nenhuma; a curadoria volta assim que a coluna for
-  // preenchida.
-  const todos = await queryFoods(limit, false);
-  return todos.length > staples.length ? todos : staples;
+interface FoodRow {
+  id: string;
+  name: string;
+  category: string | null;
+  kcal: unknown;
+  protein_g: unknown;
+  carbs_g: unknown;
+  fat_g: unknown;
+  fiber_g: unknown;
+  popularity: unknown;
+  serving_size_g: unknown;
+  external_id: string | null;
+  owner_id: string | null;
 }
 
-/** Abaixo disto o pool não compõe um dia com variedade mínima. */
-const MIN_POOL = 12;
-
-async function queryFoods(limit: number, apenasBase: boolean): Promise<FoodCandidate[]> {
-  const consulta = supabase
-    .from("foods")
-    .select("id, name, category, kcal, protein_g, carbs_g, fat_g, fiber_g, popularity")
-    .is("deleted_at", null)
-    // Um alimento sem calorias declaradas (creatina, água, tempero) não compõe
-    // refeição — entra no diário, nunca na prescrição.
-    .gt("kcal", 0)
-    .order("popularity", { ascending: false })
-    .limit(limit);
-
-  const rows = unwrapList(
-    "carregar alimentos base",
-    await (apenasBase ? consulta.eq("is_staple", true) : consulta),
-  );
-
-  return rows.map((r) => ({
+/**
+ * Linha de `foods` → candidato do domínio, **por 100 g**.
+ *
+ * O banco guarda macros por `serving_size_g`, que nem sempre é 100 ("Pão
+ * francês" da base original é por 50 g). O gerador antigo ignorava isso e
+ * dobrava as calorias do pão; a conversão acontece aqui, uma vez.
+ */
+export function toCatalogRow(r: FoodRow): CatalogRow {
+  const porcao = num(r.serving_size_g, 100) || 100;
+  const k = 100 / porcao;
+  return {
     id: r.id,
     name: r.name,
     category: (r.category ?? "other") as FoodCandidate["category"],
-    kcal: num(r.kcal),
-    proteinG: num(r.protein_g),
-    carbsG: num(r.carbs_g),
-    fatG: num(r.fat_g),
-    fiberG: num(r.fiber_g),
+    kcal: num(r.kcal) * k,
+    proteinG: num(r.protein_g) * k,
+    carbsG: num(r.carbs_g) * k,
+    fatG: num(r.fat_g) * k,
+    fiberG: num(r.fiber_g) * k,
     popularity: num(r.popularity, 50),
-  }));
+    externalId: r.external_id,
+    isPublic: r.owner_id === null,
+  };
 }
 
 /**
- * Termos que cada restrição exclui do pool.
- *
- * Correspondência por nome, não por uma tabela de ingredientes que o catálogo
- * não tem. É deliberadamente **abrangente demais** em vez de precisa: incluir
- * um alimento seguro a menos custa variedade; incluir um alimento com o
- * alérgeno custa uma reação. Numa escolha entre esses dois erros, só um é
- * aceitável.
+ * O catálogo prescritível: só alimentos curados no domínio, com macros
+ * válidos. Biscoito recheado, arroz cru e itens com dados zerados não entram,
+ * mesmo marcados como `is_staple`.
  */
-const EXCLUSION_TERMS: Record<string, string[]> = {
-  // Dietas
-  vegetarian: [
-    "carne",
-    "frango",
-    "peixe",
-    "boi",
-    "porco",
-    "peru",
-    "bacon",
-    "presunto",
-    "linguiça",
-    "camarão",
-    "atum",
-    "salmão",
-    "tilápia",
-    "bacalhau",
-    "sardinha",
-    "file",
-    "filé",
-    "costela",
-    "picanha",
-    "patinho",
-    "alcatra",
-    "coxão",
-    "músculo",
-    "fígado",
-    "coração",
-    "moela",
-    "lombo",
-    "pernil",
-    "cupim",
-    "maminha",
-    "fraldinha",
-    "acém",
-    "peito de",
-    "asa",
-    "sobrecoxa",
-    "carneiro",
-    "cabrito",
-    "codorna",
-    "caranguejo",
-    "lula",
-    "polvo",
-    "mexilhão",
-    "ostra",
-    "siri",
-    "lagosta",
-    "pescada",
-    "corvina",
-    "abadejo",
-    "cação",
-    "manjuba",
-    "lambari",
-    "tucunaré",
-    "traíra",
-    "pintado",
-    "dourada",
-    "merluza",
-    "namorado",
-    "badejo",
-    "robalo",
-    "tainha",
-    "anchova",
-  ],
-  vegan: [
-    "leite",
-    "queijo",
-    "iogurte",
-    "manteiga",
-    "requeijão",
-    "creme de leite",
-    "ovo",
-    "mel",
-    "whey",
-    "caseína",
-    "coalhada",
-    "ricota",
-    "mussarela",
-    "parmesão",
-    "prato",
-    "minas",
-    "cottage",
-    "nata",
-    "chantilly",
-    "leite condensado",
-    "doce de leite",
-  ],
-  lactose_free: [
-    "leite",
-    "queijo",
-    "iogurte",
-    "manteiga",
-    "requeijão",
-    "creme de leite",
-    "coalhada",
-    "ricota",
-    "mussarela",
-    "parmesão",
-    "cottage",
-    "nata",
-    "leite condensado",
-    "doce de leite",
-    "whey",
-  ],
-  gluten_free: [
-    "trigo",
-    "pão",
-    "macarrão",
-    "massa",
-    "biscoito",
-    "bolacha",
-    "bolo",
-    "cerveja",
-    "cevada",
-    "centeio",
-    "aveia",
-    "farinha de rosca",
-    "torrada",
-    "panetone",
-    "pizza",
-    "lasanha",
-    "nhoque",
-    "cuscuz marroquino",
-    "seitan",
-  ],
-  low_carb: [
-    "arroz",
-    "macarrão",
-    "pão",
-    "batata",
-    "mandioca",
-    "farinha",
-    "açúcar",
-    "biscoito",
-    "bolo",
-    "tapioca",
-    "cuscuz",
-    "polenta",
-    "inhame",
-    "cará",
-  ],
-
-  // Alérgenos
-  lactose: [
-    "leite",
-    "queijo",
-    "iogurte",
-    "manteiga",
-    "requeijão",
-    "creme de leite",
-    "coalhada",
-    "ricota",
-    "mussarela",
-    "parmesão",
-    "cottage",
-    "nata",
-    "whey",
-  ],
-  gluten: [
-    "trigo",
-    "pão",
-    "macarrão",
-    "massa",
-    "biscoito",
-    "bolacha",
-    "bolo",
-    "cevada",
-    "centeio",
-    "aveia",
-    "torrada",
-  ],
-  egg: ["ovo", "omelete", "clara", "gema", "maionese"],
-  peanut: ["amendoim", "paçoca", "pé de moleque"],
-  nuts: ["castanha", "noz", "nozes", "amêndoa", "avelã", "pistache", "macadâmia", "pecã"],
-  seafood: [
-    "camarão",
-    "lagosta",
-    "caranguejo",
-    "siri",
-    "lula",
-    "polvo",
-    "mexilhão",
-    "ostra",
-    "marisco",
-    "vieira",
-  ],
-  fish: [
-    "peixe",
-    "atum",
-    "salmão",
-    "sardinha",
-    "tilápia",
-    "bacalhau",
-    "merluza",
-    "pescada",
-    "corvina",
-    "abadejo",
-    "cação",
-    "manjuba",
-    "lambari",
-    "anchova",
-    "traíra",
-    "tucunaré",
-    "pintado",
-    "dourada",
-    "namorado",
-    "badejo",
-    "robalo",
-    "tainha",
-  ],
-  soy: ["soja", "tofu", "shoyu", "missô", "edamame"],
-};
-
-export interface DietPreferences {
-  diets: readonly string[];
-  allergies: readonly string[];
-  dislikedFoods: readonly string[];
-  likedFoods: readonly string[];
-}
-
-/**
- * Aplica restrições ao pool de alimentos.
- *
- * Alergia e dieta **excluem**; "não gosto" também exclui da geração, mas o
- * alimento continua no catálogo para busca manual — a pessoa pode não gostar de
- * brócolis e ainda assim querer registrar o que comeu na casa da mãe.
- */
-export function applyDietaryFilters(
-  foods: readonly FoodCandidate[],
-  prefs: DietPreferences,
-): FoodCandidate[] {
-  const termos = new Set<string>();
-
-  for (const key of [...prefs.diets, ...prefs.allergies]) {
-    for (const t of EXCLUSION_TERMS[key] ?? []) termos.add(t.toLowerCase());
+export async function fetchCuratedFoods(): Promise<CatalogFood[]> {
+  const [porCodigo, porNome] = await Promise.all([
+    supabase
+      .from("foods")
+      .select(FOOD_COLUMNS)
+      .is("deleted_at", null)
+      .in("external_id", [...CURATED_EXTERNAL_IDS]),
+    supabase
+      .from("foods")
+      .select(FOOD_COLUMNS)
+      .is("deleted_at", null)
+      .is("external_id", null)
+      .is("owner_id", null)
+      .in("name", [...CURATED_PUBLIC_NAMES]),
+  ]);
+  const rows = [
+    ...unwrapList("carregar catálogo curado", porCodigo),
+    ...unwrapList("carregar catálogo curado", porNome),
+  ];
+  const { foods, rejected } = buildCatalog(rows.map(toCatalogRow));
+  if (rejected.length > 0) {
+    console.warn("[dieta] alimentos curados com dados inválidos ficaram de fora:", rejected);
   }
-  for (const f of prefs.dislikedFoods) {
-    const t = f.trim().toLowerCase();
-    if (t.length >= 3) termos.add(t);
-  }
+  return foods;
+}
 
-  if (termos.size === 0) return [...foods];
-
-  return foods.filter((f) => {
-    const nome = f.name.toLowerCase();
-    return ![...termos].some((t) => nome.includes(t));
-  });
+/** Restrições alimentares gravadas no perfil — para substituições e buscas. */
+export async function fetchDietaryRestrictions(): Promise<Required<DietaryRestrictions>> {
+  const p = unwrapMaybe(
+    "carregar restrições alimentares",
+    await supabase
+      .from("profiles")
+      .select("dietary_restrictions, allergies, disliked_foods")
+      .maybeSingle(),
+  );
+  return {
+    diets: p?.dietary_restrictions ?? [],
+    allergies: p?.allergies ?? [],
+    dislikedFoods: p?.disliked_foods ?? [],
+  };
 }
 
 /**
- * O pool efetivo, afrouxando **só** o que é preferência.
+ * O que ficou registrado da geração, para auditoria e para a tela.
  *
- * Alergia e dieta são regra dura: se elas esvaziam o pool, o certo é falhar —
- * um plano que viola uma alergia é pior que nenhum plano. "Não gosto de X" é
- * outra coisa: quando as implicâncias somadas não deixam nada de pé, ignorá-las
- * e avisar é melhor que entregar um cardápio vazio, porque a pessoa consegue
- * trocar o que não quiser item a item.
+ * Gravado em `meal_plans.notes` (JSON): a coluna existe e não era usada, e
+ * evita uma migration só para metadados.
  */
-function poolFor(foods: readonly FoodCandidate[], prefs: DietPreferences): FoodCandidate[] {
-  const completo = applyDietaryFilters(foods, prefs);
-  if (completo.length >= MIN_POOL) return completo;
-
-  const semImplicancias = applyDietaryFilters(foods, { ...prefs, dislikedFoods: [] });
-  return semImplicancias.length > completo.length ? semImplicancias : completo;
+export interface PlanGeneration {
+  generator: "habitual-fit";
+  rulesVersion: string;
+  targetsVersion: string;
+  seed: number;
+  generatedAt: string;
+  days: { weekday: number; kcalDeviation: number; status: ToleranceStatus }[];
+  warnings: string[];
 }
 
-export interface CreateMealPlanInput {
-  userId: string;
-  name: string;
-  kcalTarget: number;
-  proteinTarget: number;
-  carbsTarget: number;
-  fatTarget: number;
-  fiberTarget: number;
-  mealsPerDay: number;
-  wakeTime?: string | undefined;
-  sleepTime?: string | undefined;
-  workoutTime?: string | undefined;
-  preferences: DietPreferences;
-}
-
-export interface MealPlanDraft {
-  plan: GeneratedMealPlan;
-  /**
-   * Um cardápio por dia da semana (índice = dia, 0 = domingo). Mesmas
-   * refeições e metas; os alimentos variam pela semente do gerador.
-   */
-  porDia: GeneratedMealPlan[];
-  slots: MealSlot[];
-  /** Quantos alimentos sobraram no pool após as restrições. */
-  poolSize: number;
-}
-
-/** Monta o plano **sem gravar** — permite mostrar a prévia antes de criar 40 linhas. */
-export async function buildMealPlanDraft(input: CreateMealPlanInput): Promise<MealPlanDraft> {
-  const todos = await fetchStapleFoods();
-  const pool = poolFor(todos, input.preferences);
-
-  const workoutMinutes = timeToMinutes(input.workoutTime);
-  const slots = selectMealSlots({
-    mealsPerDay: input.mealsPerDay,
-    ...(workoutMinutes !== undefined ? { workoutMinutes } : {}),
-  });
-
-  const gerar = (seed: number) =>
-    generateMealPlan({
-    seed,
-    kcalTarget: input.kcalTarget,
-    proteinTarget: input.proteinTarget,
-    carbsTarget: input.carbsTarget,
-    fatTarget: input.fatTarget,
-    slots,
-    // O gerador exige pool não vazio. Se as restrições zeraram tudo, voltar ao
-    // catálogo completo produziria um plano que viola uma alergia — falhar aqui
-    // é o comportamento correto.
-    foods: pool,
-    preferred: [...input.preferences.likedFoods],
-    ...(timeToMinutes(input.wakeTime) !== undefined
-      ? { wakeMinutes: timeToMinutes(input.wakeTime)! }
-      : {}),
-    ...(timeToMinutes(input.sleepTime) !== undefined
-      ? { sleepMinutes: timeToMinutes(input.sleepTime)! }
-      : {}),
-    ...(workoutMinutes !== undefined ? { workoutMinutes } : {}),
-  });
-
-  // Cada dia da semana com sua semente: a rotação muda as escolhas entre os
-  // melhores candidatos, e a semana não repete o mesmo prato todo dia.
-  const porDia = [0, 1, 2, 3, 4, 5, 6].map((dia) => gerar(dia * 5));
-  return { plan: porDia[1]!, porDia, slots, poolSize: pool.length };
-}
-
-/** Grava o plano: desativa o anterior, cria refeições e itens. */
-export async function createMealPlan(
-  input: CreateMealPlanInput,
-  draft: MealPlanDraft,
-): Promise<string> {
-  assertOk(
-    "arquivar plano alimentar anterior",
-    await supabase
-      .from("meal_plans")
-      .update({ is_active: false })
-      .eq("user_id", input.userId)
-      .eq("is_active", true),
-  );
-
-  const plan = unwrap(
-    "criar plano alimentar",
-    await supabase
-      .from("meal_plans")
-      .insert({
-        user_id: input.userId,
-        name: input.name,
-        source: "generated",
-        kcal_target: Math.round(input.kcalTarget),
-        protein_g_target: Math.round(input.proteinTarget),
-        carbs_g_target: Math.round(input.carbsTarget),
-        fat_g_target: Math.round(input.fatTarget),
-        fiber_g_target: Math.round(input.fiberTarget),
-        is_active: true,
-      })
-      .select("id")
-      .single(),
-  );
-
-  // Falha no meio deixaria o usuário com um plano pela metade — pior que
-  // nenhum, porque parece completo.
+function parseGeneration(notes: string | null): PlanGeneration | null {
+  if (!notes) return null;
   try {
-    for (const [index, meal] of draft.plan.meals.entries()) {
-      const row = unwrap(
-        "criar refeição do plano",
-        await supabase
-          .from("meal_plan_meals")
-          .insert({
-            plan_id: plan.id,
-            slot: meal.slot,
-            position: index,
-            target_time: minutesToTime(meal.minutes),
-            kcal_target: Math.round(meal.kcalTarget),
-            protein_g_target: Math.round(meal.proteinTarget),
-            carbs_g_target: Math.round(meal.carbsTarget),
-            fat_g_target: Math.round(meal.fatTarget),
-          })
-          .select("id")
-          .single(),
-      );
-
-      // Os itens de cada dia da semana, com o dia marcado.
-      const itens = draft.porDia.flatMap((planoDoDia, dia) =>
-        (planoDoDia.meals[index]?.items ?? []).map((item, position) => ({
-          meal_id: row.id,
-          food_id: item.foodId,
-          grams: item.grams,
-          position,
-          weekday: dia,
-        })),
-      );
-      if (itens.length === 0) continue;
-
-      assertOk("adicionar alimentos à refeição", await supabase.from("meal_plan_items").insert(itens));
-    }
-
-    // Espelha as refeições ativas no perfil do usuário, para a UI saber quais
-    // caixas mostrar mesmo quando o plano é desativado depois.
-    assertOk(
-      "salvar refeições do usuário",
-      await supabase.from("user_meal_slots").upsert(
-        draft.plan.meals.map((meal, position) => ({
-          user_id: input.userId,
-          slot: meal.slot,
-          position,
-          target_time: minutesToTime(meal.minutes),
-          is_active: true,
-        })),
-        { onConflict: "user_id,slot" },
-      ),
-    );
-  } catch (error) {
-    await supabase.from("meal_plans").delete().eq("id", plan.id);
-    throw error;
+    const v = JSON.parse(notes) as Partial<PlanGeneration>;
+    return v.generator === "habitual-fit" && Array.isArray(v.warnings)
+      ? (v as PlanGeneration)
+      : null;
+  } catch {
+    return null;
   }
-
-  return plan.id;
 }
 
 export interface ActiveMealPlan {
@@ -519,6 +147,8 @@ export interface ActiveMealPlan {
   carbsTarget: number;
   fatTarget: number;
   fiberTarget: number;
+  /** Metadados da geração automática de planos antigos; `null` nos feitos à mão. */
+  generation: PlanGeneration | null;
   meals: {
     id: string;
     slot: MealSlot;
@@ -533,6 +163,7 @@ export interface ActiveMealPlan {
       name: string;
       grams: number;
       position: number;
+      /** Receita de que o item faz parte (gerador) ou nota livre. */
       prepNotes: string | null;
       /** Dia da semana em que vale (0 = domingo); null = todos os dias. */
       weekday: number | null;
@@ -550,144 +181,66 @@ export interface ActiveMealPlan {
 }
 
 /**
- * O plano alimentar ativo, **existindo**.
+ * O plano alimentar ativo, **existindo** — e nunca gerado.
  *
- * Esta é a função que a tela de Dieta chama. Ela responde por uma promessa que
- * o app faz e não vinha cumprindo: depois do questionário, a aba Alimentação
- * nunca está vazia.
+ * O app não prescreve dieta: o plano é só a estrutura que a pessoa preenche
+ * (sozinha ou com o nutricionista). Havendo plano ativo, ele volta como está,
+ * vazio ou não. Sem nenhum, nasce um vazio, com as refeições do questionário
+ * (`meals_per_day`) e nada dentro: sem alimentos, quantidades, horários nem
+ * metas.
  *
- * ## Por que consertar em vez de só avisar
- *
- * A geração inicial roda uma vez, logo após o cadastro, e falha de formas que o
- * usuário não tem como corrigir: o catálogo de alimentos ainda não foi semeado,
- * a conexão caiu no meio, uma restrição zerou o pool. O resultado era um plano
- * "ativo" com oito refeições e nenhum alimento — e nenhum caminho de volta, já
- * que o rascunho do questionário havia sido apagado.
- *
- * Agora as respostas ficam no banco (`onboarding_answers`), então dá para
- * refazer o plano sem pedir nada ao usuário. Um plano vazio deixa de ser um
- * estado final e vira uma condição temporária que o app resolve sozinho.
- *
- * ## Idempotência
- *
- * Um plano saudável é devolvido como está. Só um plano ausente ou vazio dispara
- * a regeneração — abrir a tela dez vezes não cria dez planos.
+ * Planos antigos, montados pelo gerador que existia antes, continuam valendo e
+ * não são tocados.
  */
-export async function ensureActiveMealPlan(
-  userId: string,
-  options: { force?: boolean } = {},
-): Promise<ActiveMealPlan | null> {
+export async function ensureActiveMealPlan(userId: string): Promise<ActiveMealPlan | null> {
   const atual = await fetchActiveMealPlan();
-  if (!options.force && atual && planoUtilizavel(atual)) {
-    return (await corrigirHorarios(userId, atual)) ? fetchActiveMealPlan() : atual;
-  }
+  if (atual) return atual;
 
-  // Sem catálogo não há o que prescrever: semeia a base local antes de tentar.
-  await ensureFoodCatalog(userId);
-
-  const { answers, targets, objectiveLabel, workoutTime } = await loadPlanningInputs(userId);
-
-  const input: CreateMealPlanInput = {
-    userId,
-    name: `Cardápio · ${objectiveLabel}`,
-    kcalTarget: targets.kcal,
-    proteinTarget: targets.proteinG,
-    carbsTarget: targets.carbsG,
-    fatTarget: targets.fatG,
-    fiberTarget: targets.fiberG,
-    mealsPerDay: answers.mealsPerDay ?? MEAL_SLOTS.length,
-    wakeTime: answers.wakeTime,
-    sleepTime: answers.sleepTime,
-    workoutTime,
-    preferences: {
-      diets: answers.diets,
-      allergies: answers.allergies,
-      dislikedFoods: answers.dislikedFoods,
-      likedFoods: answers.likedFoods,
-    },
-  };
-
-  const draft = await buildMealPlanDraft(input);
-  await createMealPlan(input, draft);
-
-  // Os dias já visitados foram montados a partir do plano quebrado — e um dia
-  // registrado impede a remontagem. Apagar o registro **dos dias que ficaram
-  // sem nenhum item** devolve a eles a chance de nascer do plano novo, sem
-  // tocar em nada que o usuário tenha marcado.
-  await limparDiasVazios(userId);
-
+  const perfil = unwrapMaybe(
+    "carregar refeições do dia",
+    await supabase.from("profiles").select("meals_per_day").maybeSingle(),
+  );
+  await createEmptyMealPlan(userId, perfil?.meals_per_day ?? DEFAULT_MEALS_PER_DAY);
   return fetchActiveMealPlan();
 }
 
 /**
- * Planos criados antes da correção da distribuição tinham as refeições
- * espremidas (7:00, 7:21, 7:33…) — quem dormia depois da meia-noite ganhava
- * uma janela de 1 h. Se duas refeições seguidas estão a menos de 1 h, os
- * horários são recalculados pela regra nova, com a rotina da pessoa.
+ * Plano vazio com `mealsPerDay` refeições, nos horários típicos do dia (café,
+ * almoço, jantar e os lanches entre eles) — só os nomes; o resto é da pessoa.
+ * Metas zeradas significam "sem meta".
  */
-async function corrigirHorarios(userId: string, plano: ActiveMealPlan): Promise<boolean> {
-  const comHora = plano.meals
-    .map((m) => ({ m, min: timeToMinutes(m.targetTime) }))
-    .filter((x): x is { m: (typeof plano.meals)[number]; min: number } => x.min !== undefined)
-    .sort((a, b) => a.min - b.min);
-  const espremido = comHora.some((x, i) => i > 0 && x.min - comHora[i - 1]!.min < 60);
-  if (!espremido) return false;
+export async function createEmptyMealPlan(userId: string, mealsPerDay: number): Promise<string> {
+  const plan = unwrap(
+    "criar plano alimentar",
+    await supabase
+      .from("meal_plans")
+      .insert({
+        user_id: userId,
+        name: "Minha dieta",
+        source: "custom",
+        kcal_target: 0,
+        protein_g_target: 0,
+        carbs_g_target: 0,
+        fat_g_target: 0,
+        is_active: true,
+      })
+      .select("id")
+      .single(),
+  );
 
-  const { answers, workoutTime } = await loadPlanningInputs(userId);
-  const novos = distributeMeals({
-    slots: plano.meals.map((m) => m.slot),
-    wakeMinutes: timeToMinutes(answers.wakeTime),
-    sleepMinutes: timeToMinutes(answers.sleepTime),
-    workoutMinutes: timeToMinutes(workoutTime),
-  });
-  for (const n of novos) {
-    const meal = plano.meals.find((m) => m.slot === n.slot);
-    if (!meal) continue;
+  const slots = selectMealSlots({ mealsPerDay });
+  try {
     assertOk(
-      "ajustar horário da refeição",
+      "criar refeições",
       await supabase
         .from("meal_plan_meals")
-        .update({ target_time: minutesToTime(n.minutes) })
-        .eq("id", meal.id),
+        .insert(slots.map((slot, position) => ({ plan_id: plan.id, slot, position }))),
     );
+  } catch (error) {
+    await supabase.from("meal_plans").delete().eq("id", plan.id);
+    throw error;
   }
-  return true;
-}
-
-/** Um plano vale se a maioria das refeições tem alimento. */
-function planoUtilizavel(plan: ActiveMealPlan): boolean {
-  if (plan.meals.length === 0) return false;
-  const comItens = plan.meals.filter((m) => m.items.length > 0).length;
-  return comItens >= Math.ceil(plan.meals.length / 2);
-}
-
-async function limparDiasVazios(userId: string): Promise<void> {
-  const hoje = todayISO();
-
-  const dias = unwrapList(
-    "listar dias do diário",
-    await supabase.from("diet_days").select("log_date").eq("user_id", userId).gte("log_date", hoje),
-  );
-  if (dias.length === 0) return;
-
-  const comItens = new Set(
-    unwrapList(
-      "verificar itens dos dias",
-      await supabase
-        .from("food_log_entries")
-        .select("log_date")
-        .eq("user_id", userId)
-        .gte("log_date", hoje),
-    ).map((r) => r.log_date),
-  );
-
-  const vazios = dias.map((d) => d.log_date).filter((d) => !comItens.has(d));
-  if (vazios.length === 0) return;
-
-  assertOk(
-    "liberar dias vazios do diário",
-    await supabase.from("diet_days").delete().eq("user_id", userId).in("log_date", vazios),
-  );
+  return plan.id;
 }
 
 export async function fetchActiveMealPlan(): Promise<ActiveMealPlan | null> {
@@ -696,7 +249,7 @@ export async function fetchActiveMealPlan(): Promise<ActiveMealPlan | null> {
     await supabase
       .from("meal_plans")
       .select(
-        "id, name, kcal_target, protein_g_target, carbs_g_target, fat_g_target, fiber_g_target",
+        "id, name, kcal_target, protein_g_target, carbs_g_target, fat_g_target, fiber_g_target, notes",
       )
       .eq("is_active", true)
       .is("deleted_at", null)
@@ -724,6 +277,7 @@ export async function fetchActiveMealPlan(): Promise<ActiveMealPlan | null> {
     carbsTarget: num(plan.carbs_g_target),
     fatTarget: num(plan.fat_g_target),
     fiberTarget: num(plan.fiber_g_target),
+    generation: parseGeneration(plan.notes),
     meals: meals.map((m) => ({
       id: m.id,
       slot: m.slot as MealSlot,
@@ -815,6 +369,8 @@ export async function setMealTime(
   }
   assertOk(
     "criar refeição",
-    await supabase.from("meal_plan_meals").insert({ plan_id: planId, slot, position, target_time: time }),
+    await supabase
+      .from("meal_plan_meals")
+      .insert({ plan_id: planId, slot, position, target_time: time }),
   );
 }

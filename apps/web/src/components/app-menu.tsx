@@ -1,7 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState, type ComponentType, type SVGProps } from "react";
-import { BarChart3, BookOpen, ChevronRight, HeartPulse, List, LogOut } from "lucide-react";
+import { BarChart3, BookOpen, ChevronRight, Compass, HeartPulse, List, LogOut } from "lucide-react";
+import { TUTORIAL_EVENT } from "@/components/tutorial";
 import { supabase } from "@/integrations/supabase/client";
 import { queryKeys } from "@/data/query-keys";
 import { unwrapMaybe } from "@/data/supabase-helpers";
@@ -109,6 +110,21 @@ export function AppMenu({
                 </Link>
               </li>
             ))}
+            <li className="border-b border-border/60">
+              <button
+                type="button"
+                onClick={() => {
+                  fechar();
+                  // Depois de o painel fechar, para o tour medir a tela final.
+                  window.setTimeout(() => window.dispatchEvent(new Event(TUTORIAL_EVENT)), 350);
+                }}
+                className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-elevated"
+              >
+                <Compass className="size-5 shrink-0 text-muted-foreground" aria-hidden />
+                <span className="flex-1 font-medium">Ver tutorial</span>
+                <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
+              </button>
+            </li>
             <li className="px-4 py-2.5">
               <ThemeSwitch />
             </li>

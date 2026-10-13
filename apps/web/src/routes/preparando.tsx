@@ -1,18 +1,16 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { z } from "zod";
 import {
   AlertTriangle,
   ArrowRight,
   Check,
-  Droplets,
   Dumbbell,
   Flag,
   Moon,
-  Target,
   User,
   Utensils,
-  Wheat,
 } from "lucide-react";
 import { WEEKDAY_LABELS, type Weekday } from "@forja/domain";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BrandSymbol } from "@/components/brand-logo";
 import { RoutineIcon } from "@/components/workouts/routine-icon";
-import { MACRO_COLORS } from "@/components/home/macro-rings";
+import { AvisoProfissional } from "@/components/aviso-profissional";
 import { cn } from "@/lib/utils";
 import { errorMessage, num, unwrapMaybe } from "@/data/supabase-helpers";
 import { queryKeys } from "@/data/query-keys";
@@ -32,6 +30,7 @@ import {
   generateEverything,
   hasCompletedOnboarding,
   type GenerationStage,
+  type PlanChoice,
 } from "@/data/onboarding";
 import { clearDraft, clearStep, loadDraft } from "@/lib/onboarding/storage";
 import { isComplete, type Answers } from "@/lib/onboarding/schema";
@@ -46,15 +45,18 @@ import { MEAL_LABELS, label } from "@/lib/labels";
  * exibidas são as reais: cada uma acende quando a operação correspondente
  * termina no banco, não por temporizador.
  *
- * Pronto o plano, a tela mostra **o que** foi montado — metas, semana de
- * treino e cardápio — antes de levar ao app. Cair direto na Início escondia o
- * resultado do questionário que a pessoa acabou de responder.
+ * Pronto, a tela mostra **o que** foi preparado — a semana de treino (ou o
+ * plano em branco) e as refeições vazias — antes de levar ao app.
+ *
+ * `plano` vem da escolha no fim do questionário: o treino sugerido ou um plano
+ * próprio, do zero. Sem ela, volta ao questionário para a pessoa escolher.
  */
 export const Route = createFileRoute("/preparando")({
   head: () => ({
     meta: [{ title: "Montando seu plano — Habitual Fit" }, { name: "robots", content: "noindex" }],
   }),
   ssr: false,
+  validateSearch: z.object({ plano: z.enum(["sugerido", "manual"]).optional() }),
   component: PreparingPage,
 });
 
@@ -62,26 +64,20 @@ export const Route = createFileRoute("/preparando")({
 const ETAPAS: { stage: GenerationStage; titulo: string; detalhe: string; icon: typeof User }[] = [
   {
     stage: "profile",
-    titulo: "Analisando seu perfil",
-    detalhe: "Objetivo, rotina, experiência e restrições",
+    titulo: "Salvando seu perfil",
+    detalhe: "Objetivo, experiência e rotina de treino",
     icon: User,
   },
   {
-    stage: "goals",
-    titulo: "Calculando suas metas",
-    detalhe: "Calorias, proteína, carboidratos e água",
-    icon: Target,
-  },
-  {
     stage: "workout",
-    titulo: "Montando seu treino",
-    detalhe: "Exercícios para o seu equipamento e seus dias",
+    titulo: "Preparando seu treino",
+    detalhe: "Os exercícios e os dias da sua semana",
     icon: Dumbbell,
   },
   {
     stage: "diet",
-    titulo: "Montando seu cardápio",
-    detalhe: "Refeições com os alimentos de que você gosta",
+    titulo: "Criando suas refeições",
+    detalhe: "Vazias, prontas para você preencher",
     icon: Utensils,
   },
 ];
@@ -93,6 +89,7 @@ type Status = "checking" | "generating" | "done" | "error";
 
 function PreparingPage() {
   const navigate = useNavigate();
+  const { plano } = Route.useSearch();
   const qc = useQueryClient();
 
   const [status, setStatus] = useState<Status>("checking");
@@ -124,14 +121,15 @@ function PreparingPage() {
 
       // Sem respostas (primeiro login com Google, outro aparelho, dados
       // limpos): o questionário é o que falta, então vai direto para ele.
+      // Sem respostas ou sem a escolha do plano: o questionário é o que falta.
       const draft = loadDraft();
-      if (!isComplete(draft)) return void navigate({ to: "/", replace: true });
+      if (!isComplete(draft) || !plano) return void navigate({ to: "/", replace: true });
 
       setAnswers(draft);
       setStatus("generating");
       const inicio = Date.now();
       try {
-        const result = await generateEverything(user.id, draft, (p) => setStage(p.stage));
+        const result = await generateEverything(user.id, draft, plano, (p) => setStage(p.stage));
         setWarnings(result.warnings);
 
         // O rascunho cumpriu seu papel; mantê-lo faria o questionário reaparecer
@@ -150,12 +148,13 @@ function PreparingPage() {
         setStatus("error");
       }
     })();
-  }, [navigate, qc]);
+  }, [navigate, qc, plano]);
 
   if (status === "done") {
     return (
       <PlanReady
         answers={answers}
+        choice={plano ?? "sugerido"}
         warnings={warnings}
         onContinue={() => void navigate({ to: "/dashboard", replace: true })}
       />
@@ -309,10 +308,12 @@ const entra = (i: number): { className: string; style: CSSProperties } => ({
 
 function PlanReady({
   answers,
+  choice,
   warnings,
   onContinue,
 }: {
   answers: Answers | null;
+  choice: PlanChoice;
   warnings: string[];
   onContinue: () => void;
 }) {
@@ -352,7 +353,9 @@ function PlanReady({
             {nome ? `${nome}, seu plano está pronto` : "Seu plano está pronto"}
           </h1>
           <p className="relative mt-3 text-muted-foreground">
-            Montado sob medida a partir das suas respostas.
+            {choice === "sugerido"
+              ? "Seu treino foi montado a partir das suas respostas."
+              : "Tudo pronto para você montar o seu do zero."}
           </p>
           <div className="relative mt-4 flex flex-wrap justify-center gap-2">
             {objetivo && (
@@ -367,47 +370,6 @@ function PlanReady({
             )}
           </div>
         </header>
-
-        {/* Metas do dia */}
-        <Secao titulo="Suas metas diárias" i={1}>
-          {profile.isPending ? (
-            <Skeleton className="h-52 rounded-[1.5rem]" />
-          ) : (
-            <div className="overflow-hidden rounded-[1.5rem] bg-card">
-              <div className="relative p-5">
-                <div
-                  className="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full bg-primary/15 blur-2xl"
-                  aria-hidden
-                />
-                <p className="text-sm text-muted-foreground">Calorias por dia</p>
-                <p className="mt-1 flex items-baseline gap-2">
-                  <span className="text-5xl font-extrabold tabular-nums tracking-tight">
-                    {fmt(num(p?.daily_kcal_target))}
-                  </span>
-                  <span className="text-lg font-semibold text-muted-foreground">kcal</span>
-                </p>
-                <div className="mt-5 grid grid-cols-3 gap-3">
-                  <Macro nome="Proteína" g={num(p?.protein_g_target)} cor={MACRO_COLORS.protein} />
-                  <Macro nome="Carbo" g={num(p?.carbs_g_target)} cor={MACRO_COLORS.carbs} />
-                  <Macro nome="Gordura" g={num(p?.fat_g_target)} cor={MACRO_COLORS.fat} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 border-t border-border/60">
-                <Mini
-                  icon={<Droplets />}
-                  rotulo="Água"
-                  valor={`${(num(p?.water_ml_target) / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} L`}
-                />
-                <Mini
-                  icon={<Wheat />}
-                  rotulo="Fibra"
-                  valor={`${fmt(num(p?.fiber_g_target))} g`}
-                  borda
-                />
-              </div>
-            </div>
-          )}
-        </Secao>
 
         {/* Peso */}
         {pesoAtual && pesoMeta && Math.abs(pesoAtual - pesoMeta) >= 0.1 && (
@@ -443,7 +405,13 @@ function PlanReady({
           {semana.isPending ? (
             <Skeleton className="h-64 rounded-[1.5rem]" />
           ) : splits.length === 0 ? (
-            <Vazio texto="O treino será montado na primeira vez que você abrir o Plano." />
+            <Vazio
+              texto={
+                choice === "manual"
+                  ? "Seu plano está em branco. Na tela Plano, crie suas rotinas, escolha os exercícios e os dias da semana."
+                  : "Não conseguimos montar o treino agora. Na tela Plano você pode tentar de novo ou montar o seu."
+              }
+            />
           ) : (
             <>
               <ol className="grid grid-cols-7 gap-1.5 rounded-[1.5rem] bg-card p-3">
@@ -515,44 +483,39 @@ function PlanReady({
           )}
         </Secao>
 
-        {/* Cardápio */}
-        <Secao titulo="Seu cardápio de um dia" i={4}>
+        {/* Refeições */}
+        <Secao titulo="Suas refeições" i={4}>
           {cardapio.isPending ? (
-            <Skeleton className="h-72 rounded-[1.5rem]" />
+            <Skeleton className="h-40 rounded-[1.5rem]" />
           ) : !cardapio.data || cardapio.data.meals.length === 0 ? (
-            <Vazio texto="O cardápio será montado na primeira vez que você abrir a Dieta." />
+            <Vazio texto="Suas refeições aparecem na tela Dieta, prontas para você preencher." />
           ) : (
-            <ol className="rounded-[1.5rem] bg-card p-5">
-              {cardapio.data.meals.map((m, i, arr) => (
-                <li key={m.id} className="relative flex gap-4 pb-5 last:pb-0">
-                  {/* A linha do tempo liga as refeições. */}
-                  {i < arr.length - 1 && (
-                    <span
-                      className="absolute left-[1.15rem] top-10 h-[calc(100%-2.5rem)] w-px bg-border"
-                      aria-hidden
-                    />
-                  )}
-                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/15 text-xs font-bold tabular-nums text-primary">
-                    {m.targetTime ? m.targetTime.slice(0, 5) : "—"}
-                  </span>
-                  <div className="min-w-0 flex-1 pt-0.5">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <p className="font-bold">{label(MEAL_LABELS, m.slot)}</p>
-                      <p className="shrink-0 text-sm tabular-nums text-muted-foreground">
-                        {fmt(m.kcalTarget)} kcal
-                      </p>
-                    </div>
-                    <p className="mt-0.5 text-sm text-muted-foreground">
-                      {m.items
-                        .map((it) => `${it.name.split(",")[0]} ${Math.round(it.grams)} g`)
-                        .join(" · ")}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ol>
+            <>
+              <ul className="divide-y divide-border/60 rounded-[1.5rem] bg-card">
+                {cardapio.data.meals.map((m) => (
+                  <li key={m.id} className="flex items-center gap-3 px-5 py-3.5">
+                    <Utensils className="size-4 shrink-0 text-primary" aria-hidden />
+                    <span className="min-w-0 flex-1 font-semibold">
+                      {m.label?.trim() || label(MEAL_LABELS, m.slot)}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      {m.items.length === 0 ? "vazia" : `${m.items.length} itens`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 px-1 text-sm text-muted-foreground">
+                Dê nomes, horários e adicione os alimentos na tela Dieta — por conta própria ou com
+                a orientação de um nutricionista.
+              </p>
+            </>
           )}
         </Secao>
+
+        <AvisoProfissional
+          tipos={choice === "sugerido" ? ["treino", "dieta"] : ["dieta"]}
+          className={cn("mt-6", entra(5).className)}
+        />
 
         {warnings.length > 0 && (
           <div
@@ -606,43 +569,6 @@ function Secao({ titulo, i, children }: { titulo: string; i: number; children: R
       <h2 className="mb-3 px-1 text-lg font-semibold">{titulo}</h2>
       {children}
     </section>
-  );
-}
-
-function Macro({ nome, g, cor }: { nome: string; g: number; cor: string }) {
-  return (
-    <div className="rounded-2xl bg-elevated p-3">
-      <span className="block h-1.5 w-8 rounded-full" style={{ background: cor }} aria-hidden />
-      <p className="mt-2 text-xl font-extrabold tabular-nums">
-        {fmt(g)}
-        <span className="text-sm font-semibold text-muted-foreground"> g</span>
-      </p>
-      <p className="text-xs text-muted-foreground">{nome}</p>
-    </div>
-  );
-}
-
-function Mini({
-  icon,
-  rotulo,
-  valor,
-  borda = false,
-}: {
-  icon: ReactNode;
-  rotulo: string;
-  valor: string;
-  borda?: boolean;
-}) {
-  return (
-    <div className={cn("flex items-center gap-3 px-5 py-4", borda && "border-l border-border/60")}>
-      <span className="text-primary [&>svg]:size-5" aria-hidden>
-        {icon}
-      </span>
-      <div>
-        <p className="text-xs text-muted-foreground">{rotulo}</p>
-        <p className="font-bold tabular-nums">{valor}</p>
-      </div>
-    </div>
   );
 }
 

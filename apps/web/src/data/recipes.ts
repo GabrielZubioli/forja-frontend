@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { assertOk, num, unwrapList } from "@/data/supabase-helpers";
 import type { MealValue } from "@/lib/labels";
+import { recipeNutrition } from "@forja/domain";
 
 /**
  * Receitas: as prontas (do sistema, `user_id` nulo — todos leem, ninguém
@@ -55,16 +56,26 @@ export async function fetchRecipes(): Promise<RecipeSummary[]> {
 
   return rows.map((r) => {
     const porcoes = Math.max(1, num(r.servings, 1));
-    const total = { kcal: 0, proteinG: 0, carbsG: 0, fatG: 0 };
-    const items = (r.recipe_items ?? []).map((i) => {
-      const f = i.foods;
-      const fator = num(i.grams) / num(f?.serving_size_g, 100);
-      total.kcal += num(f?.kcal) * fator;
-      total.proteinG += num(f?.protein_g) * fator;
-      total.carbsG += num(f?.carbs_g) * fator;
-      total.fatG += num(f?.fat_g) * fator;
-      return { foodId: i.food_id, name: f?.name ?? "Alimento", grams: num(i.grams) };
-    });
+    const itens = r.recipe_items ?? [];
+    // Mesma conta do diário e do gerador: ingredientes reais ÷ rendimento.
+    const { perServing } = recipeNutrition(
+      itens.map((i) => ({
+        food: {
+          servingSizeG: num(i.foods?.serving_size_g, 100),
+          kcal: num(i.foods?.kcal),
+          proteinG: num(i.foods?.protein_g),
+          carbsG: num(i.foods?.carbs_g),
+          fatG: num(i.foods?.fat_g),
+        },
+        grams: num(i.grams),
+      })),
+      porcoes,
+    );
+    const items = itens.map((i) => ({
+      foodId: i.food_id,
+      name: i.foods?.name ?? "Alimento",
+      grams: num(i.grams),
+    }));
     return {
       id: r.id,
       name: r.name,
@@ -76,10 +87,10 @@ export async function fetchRecipes(): Promise<RecipeSummary[]> {
       isSystem: r.user_id === null,
       items,
       perServing: {
-        kcal: total.kcal / porcoes,
-        proteinG: total.proteinG / porcoes,
-        carbsG: total.carbsG / porcoes,
-        fatG: total.fatG / porcoes,
+        kcal: perServing.kcal,
+        proteinG: perServing.proteinG,
+        carbsG: perServing.carbsG,
+        fatG: perServing.fatG,
       },
     };
   });

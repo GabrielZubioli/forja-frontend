@@ -179,7 +179,8 @@ function SemanaCard() {
   }, [today, offset]);
 
   if (routine.isPending) return <Skeleton className="h-64 w-full rounded-[1.5rem]" />;
-  if (!routine.data) return <NoRoutineCard />;
+  // Sem rotina ou com o plano em branco: convite a montar, não "Descanso".
+  if (!routine.data || routine.data.templates.length === 0) return <NoRoutineCard />;
 
   const r = routine.data;
   const entrada = scheduleInputOf(r);
@@ -375,7 +376,10 @@ function DiaEscolhido({
   );
 }
 
-/** A dieta do dia em uma linha: kcal e proteína contra a meta. */
+/**
+ * A dieta do dia em uma linha: kcal e proteína — contra a meta, se a pessoa
+ * definiu uma; sem meta, só o consumido. Dia vazio convida a montar a dieta.
+ */
 function DietaCard({
   kcalTarget,
   proteinTarget,
@@ -417,6 +421,8 @@ function DietaCard({
   const pctProteina =
     proteinTarget > 0 ? Math.min(100, (totais.proteinG / proteinTarget) * 100) : 0;
   const restante = Math.round(kcalTarget - totais.kcal);
+  const semMeta = kcalTarget <= 0;
+  const vazio = !diario.isPending && (diario.data ?? []).length === 0;
 
   return (
     <Link
@@ -439,27 +445,36 @@ function DietaCard({
         <p className="mt-1 text-lg font-extrabold tabular-nums">
           {Math.round(totais.kcal).toLocaleString("pt-BR")}
           <span className="text-sm font-medium text-muted-foreground">
-            {" "}
-            / {Math.round(kcalTarget).toLocaleString("pt-BR")} kcal
+            {semMeta ? " kcal hoje" : ` / ${Math.round(kcalTarget).toLocaleString("pt-BR")} kcal`}
           </span>
         </p>
-        <div className="mt-2">
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Proteína</span>
-            <span className="tabular-nums">
-              {Math.round(totais.proteinG)}/{Math.round(proteinTarget)} g
-            </span>
+        {vazio ? (
+          <p className="mt-1.5 text-pretty text-sm text-muted-foreground">
+            Nada registrado ainda. Monte suas refeições e adicione o que comer.
+          </p>
+        ) : semMeta ? (
+          <p className="mt-1.5 text-sm text-muted-foreground tabular-nums">
+            Proteína: {Math.round(totais.proteinG)} g
+          </p>
+        ) : (
+          <div className="mt-2">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Proteína</span>
+              <span className="tabular-nums">
+                {Math.round(totais.proteinG)}/{Math.round(proteinTarget)} g
+              </span>
+            </div>
+            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
+              <div
+                className="h-full rounded-full transition-[width] duration-700"
+                style={{ width: `${pctProteina}%`, background: MACRO_COLORS.protein }}
+              />
+            </div>
           </div>
-          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
-            <div
-              className="h-full rounded-full transition-[width] duration-700"
-              style={{ width: `${pctProteina}%`, background: MACRO_COLORS.protein }}
-            />
-          </div>
-        </div>
+        )}
         {!diario.isPending && pendentes > 0 && (
           <p className="mt-1.5 text-xs text-muted-foreground">
-            {restante > 0 ? `Faltam ${restante.toLocaleString("pt-BR")} kcal · ` : ""}
+            {!semMeta && restante > 0 ? `Faltam ${restante.toLocaleString("pt-BR")} kcal · ` : ""}
             {pendentes} {pendentes === 1 ? "item" : "itens"} a marcar
           </p>
         )}
@@ -607,9 +622,7 @@ function SequenciaCard() {
         />
         <div className="min-w-0 text-left">
           <p className="text-6xl font-extrabold leading-none tabular-nums">{dias}</p>
-          <p className="mt-1 text-lg font-semibold">
-            {dias === 1 ? "dia seguido" : "dias seguidos"}
-          </p>
+          <p className="text-lg font-semibold">{dias === 1 ? "dia seguido" : "dias seguidos"}</p>
         </div>
       </div>
 

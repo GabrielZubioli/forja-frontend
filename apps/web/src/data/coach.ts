@@ -1,15 +1,13 @@
 import { supabase } from "@/integrations/supabase/client";
 import { num, unwrapList, unwrapMaybe } from "@/data/supabase-helpers";
 import { toISODate, todayISO } from "@/lib/date";
+import { fetchWorkoutWeek } from "@/data/workout-week";
 import { addDays, differenceInCalendarDays } from "date-fns";
 import {
   analyzeAdherence,
-  analyzeEnergyAlignment,
   analyzeStagnation,
   analyzeWeeklyVolume,
-  ema,
   type AdherenceFlag,
-  type EnergyVerdict,
   type ExerciseSessionSummary,
   type VolumeVerdict,
 } from "@forja/domain";
@@ -58,8 +56,9 @@ export async function fetchCoachInsights(): Promise<CoachInsight[]> {
   const hoje = todayISO();
   const desde = toISODate(addDays(new Date(), -LOOKBACK_DAYS));
 
-  const [profile, sessoes, pesos, diasComDiario] = await Promise.all([
+  const [profile, semana, sessoes, pesos, diasComDiario] = await Promise.all([
     fetchProfile(),
+    fetchWorkoutWeek(),
     fetchRecentSessions(desde),
     fetchWeights(desde),
     fetchLoggedDays(toISODate(addDays(new Date(), -7))),
@@ -71,7 +70,12 @@ export async function fetchCoachInsights(): Promise<CoachInsight[]> {
   const ultimaPesagem = pesos.at(-1)?.date;
   const flags = analyzeAdherence({
     workoutsLast7: sessoes.filter((s) => s.date >= toISODate(addDays(new Date(), -7))).length,
-    plannedPerWeek: num(profile?.days_per_week, 3),
+    // O que o plano agenda de fato — plano em branco não cobra treino.
+    plannedPerWeek: !semana?.splits.length
+      ? 0
+      : semana.scheduleMode === "fixed"
+        ? new Set(semana.splits.flatMap((s) => s.weekdays)).size
+        : num(profile?.days_per_week, 3),
     loggedDaysLast7: diasComDiario,
     daysSinceWeighIn: ultimaPesagem
       ? differenceInCalendarDays(new Date(), new Date(`${ultimaPesagem}T12:00:00`))
@@ -79,25 +83,6 @@ export async function fetchCoachInsights(): Promise<CoachInsight[]> {
   });
 
   for (const flag of flags) insights.push(...adherenceToInsight(flag));
-
-  // ------------------------------------------------------- energia vs peso
-  if (pesos.length >= 8) {
-    const serie = pesos.map((p) => p.weightKg);
-    const suavizada = ema(serie, 0.25);
-    const atual = suavizada.at(-1);
-    const anterior = suavizada.length > 7 ? suavizada.at(-8) : undefined;
-
-    if (atual !== undefined && anterior !== undefined) {
-      const veredito = analyzeEnergyAlignment({
-        weeklyWeightChangeKg: atual - anterior,
-        goal: (profile?.goal ?? "maintain") as "lose" | "maintain" | "gain",
-        currentKcalTarget: num(profile?.daily_kcal_target, 2000),
-        loggedDays: pesos.length,
-      });
-      const insight = energyToInsight(veredito);
-      if (insight) insights.push(insight);
-    }
-  }
 
   // ------------------------------------------------- estagnação por exercício
   const porExercicio = groupByExercise(sessoes);
@@ -188,22 +173,6 @@ function adherenceToInsight(flag: AdherenceFlag): CoachInsight[] {
     case "on_track":
       return [];
   }
-}
-
-function energyToInsight(v: EnergyVerdict): CoachInsight | null {
-  if (v.kind === "insufficient_data" || v.kind === "aligned") return null;
-
-  const rapido = v.kind === "too_fast";
-  return {
-    id: "energy:alignment",
-    kind: "diet_adjust",
-    severity: rapido ? 2 : 1,
-    title: rapido ? "Seu ritmo está acelerado demais" : "O peso não está respondendo",
-    body: rapido
-      ? `Você está a ${Math.abs(v.observedKgPerWeek).toFixed(2)} kg por semana. Nesse ritmo, parte do que sai é músculo. Sugerimos ${v.suggestedKcal.toLocaleString("pt-BR")} kcal por dia.`
-      : `A tendência está em ${v.observedKgPerWeek > 0 ? "+" : ""}${v.observedKgPerWeek.toFixed(2)} kg por semana, longe do esperado. Sugerimos ${v.suggestedKcal.toLocaleString("pt-BR")} kcal por dia.`,
-    action: { label: "Ajustar metas", to: "/settings" },
-  };
 }
 
 function volumeToInsight(v: VolumeVerdict): CoachInsight | null {

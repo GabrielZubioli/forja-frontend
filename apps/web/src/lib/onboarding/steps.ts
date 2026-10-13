@@ -11,8 +11,11 @@ import type { Answers } from "./schema";
  * Abrir pedindo o peso é a forma mais rápida de perder alguém logo na primeira
  * tela.
  *
- * As de alimentação vêm por último porque são as mais longas de responder, e a
- * essa altura o usuário já sabe que está montando algo para si.
+ * Só uma pergunta de alimentação — quantas refeições —, que vira a estrutura
+ * vazia da dieta. O app não prescreve dieta, então não pergunta o resto.
+ *
+ * O último passo mostra o plano de treino sugerido e a escolha entre segui-lo
+ * ou montar o próprio.
  *
  * ## Por que declarativo
  *
@@ -57,14 +60,9 @@ export const STEPS = [
   { id: "workoutTime" },
   { id: "focus", autoAdvance: true },
   { id: "injuries" },
-  { id: "routine" },
   { id: "mealsPerDay", autoAdvance: true },
-  { id: "diets" },
-  { id: "allergies" },
-  { id: "likedFoods" },
-  { id: "dislikedFoods" },
-  { id: "cooking", autoAdvance: true },
   { id: "review" },
+  { id: "plan" },
 ] as const satisfies readonly StepDef[];
 
 export type StepId = (typeof STEPS)[number]["id"];

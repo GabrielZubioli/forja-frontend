@@ -1,4 +1,8 @@
-import { foodRole, type FoodCandidate, type FoodRole } from "./food-catalog";
+import type { FoodProfile } from "./curated-foods";
+import { culinaryRolesOf, type FoodCandidate } from "./food-catalog";
+
+/** Candidato com perfil curado opcional (o que vem do catálogo prescritível). */
+type Food = FoodCandidate & { profile?: FoodProfile };
 
 /**
  * Substituições de alimento.
@@ -123,26 +127,39 @@ function rankKey(sub: Substitution, preferidos: ReadonlySet<string>): number {
   return tier * 1000 + sub.distance - (sub.food.popularity / 100) * 0.05;
 }
 
-/** Arredonda para uma quantidade que dá para executar na cozinha. */
-function usableGrams(grams: number, role: FoodRole): number {
-  const step = role === "fat" ? 1 : 5;
-  const max = role === "fat" ? 100 : 600;
+/**
+ * Arredonda para uma quantidade que dá para executar na cozinha — e, com
+ * perfil curado, que caiba na porção plausível do substituto. Trocar 150 g de
+ * frango por "600 g de ovo" atende o macro e não é uma refeição.
+ */
+function usableGrams(grams: number, food: Food): number {
+  if (food.profile) {
+    const { min, max, step } = food.profile.portion;
+    const g = Math.round(Math.min(max, Math.max(min, grams)) / step) * step;
+    return Math.min(max, Math.max(min, g));
+  }
+  const fat = food.category === "fat";
+  const step = fat ? 1 : 5;
+  const max = fat ? 100 : 600;
   return Math.max(step, Math.min(max, Math.round(grams / step) * step));
 }
 
 /**
  * Substitutos para um alimento numa dada quantidade, do mais próximo ao mais
  * distante.
+ *
+ * O pool já deve vir filtrado pelas alergias e dieta da pessoa
+ * (`safePool`): esta função compara papel e macros, não segurança.
  */
 export function findSubstitutions(
-  original: FoodCandidate,
+  original: Food,
   originalGrams: number,
-  pool: readonly FoodCandidate[],
+  pool: readonly Food[],
   options: SubstitutionOptions = {},
 ): Substitution[] {
   const { limit = 8, preferredIds = [], sameRoleOnly = true } = options;
 
-  const alvoRole = foodRole(original);
+  const alvoRoles = culinaryRolesOf(original);
   const alvoMacros = macrosAt(original, originalGrams);
   const dominante = dominantMacro(original);
   const alvoDominante = dominante.per100 * (originalGrams / 100);
@@ -152,7 +169,7 @@ export function findSubstitutions(
   return (
     pool
       .filter((f) => f.id !== original.id)
-      .filter((f) => !sameRoleOnly || foodRole(f) === alvoRole)
+      .filter((f) => !sameRoleOnly || culinaryRolesOf(f).some((r) => alvoRoles.includes(r)))
       .map((f) => {
         const per100 = f[dominante.key];
 
@@ -161,8 +178,8 @@ export function findSubstitutions(
         // "substituição" que muda tudo.
         const grams =
           per100 > 0.5
-            ? usableGrams((alvoDominante / per100) * 100, alvoRole)
-            : usableGrams(originalGrams, alvoRole);
+            ? usableGrams((alvoDominante / per100) * 100, f)
+            : usableGrams(originalGrams, f);
 
         const macros = macrosAt(f, grams);
         const distance = macroDistance(alvoMacros, macros);

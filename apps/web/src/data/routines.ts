@@ -622,51 +622,60 @@ export async function fetchActiveRoutine(): Promise<ActiveRoutine | null> {
 }
 
 /**
- * A rotina ativa, **existindo e com exercícios**.
+ * Ativa o plano de treino **sugerido** a partir das respostas do questionário.
  *
- * Contraparte de `ensureActiveMealPlan` para o treino, e pelo mesmo motivo: a
- * geração inicial roda uma vez e pode falhar sem que o usuário tenha como
- * refazê-la. O sintoma era a tela de Treino anunciar "Esta divisão está vazia"
- * — texto correto e completamente inútil, porque não havia ação possível.
+ * Só roda por escolha da pessoa — no fim do questionário ou em "Usar o plano
+ * sugerido" na tela Plano —, nunca sozinho: um plano vazio pode ser
+ * exatamente o que ela quer. A rotina anterior é arquivada, não apagada; os
+ * treinos feitos com ela continuam no histórico.
  *
- * Com as respostas do questionário no banco, a rotina se remonta sozinha.
+ * `draft`: o rascunho já mostrado na prévia, para salvar exatamente o que foi
+ * aceito. Sem ele, monta de novo a partir das mesmas respostas.
  */
-export async function ensureActiveRoutine(
+export async function saveSuggestedRoutine(
   userId: string,
-  options: { force?: boolean } = {},
-): Promise<ActiveRoutine | null> {
-  const atual = await fetchActiveRoutine();
-  if (!options.force && atual && rotinaUtilizavel(atual)) return atual;
-
+  draft: RoutineDraft | null = null,
+): Promise<string> {
   const { answers, objectiveLabel, weekdays } = await loadPlanningInputs(userId);
   const planInput = trainingPlanInput(answers);
 
-  const draft = await buildRoutineDraft(planInput, {
-    injuries: answers.injuries,
-    equipmentAvailable: answers.equipment,
-  });
+  const rascunho =
+    draft ??
+    (await buildRoutineDraft(planInput, {
+      injuries: answers.injuries,
+      equipmentAvailable: answers.equipment,
+    }));
 
-  const preenchidos = draft.splits.reduce((n, s) => n + s.items.length, 0);
+  const preenchidos = rascunho.splits.reduce((n, s) => n + s.items.length, 0);
   if (preenchidos === 0) {
     throw new Error(
       "O catálogo de exercícios está indisponível no momento. Tente novamente em instantes.",
     );
   }
 
-  await createRoutine(
+  return createRoutine(
     userId,
     planInput,
-    draft,
+    rascunho,
     `${objectiveLabel} · ${planInput.daysPerWeek}× por semana`,
     weekdays,
   );
-
-  return fetchActiveRoutine();
 }
 
-/** Uma rotina vale se tem divisões e nenhuma delas está vazia. */
-function rotinaUtilizavel(routine: ActiveRoutine): boolean {
-  return routine.templates.length > 0 && routine.templates.every((t) => t.exerciseCount > 0);
+/**
+ * Plano próprio, do zero: uma rotina ativa **sem** divisões, dias ou
+ * exercícios — a pessoa monta tudo. A anterior é arquivada, não apagada.
+ */
+export async function createEmptyRoutine(userId: string): Promise<string> {
+  const { answers } = await loadPlanningInputs(userId);
+  const planInput = trainingPlanInput(answers);
+  return createRoutine(
+    userId,
+    planInput,
+    { plan: generatePlan(planInput), splits: [] },
+    "Meu plano",
+    [],
+  );
 }
 
 /**

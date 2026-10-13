@@ -39,7 +39,6 @@ import {
 import { ErrorState } from "@/components/query-boundary";
 import { ACTIVITY_HINTS, ACTIVITY_LABELS, GOAL_LABELS, SEX_LABELS, label } from "@/lib/labels";
 import { weightJourney } from "@/lib/weight-journey";
-import { targetsFor, type ProfileBody } from "@/lib/profile-targets";
 import { formatDate, todayISO } from "@/lib/date";
 import { cn } from "@/lib/utils";
 
@@ -48,8 +47,8 @@ import { cn } from "@/lib/utils";
  *
  * Uma faixa no topo com a foto (toque para trocar), o nome e o objetivo; os
  * dados pessoais embaixo, em blocos. Cada bloco é editável ali mesmo: toque,
- * ajuste, salve. Os dados que entram na conta das metas (sexo, nascimento,
- * altura, atividade, objetivo) recalculam calorias e macros ao salvar.
+ * ajuste, salve. As metas nutricionais não são calculadas a partir daqui: são
+ * manuais e opcionais, em Configurações.
  */
 export const Route = createFileRoute("/_authenticated/profile")({
   head: () => ({
@@ -227,7 +226,7 @@ function ProfilePage() {
           </div>
         )}
 
-        {/* Metas atuais, para ver o efeito de uma edição. */}
+        {/* Metas definidas pela pessoa (manuais), quando houver. */}
         {p?.daily_kcal_target != null && (
           <Link
             to="/settings"
@@ -309,13 +308,7 @@ function ProfilePage() {
       </div>
 
       {p && editando && (
-        <EditarCampo
-          key={editando}
-          campo={editando}
-          perfil={p}
-          pesoKg={peso}
-          onClose={() => setEditando(null)}
-        />
+        <EditarCampo key={editando} campo={editando} perfil={p} onClose={() => setEditando(null)} />
       )}
     </div>
   );
@@ -335,18 +328,13 @@ const TITULOS: Record<Campo, { titulo: string; dica?: string }> = {
   activity_level: { titulo: "Nível de atividade", dica: "Quanto você se movimenta na semana." },
 };
 
-/** Campos que mudam a conta das metas. */
-const RECALCULA: Campo[] = ["sex", "birth_date", "height_cm", "goal", "activity_level"];
-
 function EditarCampo({
   campo,
   perfil,
-  pesoKg,
   onClose,
 }: {
   campo: Campo;
   perfil: Perfil;
-  pesoKg: number | null;
   onClose: () => void;
 }) {
   const qc = useQueryClient();
@@ -361,40 +349,10 @@ function EditarCampo({
       const novo = converter(campo, valor);
       const patch: TablesUpdate<"profiles"> = { [campo]: novo };
 
-      let recalculou = false;
-      if (RECALCULA.includes(campo)) {
-        const corpo: ProfileBody = {
-          sex: (campo === "sex" ? novo : (perfil.sex ?? "other")) as ProfileBody["sex"],
-          birthDate: (campo === "birth_date" ? novo : perfil.birth_date) as string | null,
-          heightCm:
-            campo === "height_cm"
-              ? (novo as number)
-              : perfil.height_cm
-                ? num(perfil.height_cm)
-                : null,
-          activityLevel: (campo === "activity_level"
-            ? novo
-            : (perfil.activity_level ?? "moderate")) as ProfileBody["activityLevel"],
-          goal: (campo === "goal" ? novo : (perfil.goal ?? "maintain")) as ProfileBody["goal"],
-        };
-        const t = targetsFor(corpo, pesoKg);
-        if (t) {
-          Object.assign(patch, {
-            daily_kcal_target: t.kcal,
-            protein_g_target: t.protein_g,
-            carbs_g_target: t.carbs_g,
-            fat_g_target: t.fat_g,
-            fiber_g_target: t.fiber_g,
-          });
-          recalculou = true;
-        }
-      }
-
       assertOk("salvar perfil", await supabase.from("profiles").update(patch).eq("id", perfil.id));
-      return recalculou;
     },
-    onSuccess: (recalculou) => {
-      toast.success(recalculou ? "Salvo — metas recalculadas" : "Salvo");
+    onSuccess: () => {
+      toast.success("Salvo");
       void qc.invalidateQueries({ queryKey: queryKeys.profile() });
       onClose();
     },
@@ -466,13 +424,6 @@ function EditarCampo({
           )}
 
           {erro && valor !== "" && <p className="text-sm text-destructive">{erro}</p>}
-          {RECALCULA.includes(campo) && (
-            <p className="text-sm text-muted-foreground">
-              {pesoKg
-                ? "Suas metas de calorias e macros serão recalculadas."
-                : "Registre seu peso no Corpo para as metas serem recalculadas."}
-            </p>
-          )}
 
           <div className="flex gap-2">
             <Button type="button" variant="outline" className="h-12 flex-1" onClick={onClose}>

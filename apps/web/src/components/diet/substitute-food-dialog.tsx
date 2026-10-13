@@ -1,8 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { num, unwrapList } from "@/data/supabase-helpers";
+import { fetchCuratedFoods, fetchDietaryRestrictions } from "@/data/meal-plans";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import {
   ResultList,
@@ -12,7 +11,12 @@ import {
   SearchDialogContent,
 } from "@/components/pickers/search-dialog";
 import { queryKeys } from "@/data/query-keys";
-import { describeSubstitution, findSubstitutions, type FoodCandidate } from "@forja/domain";
+import {
+  describeSubstitution,
+  findSubstitutions,
+  safePool,
+  type FoodCandidate,
+} from "@forja/domain";
 
 /**
  * Substituição de alimento.
@@ -32,25 +36,6 @@ import { describeSubstitution, findSubstitutions, type FoodCandidate } from "@fo
  * macro dominante, e a diferença que sobra aparece explicitamente — porque
  * existe, e esconder isso seria mentir sobre o que a troca custa.
  */
-/**
- * Categorias que competem pelo mesmo lugar no prato.
- *
- * Grupos, não sinônimos: dentro de cada um, o domínio ainda exige papel
- * nutricional compatível e proximidade de macros. Isto só define o universo em
- * que vale a pena procurar.
- */
-const GRUPOS: readonly (readonly FoodCandidate["category"][])[] = [
-  ["protein_meat", "protein_egg", "dairy", "supplement", "legume"],
-  ["grain", "tuber", "legume", "prepared", "sweet"],
-  ["fat", "condiment"],
-  ["vegetable", "fruit"],
-];
-
-function vizinhas(category: FoodCandidate["category"]): FoodCandidate["category"][] {
-  const grupo = GRUPOS.find((g) => g.includes(category));
-  return grupo ? [...grupo] : [category];
-}
-
 export function SubstituteFoodDialog({
   trigger,
   food,
@@ -67,45 +52,30 @@ export function SubstituteFoodDialog({
   const [open, setOpen] = useState(false);
   const [applying, setApplying] = useState<string | null>(null);
 
+  /**
+   * Alternativas: só o catálogo curado, já sem o que as alergias, a dieta e o
+   * "não gosto" da pessoa excluem. Antes a busca era por categoria no banco
+   * inteiro, sem filtro nenhum — quem tem alergia a amendoim podia receber
+   * pasta de amendoim como "equivalente".
+   */
   const pool = useQuery({
     queryKey: queryKeys.diet.substitutions(food.id),
     enabled: open,
     queryFn: async () => {
-      const rows = unwrapList(
-        "carregar alternativas",
-        await supabase
-          .from("foods")
-          .select("id, name, category, kcal, protein_g, carbs_g, fat_g, fiber_g, popularity")
-          .is("deleted_at", null)
-          // Categorias vizinhas, não a mesma categoria.
-          //
-          // Restringir a `category` idêntica dava um resultado tecnicamente
-          // correto e praticamente inútil: frango (`protein_meat`) nunca
-          // sugeria ovo (`protein_egg`) nem whey (`supplement`), que são as
-          // trocas que as pessoas de fato fazem. O que impede "substituir arroz
-          // por azeite" é o papel nutricional, e disso o domínio já cuida em
-          // `findSubstitutions` — a consulta só precisa não esconder os
-          // candidatos.
-          .in("category", vizinhas(food.category) as never[])
-          .order("popularity", { ascending: false })
-          .limit(200),
-      );
-
-      return rows.map((r): FoodCandidate => ({
-        id: r.id,
-        name: r.name,
-        category: (r.category ?? "other") as FoodCandidate["category"],
-        kcal: num(r.kcal),
-        proteinG: num(r.protein_g),
-        carbsG: num(r.carbs_g),
-        fatG: num(r.fat_g),
-        fiberG: num(r.fiber_g),
-        popularity: num(r.popularity, 50),
-      }));
+      const [catalogo, restricoes] = await Promise.all([
+        fetchCuratedFoods(),
+        fetchDietaryRestrictions(),
+      ]);
+      return { seguros: safePool(catalogo, restricoes), catalogo };
     },
   });
 
-  const opcoes = pool.data ? findSubstitutions(food, grams, pool.data, { preferredIds }) : [];
+  // Com perfil curado, o original troca só dentro do mesmo papel culinário
+  // (arroz por batata, não por pão) e o substituto respeita a porção dele.
+  const original = pool.data?.catalogo.find((f) => f.id === food.id) ?? food;
+  const opcoes = pool.data
+    ? findSubstitutions(original, grams, pool.data.seguros, { preferredIds })
+    : [];
 
   const aplicar = async (substituto: FoodCandidate, novasGramas: number) => {
     setApplying(substituto.id);
