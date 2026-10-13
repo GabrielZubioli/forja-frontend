@@ -239,17 +239,17 @@ function SemanaCard() {
                 aria-pressed={dia === selecionado}
                 className="flex w-full flex-col items-center gap-1"
               >
-              <span className="text-sm text-muted-foreground">{INICIAIS[weekdayOf(dia)]}</span>
-              <span
-                className={cn(
-                  "grid size-11 place-items-center rounded-full text-xl tabular-nums transition-colors",
-                  eHoje && "bg-primary font-extrabold text-primary-foreground",
-                  !eHoje && dia === selecionado && "bg-elevated font-bold ring-2 ring-primary",
-                )}
-                aria-current={eHoje ? "date" : undefined}
-              >
-                {Number(dia.slice(8))}
-              </span>
+                <span className="text-sm text-muted-foreground">{INICIAIS[weekdayOf(dia)]}</span>
+                <span
+                  className={cn(
+                    "grid size-11 place-items-center rounded-full text-xl tabular-nums transition-colors",
+                    eHoje && "bg-primary font-extrabold text-primary-foreground",
+                    !eHoje && dia === selecionado && "bg-elevated font-bold ring-2 ring-primary",
+                  )}
+                  aria-current={eHoje ? "date" : undefined}
+                >
+                  {Number(dia.slice(8))}
+                </span>
               </button>
             </li>
           );
@@ -267,44 +267,44 @@ function SemanaCard() {
           })()}
         />
       ) : (
-      <div className="mt-4 flex items-center gap-4 rounded-2xl bg-elevated p-4">
-        <span
-          className={cn(
-            "grid size-12 shrink-0 place-items-center rounded-xl",
-            isPlannedDay && !alreadyDone
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-muted-foreground",
-          )}
-        >
-          {isPlannedDay ? (
-            <Dumbbell className="size-6" aria-hidden />
-          ) : (
-            <Moon className="size-6" aria-hidden />
-          )}
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm uppercase tracking-wide text-muted-foreground">Hoje</p>
-          <p className="truncate text-xl">
-            {alreadyDone
-              ? "Treino concluído"
-              : isPlannedDay && template
-                ? template.name.replace(/^[A-Z]\s*—\s*/, "")
-                : proximo
-                  ? `Descanso · ${WEEKDAY_LABELS[proximo.weekday].toLowerCase()} tem treino`
-                  : "Descanso"}
-          </p>
-        </div>
-        {template && !alreadyDone && (
-          <button
-            type="button"
-            onClick={() => comecar.mutate(template.id)}
-            disabled={comecar.isPending}
-            className="shrink-0 rounded-xl bg-primary-soft px-4 py-2 text-lg font-medium text-primary-soft-foreground disabled:opacity-60"
+        <div className="mt-4 flex items-center gap-4 rounded-2xl bg-elevated p-4">
+          <span
+            className={cn(
+              "grid size-12 shrink-0 place-items-center rounded-xl",
+              isPlannedDay && !alreadyDone
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground",
+            )}
           >
-            {isPlannedDay ? "Começar" : "Treinar"}
-          </button>
-        )}
-      </div>
+            {isPlannedDay ? (
+              <Dumbbell className="size-6" aria-hidden />
+            ) : (
+              <Moon className="size-6" aria-hidden />
+            )}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm uppercase tracking-wide text-muted-foreground">Hoje</p>
+            <p className="truncate text-xl">
+              {alreadyDone
+                ? "Treino concluído"
+                : isPlannedDay && template
+                  ? template.name.replace(/^[A-Z]\s*—\s*/, "")
+                  : proximo
+                    ? `Descanso · ${WEEKDAY_LABELS[proximo.weekday].toLowerCase()} tem treino`
+                    : "Descanso"}
+            </p>
+          </div>
+          {template && !alreadyDone && (
+            <button
+              type="button"
+              onClick={() => comecar.mutate(template.id)}
+              disabled={comecar.isPending}
+              className="shrink-0 rounded-xl bg-primary-soft px-4 py-2 text-lg font-medium text-primary-soft-foreground disabled:opacity-60"
+            >
+              {isPlannedDay ? "Começar" : "Treinar"}
+            </button>
+          )}
+        </div>
       )}
     </section>
   );
@@ -341,7 +341,9 @@ function DiaEscolhido({
                   <Check className="size-5" strokeWidth={3} aria-hidden />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-lg">{w.name.replace(/^[A-Z]\s*—\s*/, "")}</span>
+                  <span className="block truncate text-lg">
+                    {w.name.replace(/^[A-Z]\s*—\s*/, "")}
+                  </span>
                   <span className="block text-sm text-muted-foreground">Treino concluído</span>
                 </span>
                 <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden />
@@ -412,7 +414,8 @@ function DietaCard({
   const pendentes = (diario.data ?? []).filter((e) => !e.consumed).length;
   const pct = kcalTarget > 0 ? Math.min(100, (totais.kcal / kcalTarget) * 100) : 0;
 
-  const pctProteina = proteinTarget > 0 ? Math.min(100, (totais.proteinG / proteinTarget) * 100) : 0;
+  const pctProteina =
+    proteinTarget > 0 ? Math.min(100, (totais.proteinG / proteinTarget) * 100) : 0;
   const restante = Math.round(kcalTarget - totais.kcal);
 
   return (
@@ -592,8 +595,8 @@ function SequenciaCard() {
       aria-label={`${dias} ${dias === 1 ? "dia seguido" : "dias seguidos"} de treino. Ver calendário`}
     >
       <CalendarDays className="absolute right-4 top-4 size-5 text-muted-foreground" aria-hidden />
-      {/* Fogo à esquerda, número e legenda à direita, alinhados pelo meio. */}
-      <div className="flex items-center justify-center">
+      {/* Fogo e, ao lado, número e legenda — alinhados à esquerda do card. */}
+      <div className="flex items-center">
         <Flame
           className={cn(
             "size-20 shrink-0 transition-colors duration-500",
@@ -604,7 +607,9 @@ function SequenciaCard() {
         />
         <div className="min-w-0 text-left">
           <p className="text-6xl font-extrabold leading-none tabular-nums">{dias}</p>
-          <p className="mt-1 text-lg font-semibold">{dias === 1 ? "dia seguido" : "dias seguidos"}</p>
+          <p className="mt-1 text-lg font-semibold">
+            {dias === 1 ? "dia seguido" : "dias seguidos"}
+          </p>
         </div>
       </div>
 
@@ -619,7 +624,12 @@ function SequenciaCard() {
                 d === today && !treinou.has(d) && "ring-1 ring-[#FF7A1F]/60",
               )}
             />
-            <span className={cn("text-[10px] font-bold", d === today ? "text-foreground" : "text-muted-foreground")}>
+            <span
+              className={cn(
+                "text-[10px] font-bold",
+                d === today ? "text-foreground" : "text-muted-foreground",
+              )}
+            >
               {INICIAIS[weekdayOf(d)].charAt(0)}
             </span>
           </span>

@@ -434,6 +434,15 @@
     overscroll-behavior-x: none;
   }
 
+  /* Menus e diálogos travam a rolagem com overflow: hidden no body. Com o
+     html já recortado, isso transformava o body num contêiner de rolagem e o
+     header fixo (sticky) sumia ao abrir um menu. A trava continua — ela também
+     bloqueia o toque e a roda do mouse —, só sem mexer no overflow. */
+  body[data-scroll-locked] {
+    overflow-x: clip !important;
+    overflow-y: visible !important;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);

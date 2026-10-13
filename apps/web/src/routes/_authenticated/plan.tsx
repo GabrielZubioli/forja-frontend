@@ -2,12 +2,13 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight, Pencil, Play, Plus, Wand2, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, Play, Plus, Trash2, Wand2, X } from "lucide-react";
 import { TRAINING_PROGRAMS, WEEKDAY_LABELS, weekdayOf, type Weekday } from "@forja/domain";
 import { queryKeys } from "@/data/query-keys";
 import { errorMessage } from "@/data/supabase-helpers";
 import {
   createTemplate,
+  deleteTemplate,
   ensureActiveRoutine,
   renameRoutine,
   renameTemplate,
@@ -114,6 +115,18 @@ function PlanPage() {
     setIniciar({ templateId, nome: s ? splitDisplayName(s.name) : "este treino" });
   };
 
+  /** Rotina com a exclusão pedida, aguardando confirmação. */
+  const [excluindo, setExcluindo] = useState<{ templateId: string; nome: string } | null>(null);
+  const excluir = useMutation({
+    mutationFn: (templateId: string) => deleteTemplate(templateId),
+    onSuccess: () => {
+      setAberta(null);
+      toast.success("Rotina excluída");
+      void invalidar();
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+
   const salvar = useMutation({
     mutationFn: (acao: () => Promise<void>) => acao(),
     onSuccess: () => void invalidar(),
@@ -195,10 +208,7 @@ function PlanPage() {
             </p>
 
             <h2 className="mb-3 mt-5 flex items-center gap-2 px-1 text-lg font-bold">
-              <span
-                className="h-5 w-1.5 rounded-full bg-primary"
-                aria-hidden
-              />
+              <span className="h-5 w-1.5 rounded-full bg-primary" aria-hidden />
               Agenda da semana
             </h2>
             <ul className="space-y-3">
@@ -328,6 +338,23 @@ function PlanPage() {
                             </Button>
                           }
                         />
+                        {/* A última rotina fica: um plano sem nenhuma seria remontado
+                            do zero a partir do questionário. */}
+                        {dados.splits.length > 1 && (
+                          <Button
+                            variant="ghost"
+                            className="mt-1 w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            onClick={() =>
+                              setExcluindo({
+                                templateId: split.templateId,
+                                nome: splitDisplayName(split.name),
+                              })
+                            }
+                          >
+                            <Trash2 className="mr-1.5 size-4" aria-hidden />
+                            Excluir rotina
+                          </Button>
+                        )}
                       </div>
                     )}
                   </li>
@@ -388,9 +415,25 @@ function PlanPage() {
         open={iniciar !== null}
         onOpenChange={(o) => !o && setIniciar(null)}
         title="Deseja iniciar esse treino?"
-        description={iniciar ? `${iniciar.nome} começa agora e o cronômetro passa a contar.` : undefined}
+        description={
+          iniciar ? `${iniciar.nome} começa agora e o cronômetro passa a contar.` : undefined
+        }
         confirmLabel="Iniciar treino"
         onConfirm={() => iniciar && abrir.mutate(iniciar.templateId)}
+      />
+
+      <ConfirmDialog
+        open={excluindo !== null}
+        onOpenChange={(o) => !o && setExcluindo(null)}
+        title="Excluir esta rotina?"
+        description={
+          excluindo
+            ? `“${excluindo.nome}” sai do plano e dos dias da semana. Os treinos que você já fez com ela continuam no histórico.`
+            : undefined
+        }
+        confirmLabel="Excluir rotina"
+        destructive
+        onConfirm={() => excluindo && excluir.mutate(excluindo.templateId)}
       />
 
       <NomeDialog
@@ -455,12 +498,12 @@ function DiaFixo({
     </DropdownMenu>
   );
 
+  // Dia livre: o card é só informação; vincular uma rotina é no botão "+".
   if (doDia.length === 0) {
-    return adicionar(
-      <button
-        type="button"
+    return (
+      <div
         className={cn(
-          "flex w-full items-center gap-3 rounded-[1.25rem] border border-dashed px-5 py-5 text-left transition-colors hover:bg-elevated",
+          "flex w-full items-center gap-3 rounded-[1.25rem] border border-dashed py-3 pl-5 pr-3",
           isToday ? "border-primary bg-primary/10" : "border-border bg-card/60",
         )}
       >
@@ -475,8 +518,16 @@ function DiaFixo({
         <span className="rounded-full bg-elevated px-3 py-1 text-sm font-medium text-muted-foreground">
           Descanso
         </span>
-        <ChevronRight className="size-5 text-muted-foreground" aria-hidden />
-      </button>,
+        {adicionar(
+          <button
+            type="button"
+            aria-label={`Vincular uma rotina a ${WEEKDAY_LABELS[dia].toLowerCase()}`}
+            className="grid size-11 shrink-0 place-items-center rounded-full bg-primary/15 text-primary transition-colors hover:bg-primary/25"
+          >
+            <Plus className="size-5" aria-hidden />
+          </button>,
+        )}
+      </div>
     );
   }
 
@@ -484,9 +535,7 @@ function DiaFixo({
     <div
       className={cn(
         "relative overflow-hidden rounded-[1.25rem] p-5",
-        isToday
-          ? "border-2 border-primary bg-card"
-          : "border border-primary/15 bg-card",
+        isToday ? "border-2 border-primary bg-card" : "border border-primary/15 bg-card",
       )}
     >
       <div className="relative mb-2 flex items-baseline justify-between">

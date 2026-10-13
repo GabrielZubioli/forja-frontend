@@ -478,6 +478,21 @@ export async function setTemplateWeekdays(templateId: string, weekdays: number[]
   );
 }
 
+/**
+ * Exclui uma rotina do plano. Exclusão lógica: os treinos já feitos com ela
+ * continuam no histórico. Solta a letra e os dias para uma rotina nova poder
+ * usá-los.
+ */
+export async function deleteTemplate(templateId: string) {
+  assertOk(
+    "excluir a rotina",
+    await supabase
+      .from("workout_templates")
+      .update({ deleted_at: new Date().toISOString(), routine_letter: null, weekdays: [] })
+      .eq("id", templateId),
+  );
+}
+
 /** Nome exibido de uma divisão, sem o prefixo "A — ". */
 export function splitDisplayName(name: string): string {
   return name.replace(/^[A-Z]\s*—\s*/, "");
