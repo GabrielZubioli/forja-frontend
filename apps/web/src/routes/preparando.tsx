@@ -217,12 +217,6 @@ function Building({ stage }: { stage: GenerationStage }) {
             style={{ transition: "stroke-dashoffset 900ms cubic-bezier(0.22, 1, 0.36, 1)" }}
           />
         </svg>
-        {/* Um ponto que corre o anel enquanto monta. */}
-        {!pronto && (
-          <div className="animate-orbit absolute inset-0" aria-hidden>
-            <span className="absolute left-1/2 top-[8px] size-3 -translate-x-1/2 rounded-full bg-primary shadow-[0_0_12px_var(--primary)]" />
-          </div>
-        )}
         <div className="absolute inset-0 grid place-items-center">
           {pronto ? (
             <span className="animate-pop grid size-24 place-items-center rounded-full bg-primary text-primary-foreground">

@@ -663,8 +663,8 @@
     animation: forja-pop var(--duration-slow) var(--ease-spring) both;
   }
 
-  /* Montagem do plano: o símbolo flutua, o brilho atrás respira e um ponto
-     orbita o anel de progresso. Movimento contínuo e lento — é uma espera
+  /* Montagem do plano: o símbolo flutua, o brilho atrás respira e o anel
+     de progresso avança. Movimento contínuo e lento — é uma espera
      curta, e o que precisa chamar atenção é a etapa escrita embaixo. */
   @keyframes hf-float {
     50% {
@@ -679,22 +679,12 @@
     }
   }
 
-  @keyframes hf-orbit {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
   .animate-float {
     animation: hf-float 2.6s ease-in-out infinite;
   }
 
   .animate-breathe {
     animation: hf-breathe 2.6s ease-in-out infinite;
-  }
-
-  .animate-orbit {
-    animation: hf-orbit 3.2s linear infinite;
   }
 
   /* Botão Treinar: o braço verde (a tela) sobe com o punho na ponta. Sai de
@@ -779,7 +769,6 @@
     .hf-halo,
     .animate-float,
     .animate-breathe,
-    .animate-orbit,
     .hf-pulso {
       animation: none;
     }

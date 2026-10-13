@@ -1,19 +1,16 @@
 import { useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { num, unwrapList } from "@/data/supabase-helpers";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+  ResultList,
+  ResultRow,
+  ResultsEmpty,
+  ResultsLoading,
+  SearchDialogContent,
+} from "@/components/pickers/search-dialog";
 import { queryKeys } from "@/data/query-keys";
 import { describeSubstitution, findSubstitutions, type FoodCandidate } from "@forja/domain";
 
@@ -123,94 +120,66 @@ export function SubstituteFoodDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Substituir {food.name}</DialogTitle>
-          <DialogDescription>
-            As quantidades já vêm ajustadas para manter o valor nutricional da refeição.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="max-h-[60vh] overflow-y-auto">
-          {pool.isPending ? (
-            <div className="space-y-2">
-              {[0, 1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-16 w-full rounded-xl" />
-              ))}
-            </div>
-          ) : opcoes.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              Não encontramos alternativas equivalentes para este alimento.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {opcoes.map((sub) => {
-                const proximo = sub.distance < 0.25;
-                return (
-                  <li key={sub.food.id}>
-                    <button
-                      type="button"
-                      onClick={() => void aplicar(sub.food, sub.grams)}
-                      disabled={applying !== null}
-                      className={cn(
-                        "flex w-full items-center gap-3 rounded-xl border-2 p-3 text-left transition-colors",
-                        "hover:border-primary/40 hover:bg-accent/50 disabled:opacity-60",
-                        proximo ? "border-primary/25" : "border-border",
-                      )}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium">{sub.food.name}</p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          {describeSubstitution(sub)}
-                        </p>
-
-                        {/* O custo da troca, em números. Um "equivalente" que
-                            some 15 g de gordura precisa dizer isso. */}
-                        <div className="mt-1.5 flex flex-wrap gap-1">
-                          {(
-                            [
-                              ["kcal", sub.delta.kcal, ""],
-                              ["P", sub.delta.proteinG, "g"],
-                              ["C", sub.delta.carbsG, "g"],
-                              ["G", sub.delta.fatG, "g"],
-                            ] as const
-                          )
-                            .filter(([, v]) => Math.abs(v) >= 1)
-                            .map(([nome, valor, unidade]) => (
-                              <Badge
-                                key={nome}
-                                variant="outline"
-                                className="px-1.5 py-0 text-[10px] font-normal tabular-nums"
-                              >
-                                {nome} {valor > 0 ? "+" : ""}
-                                {valor}
-                                {unidade}
-                              </Badge>
-                            ))}
-                        </div>
-                      </div>
-
-                      <div className="shrink-0 text-right">
-                        <p className="flex items-center gap-1 text-sm font-semibold tabular-nums">
-                          {applying === sub.food.id ? (
-                            <Loader2 className="size-4 animate-spin" />
-                          ) : (
-                            <ArrowRight className="size-3.5 text-muted-foreground" aria-hidden />
-                          )}
-                          {sub.grams} g
-                        </p>
-                        <p className="text-[11px] text-muted-foreground">
-                          era {Math.round(grams)} g
-                        </p>
-                      </div>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-      </DialogContent>
+      <SearchDialogContent
+        title="Substituir alimento"
+        description={
+          <>
+            Trocando <b className="font-semibold text-foreground">{food.name}</b> (
+            {Math.round(grams)} g). As quantidades já vêm ajustadas para manter o valor nutricional
+            da refeição.
+          </>
+        }
+      >
+        {pool.isPending ? (
+          <ResultsLoading />
+        ) : opcoes.length === 0 ? (
+          <ResultsEmpty>Não encontramos alternativas equivalentes para este alimento.</ResultsEmpty>
+        ) : (
+          <ResultList>
+            {opcoes.map((sub) => (
+              <li key={sub.food.id}>
+                <ResultRow
+                  title={sub.food.name}
+                  detail={describeSubstitution(sub)}
+                  highlight={sub.distance < 0.25}
+                  disabled={applying !== null}
+                  onClick={() => void aplicar(sub.food, sub.grams)}
+                  aside={
+                    <span className="flex items-center gap-1 text-base font-bold tabular-nums">
+                      {applying === sub.food.id && <Loader2 className="size-4 animate-spin" />}
+                      {sub.grams} g
+                    </span>
+                  }
+                >
+                  {/* O custo da troca, em números. Um "equivalente" que some
+                      15 g de gordura precisa dizer isso. */}
+                  <span className="mt-1.5 flex flex-wrap gap-1">
+                    {(
+                      [
+                        ["kcal", sub.delta.kcal, ""],
+                        ["P", sub.delta.proteinG, "g"],
+                        ["C", sub.delta.carbsG, "g"],
+                        ["G", sub.delta.fatG, "g"],
+                      ] as const
+                    )
+                      .filter(([, v]) => Math.abs(v) >= 1)
+                      .map(([nome, valor, unidade]) => (
+                        <span
+                          key={nome}
+                          className="rounded-full bg-elevated px-2 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground"
+                        >
+                          {nome} {valor > 0 ? "+" : ""}
+                          {valor}
+                          {unidade}
+                        </span>
+                      ))}
+                  </span>
+                </ResultRow>
+              </li>
+            ))}
+          </ResultList>
+        )}
+      </SearchDialogContent>
     </Dialog>
   );
 }

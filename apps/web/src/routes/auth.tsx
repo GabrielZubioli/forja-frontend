@@ -10,15 +10,11 @@ import { Loader2 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 
 /**
- * Entrar — **só** entrar.
+ * Entrar — **só** entrar. Cadastro em /criar-conta, senha esquecida em
+ * /esqueci-senha.
  *
- * O cadastro saiu daqui de propósito. Ele agora acontece no fim do
- * questionário, quando já existe um plano para salvar. Manter uma aba "criar
- * conta" nesta tela abriria um caminho paralelo que produz exatamente o que o
- * fluxo novo evita: uma conta sem plano, caindo num app vazio.
- *
- * Quem chega aqui sem conta é levado ao questionário, que é onde o cadastro
- * faz sentido.
+ * Depois de entrar, a raiz decide o destino: com plano, o painel; sem plano
+ * (conta nova, primeiro login com Google), o questionário.
  */
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -40,10 +36,10 @@ function AuthPage() {
 
   useEffect(() => {
     void supabase.auth.getSession().then(({ data }) => {
-      if (data.session) void navigate({ to: "/dashboard", replace: true });
+      if (data.session) void navigate({ to: "/", replace: true });
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session) void navigate({ to: "/dashboard", replace: true });
+      if (session) void navigate({ to: "/", replace: true });
     });
     return () => sub.subscription.unsubscribe();
   }, [navigate]);
@@ -74,8 +70,11 @@ function AuthPage() {
 
         <p className="mt-8 text-center text-sm text-muted-foreground">
           Ainda não tem conta?{" "}
-          <Link to="/" className="font-medium text-primary underline-offset-4 hover:underline">
-            Montar meu plano
+          <Link
+            to="/criar-conta"
+            className="font-medium text-primary underline-offset-4 hover:underline"
+          >
+            Criar conta
           </Link>
         </p>
       </div>
@@ -90,7 +89,7 @@ function GoogleButton() {
     setLoading(true);
     const res = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/dashboard` },
+      options: { redirectTo: `${window.location.origin}/` },
     });
     if (res.error) {
       toast.error("Não foi possível entrar com o Google.");
@@ -117,7 +116,6 @@ function SignInForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [sending, setSending] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,21 +141,6 @@ function SignInForm() {
     );
   };
 
-  const resetPassword = async () => {
-    const em = emailSchema.safeParse(email);
-    if (!em.success) return toast.error("Informe seu e-mail para receber o link de redefinição.");
-
-    setSending(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(em.data, {
-      redirectTo: `${window.location.origin}/auth`,
-    });
-    setSending(false);
-
-    if (error) return toast.error(error.message);
-    // Mesma resposta havendo conta ou não, pelo mesmo motivo acima.
-    toast.success("Se houver conta com esse e-mail, o link de redefinição foi enviado.");
-  };
-
   return (
     <form onSubmit={submit} className="space-y-3.5" noValidate>
       <div className="space-y-1.5">
@@ -177,14 +160,13 @@ function SignInForm() {
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
           <Label htmlFor="password">Senha</Label>
-          <button
-            type="button"
-            onClick={resetPassword}
-            disabled={sending}
+          <Link
+            to="/esqueci-senha"
+            search={{ email: email.trim() || undefined }}
             className="text-xs font-medium text-primary underline-offset-4 hover:underline"
           >
-            {sending ? "Enviando…" : "Esqueci a senha"}
-          </button>
+            Esqueci a senha
+          </Link>
         </div>
         <Input
           id="password"

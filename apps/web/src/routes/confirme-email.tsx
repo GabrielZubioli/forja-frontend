@@ -38,7 +38,7 @@ function ConfirmEmailPage() {
     const { error } = await supabase.auth.resend({
       type: "signup",
       email,
-      options: { emailRedirectTo: `${window.location.origin}/preparando` },
+      options: { emailRedirectTo: `${window.location.origin}/` },
     });
     setResending(false);
 
@@ -62,7 +62,7 @@ function ConfirmEmailPage() {
         <p className="mt-3 text-pretty text-sm leading-relaxed text-muted-foreground">
           Enviamos um link para{" "}
           {email ? <span className="font-medium text-foreground">{email}</span> : "o seu e-mail"}.
-          Clique nele e seu plano será montado na hora.
+          Toque no botão do e-mail para confirmar sua conta e montar seu plano.
         </p>
 
         <div className="mt-8 space-y-3">
@@ -83,7 +83,7 @@ function ConfirmEmailPage() {
         </div>
 
         <p className="mt-6 text-xs text-muted-foreground">
-          Não chegou? Verifique a caixa de spam. Suas respostas continuam salvas neste navegador.
+          Não chegou? Verifique a caixa de spam ou de promoções.
         </p>
       </div>
     </div>

@@ -50,15 +50,11 @@ import { BrandSymbol } from "@/components/brand-logo";
 import { hasCompletedOnboarding } from "@/data/onboarding";
 
 /**
- * A raiz do app **é** o questionário.
+ * A raiz do app: boas-vindas e, para quem já tem conta, o questionário.
  *
- * Não há landing page, login nem cadastro antes dela. A pessoa abre o app e a
- * primeira coisa que acontece é ele começar a entendê-la — o cadastro só
- * aparece no fim, para guardar o que já foi montado.
- *
- * A inversão é deliberada: pedir e-mail e senha antes de entregar qualquer
- * valor é o maior ponto de abandono num app de fitness. Aqui o custo (criar
- * conta) vem depois do benefício (o plano pronto), não antes.
+ * A conta vem primeiro: quem chega sem sessão vê só as boas-vindas, com
+ * "Criar conta". O link de confirmação do e-mail traz a pessoa de volta para
+ * cá já logada, e as respostas viram o plano salvo na conta dela.
  *
  * `ssr: false` porque a primeira coisa que a tela faz é ler o rascunho do
  * `localStorage`: renderizar no servidor produziria um passo diferente do que o
@@ -107,8 +103,8 @@ function OnboardingQuiz() {
   const [answers, setAnswers] = useState<Answers>(() => answersSchema.parse({}));
   const [stepIndex, setStepIndex] = useState(0);
   const [hydrated, setHydrated] = useState(false);
-  /** Logado sem plano (ex.: primeiro login com Google): responde aqui mesmo. */
-  const [logado, setLogado] = useState(false);
+  /** `null` enquanto confere a sessão; sem conta, só as boas-vindas. */
+  const [logado, setLogado] = useState<boolean | null>(null);
 
   useEffect(() => {
     setAnswers(loadDraft());
@@ -121,14 +117,14 @@ function OnboardingQuiz() {
   useEffect(() => {
     void (async () => {
       const { data } = await supabase.auth.getSession();
-      if (!data.session) return;
+      if (!data.session) return setLogado(false);
       if (await hasCompletedOnboarding()) return void navigate({ to: "/dashboard", replace: true });
       setLogado(true);
     })();
   }, [navigate]);
 
   const steps = useMemo(() => visibleSteps(answers), [answers]);
-  const safeIndex = Math.min(stepIndex, steps.length - 1);
+  const safeIndex = logado === false ? 0 : Math.min(stepIndex, steps.length - 1);
   const step = steps[safeIndex];
 
   const update = useCallback((patch: Partial<Answers>) => {
@@ -172,7 +168,7 @@ function OnboardingQuiz() {
     [],
   );
 
-  if (!hydrated || !step) return <QuizSkeleton />;
+  if (!hydrated || !step || logado === null) return <QuizSkeleton />;
 
   const level = derivedLevel(answers);
   const objective = derivedObjective(answers);
@@ -182,7 +178,8 @@ function OnboardingQuiz() {
   return (
     <div className="min-h-dvh bg-background">
       <div className="mx-auto flex min-h-dvh max-w-lg flex-col px-5 pb-4 pt-5">
-        <header className="mb-6 flex items-center gap-3">
+        {/* Sem conta, só as boas-vindas: nada de progresso de questionário. */}
+        <header className={cn("mb-6 flex items-center gap-3", !logado && "invisible")}>
           {safeIndex > 0 ? (
             <Button
               size="icon"
@@ -630,9 +627,7 @@ function OnboardingQuiz() {
             />
           )}
 
-          {step.id === "review" && (
-            <Review answers={answers} onEdit={goTo} steps={steps} logado={logado} />
-          )}
+          {step.id === "review" && <Review answers={answers} onEdit={goTo} steps={steps} />}
         </main>
       </div>
     </div>
@@ -640,6 +635,7 @@ function OnboardingQuiz() {
 }
 
 function Welcome({ onStart, logado }: { onStart: () => void; logado: boolean }) {
+  const navigate = useNavigate();
   return (
     <div className="flex flex-1 flex-col justify-center text-center">
       <BrandSymbol className="mx-auto w-24 animate-in zoom-in-50 duration-500" />
@@ -648,14 +644,15 @@ function Welcome({ onStart, logado }: { onStart: () => void; logado: boolean }) 
         Seu treino e sua dieta, montados para você
       </h1>
       <p className="mt-3 text-pretty text-muted-foreground animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards delay-100 duration-500">
-        Responda algumas perguntas rápidas. No fim, seu plano completo estará pronto — treino
-        semanal, cardápio e metas.
+        {logado
+          ? "Responda algumas perguntas rápidas. No fim, seu plano completo estará pronto — treino semanal, cardápio e metas."
+          : "Crie sua conta e responda algumas perguntas rápidas. No fim, seu plano completo estará pronto — treino semanal, cardápio e metas."}
       </p>
 
       <ul className="mx-auto mt-8 space-y-3 text-left text-sm">
         {[
           "Leva cerca de 2 minutos",
-          "Nenhum cadastro para começar",
+          "Seu plano fica salvo na sua conta",
           "Você pode ajustar tudo depois",
         ].map((t, i) => (
           <li
@@ -671,7 +668,10 @@ function Welcome({ onStart, logado }: { onStart: () => void; logado: boolean }) 
         ))}
       </ul>
 
-      <NextButton onClick={onStart} label="Começar" />
+      <NextButton
+        onClick={logado ? onStart : () => void navigate({ to: "/criar-conta" })}
+        label={logado ? "Começar" : "Criar conta"}
+      />
 
       {!logado && (
         <p className="pb-2 text-center text-sm text-muted-foreground">
@@ -775,13 +775,10 @@ function Review({
   answers,
   onEdit,
   steps,
-  logado,
 }: {
   answers: Answers;
   onEdit: (index: number) => void;
   steps: { id: string }[];
-  /** Já tem conta: pula o cadastro e vai montar o plano. */
-  logado: boolean;
 }) {
   const navigate = useNavigate();
   const objective = derivedObjective(answers);
@@ -868,15 +865,12 @@ function Review({
       </ul>
 
       <Feedback title="O que vem agora">
-        Criamos sua conta e montamos, na hora: a divisão semanal com os exercícios escolhidos para o
-        seu equipamento, o cardápio com as porções calculadas e suas metas de calorias, macros e
-        água.
+        Montamos na hora, e salvamos na sua conta: a divisão semanal com os exercícios escolhidos
+        para o seu equipamento, o cardápio com as porções calculadas e suas metas de calorias,
+        macros e água.
       </Feedback>
 
-      <NextButton
-        onClick={() => void navigate({ to: logado ? "/preparando" : "/criar-conta" })}
-        label="Montar meu plano"
-      />
+      <NextButton onClick={() => void navigate({ to: "/preparando" })} label="Montar meu plano" />
     </Question>
   );
 }

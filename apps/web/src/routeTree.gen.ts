@@ -14,6 +14,8 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ConfirmeEmailRouteImport } from './routes/confirme-email'
 import { Route as CriarContaRouteImport } from './routes/criar-conta'
+import { Route as EsqueciSenhaRouteImport } from './routes/esqueci-senha'
+import { Route as NovaSenhaRouteImport } from './routes/nova-senha'
 import { Route as PreparandoRouteImport } from './routes/preparando'
 import { Route as AuthenticatedBodyRouteImport } from './routes/_authenticated/body'
 import { Route as AuthenticatedCoachRouteImport } from './routes/_authenticated/coach'
@@ -56,6 +58,16 @@ const ConfirmeEmailRoute = ConfirmeEmailRouteImport.update({
 const CriarContaRoute = CriarContaRouteImport.update({
   id: '/criar-conta',
   path: '/criar-conta',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EsqueciSenhaRoute = EsqueciSenhaRouteImport.update({
+  id: '/esqueci-senha',
+  path: '/esqueci-senha',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NovaSenhaRoute = NovaSenhaRouteImport.update({
+  id: '/nova-senha',
+  path: '/nova-senha',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PreparandoRoute = PreparandoRouteImport.update({
@@ -164,6 +176,8 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/confirme-email': typeof ConfirmeEmailRoute
   '/criar-conta': typeof CriarContaRoute
+  '/esqueci-senha': typeof EsqueciSenhaRoute
+  '/nova-senha': typeof NovaSenhaRoute
   '/preparando': typeof PreparandoRoute
   '/body': typeof AuthenticatedBodyRoute
   '/coach': typeof AuthenticatedCoachRoute
@@ -189,6 +203,8 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/confirme-email': typeof ConfirmeEmailRoute
   '/criar-conta': typeof CriarContaRoute
+  '/esqueci-senha': typeof EsqueciSenhaRoute
+  '/nova-senha': typeof NovaSenhaRoute
   '/preparando': typeof PreparandoRoute
   '/body': typeof AuthenticatedBodyRoute
   '/coach': typeof AuthenticatedCoachRoute
@@ -216,6 +232,8 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/confirme-email': typeof ConfirmeEmailRoute
   '/criar-conta': typeof CriarContaRoute
+  '/esqueci-senha': typeof EsqueciSenhaRoute
+  '/nova-senha': typeof NovaSenhaRoute
   '/preparando': typeof PreparandoRoute
   '/_authenticated/body': typeof AuthenticatedBodyRoute
   '/_authenticated/coach': typeof AuthenticatedCoachRoute
@@ -243,6 +261,8 @@ export interface FileRouteTypes {
     | '/auth'
     | '/confirme-email'
     | '/criar-conta'
+    | '/esqueci-senha'
+    | '/nova-senha'
     | '/preparando'
     | '/body'
     | '/coach'
@@ -268,6 +288,8 @@ export interface FileRouteTypes {
     | '/auth'
     | '/confirme-email'
     | '/criar-conta'
+    | '/esqueci-senha'
+    | '/nova-senha'
     | '/preparando'
     | '/body'
     | '/coach'
@@ -294,6 +316,8 @@ export interface FileRouteTypes {
     | '/auth'
     | '/confirme-email'
     | '/criar-conta'
+    | '/esqueci-senha'
+    | '/nova-senha'
     | '/preparando'
     | '/_authenticated/body'
     | '/_authenticated/coach'
@@ -321,6 +345,8 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   ConfirmeEmailRoute: typeof ConfirmeEmailRoute
   CriarContaRoute: typeof CriarContaRoute
+  EsqueciSenhaRoute: typeof EsqueciSenhaRoute
+  NovaSenhaRoute: typeof NovaSenhaRoute
   PreparandoRoute: typeof PreparandoRoute
 }
 
@@ -359,6 +385,20 @@ declare module '@tanstack/react-router' {
       path: '/criar-conta'
       fullPath: '/criar-conta'
       preLoaderRoute: typeof CriarContaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/esqueci-senha': {
+      id: '/esqueci-senha'
+      path: '/esqueci-senha'
+      fullPath: '/esqueci-senha'
+      preLoaderRoute: typeof EsqueciSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/nova-senha': {
+      id: '/nova-senha'
+      path: '/nova-senha'
+      fullPath: '/nova-senha'
+      preLoaderRoute: typeof NovaSenhaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/preparando': {
@@ -548,6 +588,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   ConfirmeEmailRoute: ConfirmeEmailRoute,
   CriarContaRoute: CriarContaRoute,
+  EsqueciSenhaRoute: EsqueciSenhaRoute,
+  NovaSenhaRoute: NovaSenhaRoute,
   PreparandoRoute: PreparandoRoute,
 }
 export const routeTree = rootRouteImport

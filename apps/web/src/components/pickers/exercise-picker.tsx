@@ -7,22 +7,22 @@
  */
 import { useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Search } from "lucide-react";
+import { Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { queryKeys } from "@/data/query-keys";
 import { unwrapList } from "@/data/supabase-helpers";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { MUSCLE_LABELS, EQUIPMENT_LABELS, type MuscleValue } from "@/lib/labels";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  ResultList,
+  ResultRow,
+  ResultsEmpty,
+  ResultsLoading,
+  SearchDialogContent,
+  SearchField,
+} from "@/components/pickers/search-dialog";
+import { cn, searchWords } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -108,7 +108,9 @@ export function ExercisePicker({
       if (debouncedTerm) {
         // Busca também pelo nome original: quem treina há anos procura por
         // "romanian deadlift", não por "terra romeno".
-        query = query.or(`name.ilike.%${debouncedTerm}%,name_en.ilike.%${debouncedTerm}%`);
+        const ws = searchWords(debouncedTerm);
+        const todas = (col: string) => ws.map((w) => `${col}.ilike.%${w}%`).join(",");
+        if (ws.length) query = query.or(`and(${todas("name")}),and(${todas("name_en")})`);
       }
       if (muscle !== "all") query = query.eq("primary_muscle", muscle as never);
       return unwrapList("buscar exercícios", await query);
@@ -133,30 +135,26 @@ export function ExercisePicker({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-3">
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar exercício…"
-                value={term}
-                onChange={(e) => setTerm(e.target.value)}
-                className="pl-9"
-                autoFocus
-                aria-label="Buscar exercício"
-              />
-              {exercises.isFetching && (
-                <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-              )}
-            </div>
+      <SearchDialogContent
+        title={title}
+        srDescription="Busque um exercício pelo nome e filtre pelo músculo."
+        top={
+          <>
+            <SearchField
+              value={term}
+              onChange={setTerm}
+              placeholder="Buscar exercício…"
+              loading={exercises.isFetching}
+            />
             {showMuscleFilter && (
               <Select value={muscle} onValueChange={setMuscle}>
-                <SelectTrigger className="sm:w-48" aria-label="Filtrar por músculo">
+                <SelectTrigger
+                  className={cn(
+                    "h-11 w-full rounded-2xl border-transparent bg-card text-sm font-semibold",
+                    muscle !== "all" && "border-primary/50 text-primary",
+                  )}
+                  aria-label="Filtrar por músculo"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -169,66 +167,39 @@ export function ExercisePicker({
                 </SelectContent>
               </Select>
             )}
-          </div>
-
-          <div className="max-h-96 overflow-y-auto rounded-lg border border-border">
-            {exercises.isPending ? (
-              <div className="space-y-3 p-4">
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <div key={i} className="flex items-center justify-between gap-4">
-                    <Skeleton className="h-4 w-2/5" />
-                    <Skeleton className="h-3 w-24" />
-                  </div>
-                ))}
-              </div>
-            ) : exercises.isError ? (
-              <div className="p-3">
-                <ErrorState
-                  message="Falha ao buscar exercícios."
-                  onRetry={exercises.refetch}
-                  compact
+          </>
+        }
+      >
+        {exercises.isPending ? (
+          <ResultsLoading />
+        ) : exercises.isError ? (
+          <ErrorState message="Falha ao buscar exercícios." onRetry={exercises.refetch} compact />
+        ) : exercises.data.length === 0 ? (
+          <ResultsEmpty>
+            Nenhum exercício encontrado{debouncedTerm ? ` para “${debouncedTerm}”` : ""}.
+          </ResultsEmpty>
+        ) : (
+          <ResultList>
+            {exercises.data.map((ex) => (
+              <li key={ex.id}>
+                {/* A miniatura resolve o que o nome sozinho não resolve:
+                    reconhecer o movimento sem abrir a ficha. Vem da camada
+                    de mídia, não de `image_urls` direto — a maior parte do
+                    catálogo tem a imagem numa fonte externa. */}
+                <ResultRow
+                  thumb={<PickerThumb exercise={ex} />}
+                  title={ex.name}
+                  detail={`${MUSCLE_LABELS[ex.primary_muscle as MuscleValue] ?? ex.primary_muscle} · ${
+                    EQUIPMENT_LABELS[ex.equipment as keyof typeof EQUIPMENT_LABELS] ?? ex.equipment
+                  }`}
+                  aside={<Plus className="size-5 text-primary" aria-hidden />}
+                  onClick={() => void pick(ex)}
                 />
-              </div>
-            ) : exercises.data.length === 0 ? (
-              <p className="p-6 text-center text-sm text-muted-foreground">
-                Nenhum exercício encontrado{debouncedTerm ? ` para “${debouncedTerm}”` : ""}.
-              </p>
-            ) : (
-              <ul>
-                {exercises.data.map((ex) => (
-                  <li key={ex.id}>
-                    <button
-                      type="button"
-                      onClick={() => void pick(ex)}
-                      className="flex w-full items-center gap-3 border-b border-border/50 px-3 py-2 text-left transition-colors last:border-b-0 hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
-                    >
-                      {/* A miniatura resolve o problema que o nome sozinho não
-                          resolve: reconhecer o movimento sem abrir a ficha.
-
-                          Vem da camada de mídia, não de `image_urls` direto: a
-                          maior parte do catálogo tem a imagem numa fonte
-                          externa e a coluna vazia — lendo a coluna, a lista
-                          apareceria com um retângulo cinza em quase toda
-                          linha. */}
-                      <PickerThumb exercise={ex} />
-
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate font-medium">{ex.name}</span>
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {MUSCLE_LABELS[ex.primary_muscle as MuscleValue] ?? ex.primary_muscle}
-                          {" · "}
-                          {EQUIPMENT_LABELS[ex.equipment as keyof typeof EQUIPMENT_LABELS] ??
-                            ex.equipment}
-                        </span>
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-      </DialogContent>
+              </li>
+            ))}
+          </ResultList>
+        )}
+      </SearchDialogContent>
     </Dialog>
   );
 }
@@ -239,7 +210,7 @@ export function ExercisePicker({
  * Nunca o GIF: a lista mostra dezenas de itens por vez e animar todos custaria
  * megabytes e a fluidez da rolagem. Quem quer ver o movimento abre a ficha.
  */
-function PickerThumb({
+export function PickerThumb({
   exercise,
 }: {
   exercise: {
@@ -261,7 +232,7 @@ function PickerThumb({
   });
   const thumb = media.images[0];
 
-  if (!thumb) return <span className="size-14 shrink-0 rounded-md bg-muted" aria-hidden />;
+  if (!thumb) return <span className="size-14 shrink-0 rounded-xl bg-elevated" aria-hidden />;
 
   return (
     <img
@@ -271,7 +242,7 @@ function PickerThumb({
       decoding="async"
       width={56}
       height={56}
-      className="size-14 shrink-0 rounded-md bg-muted object-contain"
+      className="size-14 shrink-0 rounded-xl bg-elevated object-cover"
     />
   );
 }

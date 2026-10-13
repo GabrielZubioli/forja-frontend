@@ -12,24 +12,24 @@
  */
 import { type ReactNode, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Repeat, Search } from "lucide-react";
+import { Loader2, Repeat } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { unwrapList } from "@/data/supabase-helpers";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  ResultList,
+  ResultRow,
+  ResultsEmpty,
+  ResultsLoading,
+  SearchDialogContent,
+  SearchField,
+} from "@/components/pickers/search-dialog";
+import { PickerThumb } from "@/components/pickers/exercise-picker";
 import { ErrorState } from "@/components/query-boundary";
 import { EQUIPMENT_LABELS, MUSCLE_LABELS, label } from "@/lib/labels";
+import { searchWords } from "@/lib/utils";
 
 export type SubstituteCandidate = {
   id: string;
@@ -37,6 +37,11 @@ export type SubstituteCandidate = {
   primary_muscle: string;
   equipment: string;
   category: string;
+  image_urls: string[] | null;
+  external_id: string | null;
+  media_id: string | null;
+  media_ref: string | null;
+  media_source: string | null;
 };
 
 export function SubstituteExerciseDialog({
@@ -59,6 +64,7 @@ export function SubstituteExerciseDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState("");
+  const [escolhendo, setEscolhendo] = useState<string | null>(null);
   const debouncedTerm = useDebouncedValue(term.trim(), 250);
 
   const alternatives = useQuery({
@@ -68,13 +74,15 @@ export function SubstituteExerciseDialog({
     queryFn: async () => {
       let query = supabase
         .from("exercises")
-        .select("id, name, primary_muscle, equipment, category")
+        .select(
+          "id, name, primary_muscle, equipment, category, image_urls, external_id, media_id, media_ref, media_source",
+        )
         .is("deleted_at", null)
         .eq("primary_muscle", primaryMuscle as never)
         .neq("id", currentExerciseId)
         .order("name")
         .limit(50);
-      if (debouncedTerm) query = query.ilike("name", `%${debouncedTerm}%`);
+      for (const w of searchWords(debouncedTerm)) query = query.ilike("name", `%${w}%`);
 
       const rows = unwrapList("buscar alternativas", await query) as SubstituteCandidate[];
 
@@ -89,8 +97,13 @@ export function SubstituteExerciseDialog({
   });
 
   const escolher = async (exercise: SubstituteCandidate) => {
-    await onSubstitute(exercise);
-    setOpen(false);
+    setEscolhendo(exercise.id);
+    try {
+      await onSubstitute(exercise);
+      setOpen(false);
+    } finally {
+      setEscolhendo(null);
+    }
   };
 
   return (
@@ -109,72 +122,67 @@ export function SubstituteExerciseDialog({
         )}
       </DialogTrigger>
 
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Substituir exercício</DialogTitle>
-          <DialogDescription>
-            As séries já registradas de <b>{currentExerciseName}</b> são mantidas — muda apenas o
-            movimento.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-3">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder={`Alternativas para ${label(MUSCLE_LABELS, primaryMuscle).toLowerCase()}…`}
-              value={term}
-              onChange={(e) => setTerm(e.target.value)}
-              className="pl-9"
-              autoFocus
-              aria-label="Buscar exercício alternativo"
-            />
-            {alternatives.isFetching && (
-              <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-            )}
-          </div>
-
-          <div className="max-h-80 overflow-y-auto rounded-lg border border-border">
-            {alternatives.isPending ? (
-              <div className="space-y-3 p-4">
-                {[0, 1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-4 w-full" />
-                ))}
-              </div>
-            ) : alternatives.isError ? (
-              <div className="p-3">
-                <ErrorState
-                  message="Falha ao buscar alternativas."
-                  onRetry={alternatives.refetch}
-                  compact
-                />
-              </div>
-            ) : alternatives.data.length === 0 ? (
-              <p className="p-6 text-center text-sm text-muted-foreground">
-                Nenhuma alternativa para {label(MUSCLE_LABELS, primaryMuscle).toLowerCase()}
-                {debouncedTerm ? ` com “${debouncedTerm}”` : ""}.
-              </p>
-            ) : (
-              <ul>
-                {alternatives.data.map((exercise) => (
-                  <li key={exercise.id}>
-                    <button
-                      type="button"
-                      onClick={() => void escolher(exercise)}
-                      className="flex w-full items-center justify-between gap-3 border-b border-border/50 px-4 py-2.5 text-left transition-colors last:border-b-0 hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
-                    >
-                      <span className="min-w-0 truncate font-medium">{exercise.name}</span>
-                      <Badge variant="outline" className="shrink-0">
-                        {label(EQUIPMENT_LABELS, exercise.equipment)}
-                      </Badge>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-      </DialogContent>
+      <SearchDialogContent
+        title="Substituir exercício"
+        description={
+          <>
+            Trocando <b className="font-semibold text-foreground">{currentExerciseName}</b>. As
+            séries já registradas são mantidas — muda só o movimento.
+          </>
+        }
+        top={
+          <SearchField
+            value={term}
+            onChange={setTerm}
+            placeholder={`Buscar em ${label(MUSCLE_LABELS, primaryMuscle).toLowerCase()}…`}
+            loading={alternatives.isFetching}
+          />
+        }
+      >
+        {alternatives.isPending ? (
+          <ResultsLoading />
+        ) : alternatives.isError ? (
+          <ErrorState
+            message="Falha ao buscar alternativas."
+            onRetry={alternatives.refetch}
+            compact
+          />
+        ) : alternatives.data.length === 0 ? (
+          <ResultsEmpty>
+            Nenhuma alternativa para {label(MUSCLE_LABELS, primaryMuscle).toLowerCase()}
+            {debouncedTerm ? ` com “${debouncedTerm}”` : ""}.
+          </ResultsEmpty>
+        ) : (
+          <ResultList>
+            {alternatives.data.map((exercise) => {
+              const mesmoEquip = exercise.equipment === currentEquipment;
+              return (
+                <li key={exercise.id}>
+                  <ResultRow
+                    thumb={<PickerThumb exercise={exercise} />}
+                    title={exercise.name}
+                    detail={
+                      mesmoEquip
+                        ? `${label(EQUIPMENT_LABELS, exercise.equipment)} · mesmo equipamento`
+                        : label(EQUIPMENT_LABELS, exercise.equipment)
+                    }
+                    highlight={mesmoEquip}
+                    aside={
+                      escolhendo === exercise.id ? (
+                        <Loader2 className="size-5 animate-spin text-primary" />
+                      ) : (
+                        <Repeat className="size-5 text-primary" aria-hidden />
+                      )
+                    }
+                    disabled={escolhendo !== null}
+                    onClick={() => void escolher(exercise)}
+                  />
+                </li>
+              );
+            })}
+          </ResultList>
+        )}
+      </SearchDialogContent>
     </Dialog>
   );
 }

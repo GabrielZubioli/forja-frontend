@@ -9,7 +9,7 @@
  */
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Clock, Loader2, Minus, Plus, Search } from "lucide-react";
+import { ArrowLeft, ChevronRight, Clock, Loader2, Minus, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { queryKeys } from "@/data/query-keys";
 import { num, unwrapList } from "@/data/supabase-helpers";
@@ -23,17 +23,24 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  ResultList,
+  ResultRow,
+  ResultsEmpty,
+  ResultsLoading,
+  SearchDialogContent,
+  SearchField,
+} from "@/components/pickers/search-dialog";
 import { ErrorState } from "@/components/query-boundary";
-import { cn } from "@/lib/utils";
+import { cn, searchWords } from "@/lib/utils";
 
 export type PickedFood = {
   id: string;
@@ -106,7 +113,7 @@ export function FoodPicker({
         .is("deleted_at", null)
         .order("name")
         .limit(50);
-      if (debouncedTerm) query = query.ilike("name", `%${debouncedTerm}%`);
+      for (const w of searchWords(debouncedTerm)) query = query.ilike("name", `%${w}%`);
       return unwrapList("buscar alimentos", await query);
     },
   });
@@ -118,11 +125,11 @@ export function FoodPicker({
   });
 
   const receitasFiltradas = useMemo(() => {
-    const t = debouncedTerm.toLowerCase();
+    const ws = searchWords(debouncedTerm);
     return (receitas.data ?? []).filter(
       (r) =>
         (!categoria || (categoria === "minhas" ? !r.isSystem : r.category === categoria)) &&
-        (!t || r.name.toLowerCase().includes(t)),
+        ws.every((w) => r.name.toLowerCase().includes(w)),
     );
   }, [receitas.data, categoria, debouncedTerm]);
 
@@ -152,182 +159,154 @@ export function FoodPicker({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="flex max-h-[min(calc(88dvh-var(--teclado,0px)),44rem)] flex-col gap-0 overflow-hidden rounded-[1.5rem] p-0 sm:p-0">
-        <DialogHeader className="space-y-1 px-5 pb-3 pt-5 text-left">
-          <DialogTitle className="line-clamp-2 break-words pr-8 text-xl leading-tight">
-            {titulo}
-          </DialogTitle>
-          <DialogDescription className="sr-only">
-            Busque um alimento ou uma receita e escolha a quantidade.
-          </DialogDescription>
-        </DialogHeader>
-
-        {lista && (
-          <div className="space-y-3 px-5 pb-3">
-            {onPickRecipe && (
-              <div role="tablist" className="grid grid-cols-2 rounded-2xl bg-card p-1">
-                {(["alimentos", "receitas"] as const).map((a) => (
-                  <button
-                    key={a}
-                    type="button"
-                    role="tab"
-                    aria-selected={aba === a}
-                    onClick={() => setAba(a)}
-                    className={cn(
-                      "rounded-xl py-2.5 text-sm font-semibold transition-colors",
-                      aba === a ? "bg-elevated text-foreground" : "text-muted-foreground",
-                    )}
-                  >
-                    {a === "alimentos" ? "Alimentos" : "Receitas"}
-                  </button>
-                ))}
-              </div>
-            )}
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder={aba === "alimentos" ? "Buscar alimento…" : "Buscar receita…"}
-                value={term}
-                onChange={(e) => setTerm(e.target.value)}
-                className="h-12 rounded-2xl pl-10"
-                autoFocus
-                aria-label={aba === "alimentos" ? "Buscar alimento" : "Buscar receita"}
-              />
-              {(foods.isFetching || receitas.isFetching) && (
-                <Loader2 className="absolute right-3.5 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-              )}
-            </div>
-            {aba === "receitas" && (
-              <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Categoria">
-                {[
-                  { key: null, label: "Todas" },
-                  ...RECIPE_CATEGORIES.map((c) => ({ key: c.key, label: `${c.emoji} ${c.label}` })),
-                  { key: "minhas", label: "Minhas" },
-                ].map((c) => (
-                  <button
-                    key={c.key ?? "todas"}
-                    type="button"
-                    role="radio"
-                    aria-checked={categoria === c.key}
-                    onClick={() => setCategoria(c.key)}
-                    className={cn(
-                      "rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
-                      categoria === c.key
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-card text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {c.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-5 pb-5">
-          {selected ? (
-            <EscolherGramas
-              food={selected}
-              grams={grams}
-              setGrams={setGrams}
-              invalid={gramsInvalid}
-              onBack={() => setSelected(null)}
-              onConfirm={() => void confirm()}
-              confirmLabel={confirmLabel}
-              isPending={isPending}
-            />
-          ) : receita ? (
-            <EscolherPorcoes
-              receita={receita}
-              porcoes={porcoes}
-              setPorcoes={setPorcoes}
-              onBack={() => setReceita(null)}
-              onConfirm={() => void confirmarReceita()}
-              isPending={salvando}
-            />
-          ) : aba === "alimentos" ? (
-            foods.isPending ? (
-              <ListaCarregando />
-            ) : foods.isError ? (
-              <ErrorState message="Falha ao buscar alimentos." onRetry={foods.refetch} compact />
-            ) : foods.data.length === 0 ? (
-              <Vazio>Nenhum alimento encontrado para “{debouncedTerm}”.</Vazio>
-            ) : (
-              <ul className="divide-y divide-border/50 overflow-hidden rounded-2xl bg-card">
-                {foods.data.map((f) => (
-                  <li key={f.id}>
+      <SearchDialogContent
+        title={titulo}
+        srDescription="Busque um alimento ou uma receita e escolha a quantidade."
+        top={
+          lista && (
+            <>
+              {onPickRecipe && (
+                <div role="tablist" className="grid grid-cols-2 rounded-2xl bg-card p-1">
+                  {(["alimentos", "receitas"] as const).map((a) => (
                     <button
+                      key={a}
                       type="button"
-                      onClick={() =>
-                        setSelected({
-                          id: f.id,
-                          name: f.name,
-                          brand: f.brand,
-                          servingSizeG: num(f.serving_size_g, 100),
-                          kcal: num(f.kcal),
-                        })
-                      }
-                      className="block w-full px-4 py-3 text-left transition-colors hover:bg-elevated focus-visible:bg-elevated focus-visible:outline-none"
+                      role="tab"
+                      aria-selected={aba === a}
+                      onClick={() => setAba(a)}
+                      className={cn(
+                        "rounded-xl py-2.5 text-sm font-semibold transition-colors",
+                        aba === a ? "bg-primary text-primary-foreground" : "text-muted-foreground",
+                      )}
                     >
-                      <span className="line-clamp-2 break-words font-medium leading-snug">
-                        {f.name}
-                      </span>
-                      <span className="mt-0.5 block text-xs text-muted-foreground tabular-nums">
-                        {kcalFmt(num(f.kcal))} kcal · P {Math.round(num(f.protein_g))} g ·{" "}
-                        {num(f.serving_size_g, 100)} g{f.brand ? ` · ${f.brand}` : ""}
-                      </span>
+                      {a === "alimentos" ? "Alimentos" : "Receitas"}
                     </button>
-                  </li>
-                ))}
-              </ul>
-            )
-          ) : receitas.isPending ? (
-            <ListaCarregando />
-          ) : receitas.isError ? (
-            <ErrorState message="Falha ao carregar receitas." onRetry={receitas.refetch} compact />
-          ) : receitasFiltradas.length === 0 ? (
-            <Vazio>Nenhuma receita encontrada.</Vazio>
-          ) : (
-            <ul className="space-y-2">
-              {receitasFiltradas.map((r) => (
-                <li key={r.id}>
-                  <button
-                    type="button"
-                    onClick={() => setReceita(r)}
-                    className="flex w-full items-center gap-3 rounded-2xl bg-card p-3 text-left transition-colors hover:bg-elevated"
+                  ))}
+                </div>
+              )}
+              <SearchField
+                value={term}
+                onChange={setTerm}
+                placeholder={aba === "alimentos" ? "Buscar alimento…" : "Buscar receita…"}
+                loading={foods.isFetching || receitas.isFetching}
+              />
+              {aba === "receitas" && (
+                <Select
+                  value={categoria ?? "todas"}
+                  onValueChange={(v) => setCategoria(v === "todas" ? null : v)}
+                >
+                  <SelectTrigger
+                    aria-label="Categoria"
+                    className={cn(
+                      "h-11 w-full rounded-2xl border-transparent bg-card text-sm font-semibold",
+                      categoria && "border-primary/50 text-primary",
+                    )}
                   >
-                    {r.imageUrl ? (
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todas">Todas as categorias</SelectItem>
+                    {RECIPE_CATEGORIES.map((c) => (
+                      <SelectItem key={c.key} value={c.key}>
+                        {c.emoji} {c.label}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="minhas">Minhas receitas</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            </>
+          )
+        }
+      >
+        {selected ? (
+          <EscolherGramas
+            food={selected}
+            grams={grams}
+            setGrams={setGrams}
+            invalid={gramsInvalid}
+            onBack={() => setSelected(null)}
+            onConfirm={() => void confirm()}
+            confirmLabel={confirmLabel}
+            isPending={isPending}
+          />
+        ) : receita ? (
+          <EscolherPorcoes
+            receita={receita}
+            porcoes={porcoes}
+            setPorcoes={setPorcoes}
+            onBack={() => setReceita(null)}
+            onConfirm={() => void confirmarReceita()}
+            isPending={salvando}
+          />
+        ) : aba === "alimentos" ? (
+          foods.isPending ? (
+            <ResultsLoading />
+          ) : foods.isError ? (
+            <ErrorState message="Falha ao buscar alimentos." onRetry={foods.refetch} compact />
+          ) : foods.data.length === 0 ? (
+            <ResultsEmpty>Nenhum alimento encontrado para “{debouncedTerm}”.</ResultsEmpty>
+          ) : (
+            <ResultList>
+              {foods.data.map((f) => (
+                <li key={f.id}>
+                  <ResultRow
+                    title={f.name}
+                    detail={`${kcalFmt(num(f.kcal))} kcal · P ${Math.round(num(f.protein_g))} g · por ${num(f.serving_size_g, 100)} g${f.brand ? ` · ${f.brand}` : ""}`}
+                    aside={<ChevronRight className="size-5 text-muted-foreground" aria-hidden />}
+                    onClick={() =>
+                      setSelected({
+                        id: f.id,
+                        name: f.name,
+                        brand: f.brand,
+                        servingSizeG: num(f.serving_size_g, 100),
+                        kcal: num(f.kcal),
+                      })
+                    }
+                  />
+                </li>
+              ))}
+            </ResultList>
+          )
+        ) : receitas.isPending ? (
+          <ResultsLoading />
+        ) : receitas.isError ? (
+          <ErrorState message="Falha ao carregar receitas." onRetry={receitas.refetch} compact />
+        ) : receitasFiltradas.length === 0 ? (
+          <ResultsEmpty>Nenhuma receita encontrada.</ResultsEmpty>
+        ) : (
+          <ResultList>
+            {receitasFiltradas.map((r) => (
+              <li key={r.id}>
+                <ResultRow
+                  thumb={
+                    r.imageUrl ? (
                       <img
                         src={r.imageUrl}
                         alt=""
                         loading="lazy"
-                        width={96}
-                        height={96}
-                        className="size-12 shrink-0 rounded-xl object-cover"
+                        width={112}
+                        height={112}
+                        className="size-14 shrink-0 rounded-xl object-cover"
                       />
                     ) : (
-                      <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-elevated text-2xl">
+                      <span className="grid size-14 shrink-0 place-items-center rounded-xl bg-elevated text-2xl">
                         {recipeCategoryOf(r.category)?.emoji ?? "🍽️"}
                       </span>
-                    )}
-                    <span className="min-w-0 flex-1">
-                      <span className="line-clamp-2 break-words font-semibold leading-snug">
-                        {r.name}
-                      </span>
-                      <span className="mt-0.5 block text-xs text-muted-foreground tabular-nums">
-                        {kcalFmt(r.perServing.kcal)} kcal · P {Math.round(r.perServing.proteinG)} g
-                        {r.prepMinutes ? ` · ${r.prepMinutes} min` : ""}
-                        {!r.isSystem ? " · sua" : ""}
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </DialogContent>
+                    )
+                  }
+                  title={r.name}
+                  detail={`${kcalFmt(r.perServing.kcal)} kcal · P ${Math.round(r.perServing.proteinG)} g${
+                    r.prepMinutes ? ` · ${r.prepMinutes} min` : ""
+                  }${!r.isSystem ? " · sua" : ""}`}
+                  aside={<ChevronRight className="size-5 text-muted-foreground" aria-hidden />}
+                  onClick={() => setReceita(r)}
+                />
+              </li>
+            ))}
+          </ResultList>
+        )}
+      </SearchDialogContent>
     </Dialog>
   );
 }
@@ -528,18 +507,4 @@ function EscolherPorcoes({
       </div>
     </div>
   );
-}
-
-function ListaCarregando() {
-  return (
-    <div className="space-y-2">
-      {[0, 1, 2, 3, 4].map((i) => (
-        <Skeleton key={i} className="h-16 w-full rounded-2xl" />
-      ))}
-    </div>
-  );
-}
-
-function Vazio({ children }: { children: ReactNode }) {
-  return <p className="p-6 text-center text-sm text-muted-foreground">{children}</p>;
 }
