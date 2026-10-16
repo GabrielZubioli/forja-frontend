@@ -139,7 +139,6 @@ function CoachPage() {
                   disabled
                   placeholder="Perguntas personalizadas em breve"
                   aria-label="Pergunta personalizada (indisponível)"
-                  aria-describedby="aviso-ia"
                   className="min-w-0 flex-1 cursor-not-allowed bg-transparent px-1 py-2 text-base outline-none placeholder:text-muted-foreground"
                 />
                 <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground">
