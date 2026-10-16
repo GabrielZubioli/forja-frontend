@@ -4,6 +4,7 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { Loader2, ShieldAlert } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { errorMessage } from "@/data/supabase-helpers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -59,11 +60,7 @@ function NewPasswordPage() {
     const { error } = await supabase.auth.updateUser({ password: senha });
     setSalvando(false);
     if (error) {
-      return toast.error(
-        /different from the old/i.test(error.message)
-          ? "A nova senha precisa ser diferente da anterior."
-          : error.message,
-      );
+      return toast.error(errorMessage(error));
     }
     toast.success("Senha alterada.");
     void navigate({ to: "/", replace: true });

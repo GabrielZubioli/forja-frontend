@@ -226,7 +226,7 @@ function ExerciseDetail() {
       ) : (
         <>
           {/* A demonstração é o conteúdo principal: ocupa a largura e anima sozinha. */}
-          <div className="overflow-hidden rounded-[1.75rem] bg-white">
+          <div className="overflow-hidden rounded-[1.75rem] bg-white" data-tour="exercicio-demo">
             <ExerciseMediaView
               media={exerciseMedia({
                 name: ex.name,
@@ -281,7 +281,9 @@ function ExerciseDetail() {
             onClick={() => setAba(valor)}
             className={cn(
               "flex-1 rounded-xl py-2.5 text-[15px] font-medium transition-colors",
-              aba === valor ? "bg-primary font-bold text-primary-foreground" : "text-muted-foreground",
+              aba === valor
+                ? "bg-primary font-bold text-primary-foreground"
+                : "text-muted-foreground",
             )}
           >
             {rotulo}
@@ -345,7 +347,9 @@ function ExerciseDetail() {
                   </dl>
                 </div>
               </section>
-              <ExerciseHowTo exercise={ex} />
+              <div data-tour="exercicio-passos">
+                <ExerciseHowTo exercise={ex} />
+              </div>
               <a
                 href={isSafeUrl(ex.video_url) ? ex.video_url! : videoSearchUrl(ex.name)}
                 target="_blank"
@@ -537,7 +541,9 @@ function Historico({
                       </span>
                     </span>
                     <span className="shrink-0 text-right">
-                      <span className="block font-extrabold tabular-nums">{Math.round(s.bestE1rm)}</span>
+                      <span className="block font-extrabold tabular-nums">
+                        {Math.round(s.bestE1rm)}
+                      </span>
                       <span className="text-[10px] uppercase text-muted-foreground">1RM kg</span>
                     </span>
                   </Link>
@@ -581,10 +587,17 @@ function Stat({
       </p>
       <p className="mt-1.5 text-2xl font-extrabold leading-none tabular-nums">
         {value}
-        {unit && value !== "—" ? <span className="ml-0.5 text-sm font-bold opacity-70">{unit}</span> : null}
+        {unit && value !== "—" ? (
+          <span className="ml-0.5 text-sm font-bold opacity-70">{unit}</span>
+        ) : null}
       </p>
       {sub && (
-        <p className={cn("mt-1 truncate text-[11px]", destaque ? "opacity-75" : "text-muted-foreground")}>
+        <p
+          className={cn(
+            "mt-1 truncate text-[11px]",
+            destaque ? "opacity-75" : "text-muted-foreground",
+          )}
+        >
           {sub}
         </p>
       )}

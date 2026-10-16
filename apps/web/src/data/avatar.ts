@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toWebp } from "@/lib/to-webp";
+import { errorMessage } from "@/data/supabase-helpers";
 
 /**
  * Foto de perfil.
@@ -84,7 +85,7 @@ export async function uploadAvatar(userId: string, original: File): Promise<stri
   const { error } = await supabase.storage
     .from(AVATAR_BUCKET)
     .upload(path, file, { upsert: true, contentType: file.type });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(errorMessage(error));
 
   return path;
 }

@@ -1,10 +1,20 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ChevronRight, Dumbbell, Heart, Loader2, Plus, Search, SearchX, Sparkles, X } from "lucide-react";
+import {
+  ChevronRight,
+  Dumbbell,
+  Heart,
+  Loader2,
+  Plus,
+  Search,
+  SearchX,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { queryKeys } from "@/data/query-keys";
-import { errorMessage } from "@/data/supabase-helpers";
+import { DataError, errorMessage } from "@/data/supabase-helpers";
 import { fetchActiveRoutine, type ActiveRoutine } from "@/data/routines";
 import { addTemplateItem } from "@/data/workout-week";
 import { useFavoritos } from "@/data/exercise-favorites";
@@ -15,7 +25,13 @@ import { BodyMap } from "@/components/body-map/body-map";
 import { FavoriteButton } from "@/components/exercises/favorite-button";
 import { CreateExerciseDialog } from "@/components/create-exercise-dialog";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,7 +54,9 @@ export const Route = createFileRoute("/_authenticated/exercises")({
       { name: "description", content: "Mais de mil exercícios com demonstração animada." },
     ],
   }),
-  validateSearch: (s: Record<string, unknown>): { aba?: Aba; grupo?: string; equipamento?: string } => ({
+  validateSearch: (
+    s: Record<string, unknown>,
+  ): { aba?: Aba; grupo?: string; equipamento?: string } => ({
     aba: s.aba === "equipamentos" || s.aba === "favoritos" ? s.aba : undefined,
     grupo: typeof s.grupo === "string" ? s.grupo : undefined,
     equipamento: typeof s.equipamento === "string" ? s.equipamento : undefined,
@@ -48,18 +66,78 @@ export const Route = createFileRoute("/_authenticated/exercises")({
 
 /** Grupos musculares da navegação: cada um junta os músculos do catálogo que fazem parte dele. */
 const GRUPOS = [
-  { key: "peito", nome: "Peito", musculos: ["chest"], recorte: { view: "front" as const, box: [150, 215, 424, 318] as const } },
-  { key: "costas", nome: "Costas", musculos: ["back", "lats", "lower_back"], recorte: { view: "back" as const, box: [110, 190, 504, 378] as const } },
-  { key: "ombros", nome: "Ombros", musculos: ["shoulders", "front_delts", "side_delts", "rear_delts"], recorte: { view: "front" as const, box: [90, 170, 544, 408] as const } },
-  { key: "biceps", nome: "Bíceps", musculos: ["biceps"], recorte: { view: "front" as const, box: [30, 230, 664, 498] as const } },
-  { key: "triceps", nome: "Tríceps", musculos: ["triceps"], recorte: { view: "back" as const, box: [30, 230, 664, 498] as const } },
-  { key: "antebraco", nome: "Antebraço", musculos: ["forearms"], recorte: { view: "front" as const, box: [10, 430, 704, 528] as const } },
-  { key: "abdomen", nome: "Abdômen", musculos: ["abs", "core", "obliques"], recorte: { view: "front" as const, box: [140, 370, 444, 333] as const } },
-  { key: "quadriceps", nome: "Quadríceps", musculos: ["quads"], recorte: { view: "front" as const, box: [110, 690, 504, 378] as const } },
-  { key: "posterior", nome: "Posterior de coxa", musculos: ["hamstrings"], recorte: { view: "back" as const, box: [110, 740, 504, 378] as const } },
-  { key: "gluteos", nome: "Glúteos", musculos: ["glutes", "abductors", "adductors"], recorte: { view: "back" as const, box: [140, 600, 444, 333] as const } },
-  { key: "panturrilhas", nome: "Panturrilhas", musculos: ["calves"], recorte: { view: "back" as const, box: [140, 1000, 444, 333] as const } },
-  { key: "trapezio", nome: "Trapézio e pescoço", musculos: ["traps", "neck"], recorte: { view: "back" as const, box: [130, 110, 464, 348] as const } },
+  {
+    key: "peito",
+    nome: "Peito",
+    musculos: ["chest"],
+    recorte: { view: "front" as const, box: [150, 215, 424, 318] as const },
+  },
+  {
+    key: "costas",
+    nome: "Costas",
+    musculos: ["back", "lats", "lower_back"],
+    recorte: { view: "back" as const, box: [110, 190, 504, 378] as const },
+  },
+  {
+    key: "ombros",
+    nome: "Ombros",
+    musculos: ["shoulders", "front_delts", "side_delts", "rear_delts"],
+    recorte: { view: "front" as const, box: [90, 170, 544, 408] as const },
+  },
+  {
+    key: "biceps",
+    nome: "Bíceps",
+    musculos: ["biceps"],
+    recorte: { view: "front" as const, box: [30, 230, 664, 498] as const },
+  },
+  {
+    key: "triceps",
+    nome: "Tríceps",
+    musculos: ["triceps"],
+    recorte: { view: "back" as const, box: [30, 230, 664, 498] as const },
+  },
+  {
+    key: "antebraco",
+    nome: "Antebraço",
+    musculos: ["forearms"],
+    recorte: { view: "front" as const, box: [10, 430, 704, 528] as const },
+  },
+  {
+    key: "abdomen",
+    nome: "Abdômen",
+    musculos: ["abs", "core", "obliques"],
+    recorte: { view: "front" as const, box: [140, 370, 444, 333] as const },
+  },
+  {
+    key: "quadriceps",
+    nome: "Quadríceps",
+    musculos: ["quads"],
+    recorte: { view: "front" as const, box: [110, 690, 504, 378] as const },
+  },
+  {
+    key: "posterior",
+    nome: "Posterior de coxa",
+    musculos: ["hamstrings"],
+    recorte: { view: "back" as const, box: [110, 740, 504, 378] as const },
+  },
+  {
+    key: "gluteos",
+    nome: "Glúteos",
+    musculos: ["glutes", "abductors", "adductors"],
+    recorte: { view: "back" as const, box: [140, 600, 444, 333] as const },
+  },
+  {
+    key: "panturrilhas",
+    nome: "Panturrilhas",
+    musculos: ["calves"],
+    recorte: { view: "back" as const, box: [140, 1000, 444, 333] as const },
+  },
+  {
+    key: "trapezio",
+    nome: "Trapézio e pescoço",
+    musculos: ["traps", "neck"],
+    recorte: { view: "back" as const, box: [130, 110, 464, 348] as const },
+  },
   { key: "cardio", nome: "Cardio e corpo todo", musculos: ["cardio", "full_body"] },
 ] as const;
 
@@ -102,7 +180,10 @@ function ExerciseLibrary() {
   const [term, setTerm] = useState("");
   const termo = useDebouncedValue(term.trim(), 300);
 
-  const rotina = useQuery({ queryKey: queryKeys.workouts.activeRoutine(), queryFn: fetchActiveRoutine });
+  const rotina = useQuery({
+    queryKey: queryKeys.workouts.activeRoutine(),
+    queryFn: fetchActiveRoutine,
+  });
 
   // Quantos exercícios há por músculo e por equipamento (uma leitura só, leve).
   const contagem = useQuery({
@@ -117,7 +198,8 @@ function ExerciseLibrary() {
       const porMusculo = new Map<string, number>();
       const porEquip = new Map<string, number>();
       for (const r of data ?? []) {
-        if (r.primary_muscle) porMusculo.set(r.primary_muscle, (porMusculo.get(r.primary_muscle) ?? 0) + 1);
+        if (r.primary_muscle)
+          porMusculo.set(r.primary_muscle, (porMusculo.get(r.primary_muscle) ?? 0) + 1);
         if (r.equipment) porEquip.set(r.equipment, (porEquip.get(r.equipment) ?? 0) + 1);
       }
       return { total: data?.length ?? 0, porMusculo, porEquip };
@@ -144,7 +226,9 @@ function ExerciseLibrary() {
       <PageHeader
         title="Exercícios"
         description={
-          contagem.data ? `${contagem.data.total.toLocaleString("pt-BR")} exercícios com demonstração` : undefined
+          contagem.data
+            ? `${contagem.data.total.toLocaleString("pt-BR")} exercícios com demonstração`
+            : undefined
         }
       />
       <PageBody>
@@ -154,7 +238,11 @@ function ExerciseLibrary() {
           <BuscaComFiltros termo={termo} rotina={rotina.data ?? null} />
         ) : (
           <>
-            <div role="tablist" aria-label="Navegar exercícios" className="mt-4 flex rounded-2xl bg-card p-1">
+            <div
+              role="tablist"
+              aria-label="Navegar exercícios"
+              className="mt-4 flex rounded-2xl bg-card p-1"
+            >
               {(
                 [
                   ["musculos", "Músculos"],
@@ -170,7 +258,9 @@ function ExerciseLibrary() {
                   onClick={() => irPara(v)}
                   className={cn(
                     "flex-1 rounded-xl py-2.5 text-sm font-semibold transition-colors",
-                    aba === v ? "bg-primary font-bold text-primary-foreground" : "text-muted-foreground",
+                    aba === v
+                      ? "bg-primary font-bold text-primary-foreground"
+                      : "text-muted-foreground",
                   )}
                 >
                   {rotulo}
@@ -179,9 +269,7 @@ function ExerciseLibrary() {
             </div>
 
             <div className="mt-4 animate-in fade-in duration-300" key={aba}>
-              {aba === "musculos" && (
-                <AbaMusculos porMusculo={contagem.data?.porMusculo} />
-              )}
+              {aba === "musculos" && <AbaMusculos porMusculo={contagem.data?.porMusculo} />}
               {aba === "equipamentos" && <AbaEquipamentos porEquip={contagem.data?.porEquip} />}
               {aba === "favoritos" && <AbaFavoritos rotina={rotina.data ?? null} />}
             </div>
@@ -241,7 +329,9 @@ function AbaMusculos({ porMusculo }: { porMusculo?: Map<string, number> }) {
     <>
       <ul className="grid grid-cols-2 gap-2.5">
         {GRUPOS.map((g, i) => {
-          const n = porMusculo ? g.musculos.reduce((s, m) => s + (porMusculo.get(m) ?? 0), 0) : null;
+          const n = porMusculo
+            ? g.musculos.reduce((s, m) => s + (porMusculo.get(m) ?? 0), 0)
+            : null;
           return (
             <li
               key={g.key}
@@ -251,6 +341,7 @@ function AbaMusculos({ porMusculo }: { porMusculo?: Map<string, number> }) {
               <Link
                 to="/exercises"
                 search={{ grupo: g.key }}
+                data-tour="exercicios-grupo"
                 className="flex h-full flex-col items-center rounded-[1.25rem] bg-card p-3 text-center transition-colors hover:bg-elevated active:scale-[0.98]"
               >
                 {/* A região do grupo, aproximada (costas da cintura para cima etc.). */}
@@ -280,10 +371,15 @@ function AbaMusculos({ porMusculo }: { porMusculo?: Map<string, number> }) {
 /** Equipamentos com a foto do exercício mais popular de cada um, filtrados pela estrutura. */
 function AbaEquipamentos({ porEquip }: { porEquip?: Map<string, number> }) {
   const [estrutura, setEstrutura] = useState<(typeof ESTRUTURAS)[number]["key"]>("completa");
-  const disponiveis = ESTRUTURAS.find((x) => x.key === estrutura)!.equipamentos as readonly string[];
+  const disponiveis = ESTRUTURAS.find((x) => x.key === estrutura)!
+    .equipamentos as readonly string[];
   return (
     <>
-      <div role="radiogroup" aria-label="Estrutura de treino" className="grid grid-cols-3 gap-1 rounded-2xl bg-card p-1">
+      <div
+        role="radiogroup"
+        aria-label="Estrutura de treino"
+        className="grid grid-cols-3 gap-1 rounded-2xl bg-card p-1"
+      >
         {ESTRUTURAS.map((x) => (
           <button
             key={x.key}
@@ -381,7 +477,8 @@ function AbaFavoritos({ rotina }: { rotina: ActiveRoutine | null }) {
     },
   });
 
-  if (carregando || (ordem.length > 0 && exercicios.isPending)) return <CardGridSkeleton count={3} />;
+  if (carregando || (ordem.length > 0 && exercicios.isPending))
+    return <CardGridSkeleton count={3} />;
   if (ordem.length === 0) {
     return (
       <EmptyState
@@ -418,7 +515,8 @@ function TelaFiltrada({
   const [equip, setEquip] = useState<string | null>(null);
   const [grupo, setGrupo] = useState<string | null>(null);
 
-  const musculosFiltro = musculos ?? (grupo ? [...GRUPOS.find((g) => g.key === grupo)!.musculos] : undefined);
+  const musculosFiltro =
+    musculos ?? (grupo ? [...GRUPOS.find((g) => g.key === grupo)!.musculos] : undefined);
   const equipFiltro = equipamento ? [equipamento] : equip ? [equip] : undefined;
 
   return (
@@ -476,7 +574,14 @@ function ListaExercicios({
   rotina: ActiveRoutine | null;
 }) {
   const lista = useInfiniteQuery({
-    queryKey: [...queryKeys.exercises.all, "lista", termo, musculos ?? [], equipamentos ?? [], nivel ?? ""],
+    queryKey: [
+      ...queryKeys.exercises.all,
+      "lista",
+      termo,
+      musculos ?? [],
+      equipamentos ?? [],
+      nivel ?? "",
+    ],
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
       let query = supabase
@@ -496,7 +601,7 @@ function ListaExercicios({
       if (equipamentos?.length) query = query.in("equipment", equipamentos as never[]);
       if (nivel) query = query.eq("level", nivel as "beginner");
       const { data, error } = await query;
-      if (error) throw new Error(`Não foi possível carregar os exercícios: ${error.message}`);
+      if (error) throw new DataError("carregar os exercícios", error);
       return data ?? [];
     },
     getNextPageParam: (ultima, todas) => (ultima.length < PAGE_SIZE ? undefined : todas.length),
@@ -559,7 +664,9 @@ function CriarExercicio() {
           </span>
           <span className="min-w-0 flex-1">
             <span className="block font-bold">Criar seu exercício</span>
-            <span className="block text-sm text-muted-foreground">Nome e músculo, sem animação</span>
+            <span className="block text-sm text-muted-foreground">
+              Nome e músculo, sem animação
+            </span>
           </span>
           <ChevronRight className="mr-1 size-5 shrink-0 text-primary" aria-hidden />
         </button>
@@ -599,7 +706,13 @@ function miniaturaDe(exercise: ExerciseRow): string | null {
 }
 
 /** Uma linha: miniatura, nome, "músculo · equipamento", favorito e "+ Plano". */
-function ExerciseListRow({ exercise, rotina }: { exercise: ExerciseRow; rotina: ActiveRoutine | null }) {
+function ExerciseListRow({
+  exercise,
+  rotina,
+}: {
+  exercise: ExerciseRow;
+  rotina: ActiveRoutine | null;
+}) {
   const qc = useQueryClient();
   const miniatura = miniaturaDe(exercise);
 
@@ -624,6 +737,7 @@ function ExerciseListRow({ exercise, rotina }: { exercise: ExerciseRow; rotina: 
         params={{ id: exercise.id }}
         className="flex min-w-0 flex-1 items-center gap-3.5"
         aria-label={`Abrir ${exercise.name}`}
+        data-tour="exercicio-item"
       >
         <span className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-xl bg-white">
           {miniatura ? (
@@ -635,7 +749,8 @@ function ExerciseListRow({ exercise, rotina }: { exercise: ExerciseRow; rotina: 
         <span className="min-w-0">
           <span className="block font-semibold leading-snug">{exercise.name}</span>
           <span className="block text-sm text-muted-foreground">
-            {label(MUSCLE_LABELS, exercise.primary_muscle)} · {label(EQUIPMENT_LABELS, exercise.equipment)}
+            {label(MUSCLE_LABELS, exercise.primary_muscle)} ·{" "}
+            {label(EQUIPMENT_LABELS, exercise.equipment)}
             {exercise.owner_id && " · seu"}
           </span>
         </span>
@@ -751,4 +866,3 @@ function useInfiniteScroll(onReach: () => void) {
 
   return ref;
 }
-

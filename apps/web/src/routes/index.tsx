@@ -43,7 +43,6 @@ import {
 import { WEEKDAY_LABELS, type Weekday } from "@forja/domain";
 import { BrandSymbol } from "@/components/brand-logo";
 import { hasCompletedOnboarding } from "@/data/onboarding";
-import { PlanChoice } from "@/components/onboarding/plan-choice";
 
 /**
  * A raiz do app: boas-vindas e, para quem já tem conta, o questionário.
@@ -59,17 +58,17 @@ import { PlanChoice } from "@/components/onboarding/plan-choice";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Habitual Fit — seu treino e sua dieta, montados para você" },
+      { title: "Habitual Fit — seu treino montado para você" },
       {
         name: "description",
         content:
-          "Responda algumas perguntas e receba um plano de treino e alimentação feito para o seu corpo, sua rotina e seus objetivos.",
+          "Responda algumas perguntas e receba um plano de treino feito para a sua rotina e os seus objetivos — e organize sua dieta no mesmo app.",
       },
-      { property: "og:title", content: "Habitual Fit — treino e dieta personalizados" },
+      { property: "og:title", content: "Habitual Fit — treino personalizado e dieta organizada" },
       {
         property: "og:description",
         content:
-          "Um plano completo de musculação e alimentação, montado a partir das suas respostas.",
+          "Um plano de musculação montado a partir das suas respostas, e um lugar para organizar suas refeições.",
       },
       { property: "og:type", content: "website" },
       { property: "og:locale", content: "pt_BR" },
@@ -192,7 +191,7 @@ function OnboardingQuiz() {
           {step.id === "objective" && (
             <Question
               title="Qual é o seu objetivo?"
-              subtitle="Ele define o treino, as repetições e as calorias do seu plano."
+              subtitle="Ele define o treino e as repetições do seu plano."
             >
               <ChoiceList
                 options={OBJECTIVE_OPTIONS}
@@ -401,7 +400,7 @@ function OnboardingQuiz() {
           {step.id === "workoutTime" && (
             <Question
               title="Que horas você costuma treinar?"
-              subtitle="É o que ancora o pré e o pós-treino na sua dieta."
+              subtitle="Ajuda a organizar seu dia em torno do treino."
             >
               <TimeField
                 value={answers.workoutTime}
@@ -488,10 +487,13 @@ function OnboardingQuiz() {
           )}
 
           {step.id === "review" && (
-            <Review answers={answers} onEdit={goTo} steps={steps} onConfirm={next} />
+            <Review
+              answers={answers}
+              onEdit={goTo}
+              steps={steps}
+              onConfirm={() => void navigate({ to: "/preparando" })}
+            />
           )}
-
-          {step.id === "plan" && <PlanChoice answers={answers} />}
         </main>
       </div>
     </div>
@@ -505,12 +507,12 @@ function Welcome({ onStart, logado }: { onStart: () => void; logado: boolean }) 
       <BrandSymbol className="mx-auto w-24 animate-in zoom-in-50 duration-500" />
 
       <h1 className="mt-8 text-balance text-3xl font-bold leading-tight tracking-tight animate-in fade-in slide-in-from-bottom-2 duration-500">
-        Seu treino e sua dieta, montados para você
+        Seu treino montado para você
       </h1>
       <p className="mt-3 text-pretty text-muted-foreground animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards delay-100 duration-500">
         {logado
-          ? "Responda algumas perguntas rápidas. No fim, seu plano completo estará pronto — treino semanal, cardápio e metas."
-          : "Crie sua conta e responda algumas perguntas rápidas. No fim, seu plano completo estará pronto — treino semanal, cardápio e metas."}
+          ? "Responda algumas perguntas rápidas. No fim, seu treino da semana estará pronto e suas refeições organizadas para você preencher."
+          : "Crie sua conta e responda algumas perguntas rápidas. No fim, seu treino da semana estará pronto e suas refeições organizadas para você preencher."}
       </p>
 
       <ul className="mx-auto mt-8 space-y-3 text-left text-sm">
@@ -696,7 +698,7 @@ function Review({
   return (
     <Question
       title="É isso mesmo?"
-      subtitle="Confira antes de ver o plano sugerido. Toque em qualquer linha para corrigir."
+      subtitle="Confira antes de montarmos seu plano. Toque em qualquer linha para corrigir."
     >
       <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border">
         {linhas.map((l) => {
@@ -719,11 +721,11 @@ function Review({
       </ul>
 
       <Feedback title="O que vem agora">
-        Mostramos o plano de treino sugerido para as suas respostas. Você escolhe se segue com ele
-        ou se monta o seu do zero.
+        Montamos o plano de treino sugerido para as suas respostas e criamos suas refeições, vazias.
+        No fim, você escolhe se segue com o plano ou se começa sem um.
       </Feedback>
 
-      <NextButton onClick={onConfirm} label="Ver plano sugerido" />
+      <NextButton onClick={onConfirm} label="Montar meu plano" />
     </Question>
   );
 }

@@ -57,8 +57,12 @@ export function useSwipeNav(pathname: string, ir: (to: string) => void) {
   return {
     onTouchStart: (e: TouchEvent<HTMLElement>) => {
       const toque = e.touches[0];
+      // Durante o tutorial, deslizar não troca de tela: o tour guia a navegação.
       inicio.current =
-        e.touches.length === 1 && toque && !gestoOcupado(e.target, e.currentTarget)
+        e.touches.length === 1 &&
+        toque &&
+        !document.body.hasAttribute("data-tutorial") &&
+        !gestoOcupado(e.target, e.currentTarget)
           ? { x: toque.clientX, y: toque.clientY, t: Date.now() }
           : null;
     },

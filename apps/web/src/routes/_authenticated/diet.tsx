@@ -7,6 +7,7 @@ import {
   ChevronDown,
   Clock,
   CopyPlus,
+  Loader2,
   Minus,
   MoreVertical,
   Pencil,
@@ -20,7 +21,9 @@ import { assertOk, errorMessage, num, unwrapMaybe } from "@/data/supabase-helper
 import {
   ensureDayMaterialized,
   fetchDayEntries,
+  fetchDayMealLabels,
   recordSubstitutionPreference,
+  setDayMealLabel,
   setConsumed,
   setEntryGrams,
   setMealConsumed,
@@ -28,7 +31,6 @@ import {
   type DayEntry,
 } from "@/data/diet-day";
 import { ensureActiveMealPlan, setMealLabel, setMealTime } from "@/data/meal-plans";
-import { addRecipeToMeal, type RecipeSummary } from "@/data/recipes";
 import {
   Dialog,
   DialogContent,
@@ -53,7 +55,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ErrorState } from "@/components/query-boundary";
-import { FoodPicker } from "@/components/pickers/food-picker";
 import { SubstituteFoodDialog } from "@/components/diet/substitute-food-dialog";
 import { CalorieRing, MACRO_COLORS } from "@/components/home/macro-rings";
 import { MEALS, MEAL_LABELS, label, type MealValue } from "@/lib/labels";
@@ -162,32 +163,6 @@ function DietPage() {
   const totaisConsumidos = nutritionTotals(consumidos.map(toPortion));
   const totaisPlanejados = nutritionTotals(rows.map(toPortion));
 
-  const addEntry = useMutation({
-    mutationFn: async (params: { foodId: string; grams: number; slot: MealValue }) => {
-      assertOk(
-        "adicionar ao diário",
-        await supabase.from("food_log_entries").insert({
-          user_id: userId,
-          food_id: params.foodId,
-          meal_slot: params.slot,
-          log_date: date,
-          grams: params.grams,
-          servings: 1,
-          // Item adicionado à mão já nasce consumido: quem o registra está
-          // relatando o que comeu, não planejando.
-          consumed: true,
-          consumed_at: new Date().toISOString(),
-          source: "manual",
-        }),
-      );
-    },
-    onSuccess: () => {
-      toast.success("Adicionado");
-      void invalidate();
-    },
-    onError: (e) => toast.error(errorMessage(e)),
-  });
-
   const remove = useMutation({
     mutationFn: async (id: string) => {
       assertOk("remover item", await supabase.from("food_log_entries").delete().eq("id", id));
@@ -250,22 +225,51 @@ function DietPage() {
       ? MEALS.map((m) => m.key).filter((k) => escolhidos.has(k))
       : MEALS.map((m) => m.key);
 
-  const nomeDe = (slot: MealValue) =>
+  const nomesDoDia = useQuery({
+    queryKey: [...queryKeys.diet.log(date), "nomes"],
+    enabled: entries.isSuccess,
+    queryFn: () => fetchDayMealLabels(date),
+  });
+  const nomeDaSemana = (slot: MealValue) =>
     plan.data?.meals.find((m) => m.slot === slot)?.label?.trim() || label(MEAL_LABELS, slot);
+  const nomeDe = (slot: MealValue) => nomesDoDia.data?.[slot]?.trim() || nomeDaSemana(slot);
 
+  /**
+   * Renomear no Diário: a semana toda (o nome do plano, que o Cardápio usa em
+   * todos os dias) ou só este dia. A refeição é achada pelo slot — nunca pelo
+   * nome, que é justamente o que muda. Só o nome muda.
+   */
   const renomear = useMutation({
-    mutationFn: async ({ slot, nome }: { slot: MealValue; nome: string }) => {
+    mutationFn: async ({
+      slot,
+      nome,
+      escopo,
+    }: {
+      slot: MealValue;
+      nome: string;
+      escopo: "semana" | "dia";
+    }) => {
       if (!plan.data) throw new Error("O plano alimentar ainda está carregando.");
+      if (escopo === "dia") {
+        // Voltar ao nome da semana tira a exceção do dia.
+        await setDayMealLabel(date, slot, nome && nome !== nomeDaSemana(slot) ? nome : null);
+        return;
+      }
       await setMealLabel(
         plan.data.id,
         slot,
         nome,
         MEALS.findIndex((m) => m.key === slot),
       );
+      // Este dia passa a seguir a semana.
+      if (nomesDoDia.data?.[slot]) await setDayMealLabel(date, slot, null);
     },
-    onSuccess: () => {
-      toast.success("Refeição renomeada");
+    onSuccess: (_, { escopo }) => {
+      toast.success(
+        escopo === "semana" ? "Refeição renomeada na semana toda" : "Refeição renomeada neste dia",
+      );
       void qc.invalidateQueries({ queryKey: queryKeys.diet.activePlan() });
+      void qc.invalidateQueries({ queryKey: [...queryKeys.diet.log(date), "nomes"] });
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
@@ -305,6 +309,7 @@ function DietPage() {
         <div
           role="tablist"
           aria-label="Seção da dieta"
+          data-tour="dieta-abas"
           className="mb-4 flex rounded-2xl bg-card p-1"
         >
           {(
@@ -317,6 +322,7 @@ function DietPage() {
               key={v}
               type="button"
               role="tab"
+              data-tour={`dieta-aba-${v}`}
               aria-selected={aba === v}
               onClick={() => setAba(v)}
               className={cn(
@@ -397,10 +403,14 @@ function DietPage() {
               <section className="mb-4 rounded-[1.25rem] border border-dashed border-primary/40 bg-primary/5 p-5">
                 <h2 className="text-lg font-bold">Monte suas refeições</h2>
                 <p className="mt-1 text-pretty text-sm text-muted-foreground">
-                  Suas refeições estão vazias. Toque em <b className="text-foreground">Adicionar</b>{" "}
-                  em cada uma para incluir alimentos ou receitas, e no nome para renomear ou definir
-                  o horário. Monte por conta própria ou siga a orientação do seu nutricionista.
+                  Suas refeições estão vazias. Os alimentos de cada refeição são montados no{" "}
+                  <b className="text-foreground">Cardápio da semana</b> e aparecem aqui, no dia,
+                  para você marcar o que comeu. Monte por conta própria ou siga a orientação do seu
+                  nutricionista.
                 </p>
+                <Button className="mt-4 h-11 rounded-xl" onClick={() => setAba("cardapio")}>
+                  Abrir o Cardápio da semana
+                </Button>
               </section>
             )}
 
@@ -413,23 +423,14 @@ function DietPage() {
                     key={slot}
                     slot={slot}
                     nome={nomeDe(slot)}
-                    onRename={(nome) => renomear.mutateAsync({ slot, nome })}
+                    onRename={(nome, escopo) => renomear.mutateAsync({ slot, nome, escopo })}
+                    diaHoje={date === hoje}
                     onChangeTime={(hora) => mudarHorario.mutate({ slot, hora })}
                     date={date}
                     items={rows.filter((r) => r.slot === slot)}
                     targetTime={plan.data?.meals.find((m) => m.slot === slot)?.targetTime ?? null}
                     isPending={entries.isPending}
                     userId={userId}
-                    onAdd={(foodId, grams) => addEntry.mutateAsync({ foodId, grams, slot })}
-                    onAddRecipe={async (recipe, portions) => {
-                      try {
-                        await addRecipeToMeal({ userId, date, slot, recipe, portions });
-                        toast.success(`${recipe.name} adicionada`);
-                        await invalidate();
-                      } catch (e) {
-                        toast.error(errorMessage(e));
-                      }
-                    }}
                     onRemove={(id) => remove.mutate(id)}
                     onChanged={invalidate}
                   />
@@ -468,29 +469,28 @@ function MealCard({
   slot,
   nome,
   onRename,
+  diaHoje,
   onChangeTime,
   date,
   items,
   targetTime,
   isPending,
   userId,
-  onAdd,
-  onAddRecipe,
   onRemove,
   onChanged,
 }: {
   slot: MealValue;
   /** Nome exibido: o dado pela pessoa ou o padrão do horário. */
   nome: string;
-  onRename: (nome: string) => Promise<void>;
+  onRename: (nome: string, escopo: "semana" | "dia") => Promise<void>;
+  /** O dia aberto é hoje: muda o texto da opção "somente hoje". */
+  diaHoje: boolean;
   onChangeTime: (hora: string) => void;
   date: string;
   items: DayEntry[];
   targetTime: string | null;
   isPending: boolean;
   userId: string;
-  onAdd: (foodId: string, grams: number) => Promise<void>;
-  onAddRecipe: (recipe: RecipeSummary, portions: number) => Promise<void>;
   onRemove: (id: string) => void;
   onChanged: () => void | Promise<unknown>;
 }) {
@@ -591,7 +591,12 @@ function MealCard({
           <div className="min-w-0 flex-1">
             <h3 className="flex items-center gap-1.5 text-lg font-bold leading-tight">
               <span className="truncate">{nome}</span>
-              <RenomearRefeicao atual={nome} padrao={label(MEAL_LABELS, slot)} onSave={onRename} />
+              <RenomearRefeicao
+                atual={nome}
+                padrao={label(MEAL_LABELS, slot)}
+                diaHoje={diaHoje}
+                onSave={onRename}
+              />
               {todosConsumidos && (
                 <Check
                   className="size-4 shrink-0 text-primary"
@@ -619,19 +624,6 @@ function MealCard({
             </p>
           </div>
 
-          {!fechada && (
-            <FoodPicker
-              title={`Adicionar em ${nome.toLowerCase()}`}
-              onPick={(food, grams) => onAdd(food.id, grams)}
-              onPickRecipe={onAddRecipe}
-              trigger={
-                <Button size="sm" variant="ghost" className="shrink-0">
-                  <Plus className="mr-1 size-4" />
-                  Adicionar
-                </Button>
-              }
-            />
-          )}
           {todosConsumidos && (
             <button
               type="button"
@@ -654,7 +646,7 @@ function MealCard({
           </div>
         ) : items.length === 0 ? (
           <p className="py-3 text-center text-sm text-muted-foreground">
-            Refeição vazia — toque em Adicionar para incluir alimentos ou uma receita.
+            Refeição vazia — adicione alimentos no Cardápio da semana.
           </p>
         ) : (
           <>
@@ -941,70 +933,125 @@ function GramsEditor({
   );
 }
 
-/** Lápis ao lado do nome da refeição: renomeia (vazio volta ao padrão). */
+/**
+ * Lápis ao lado do nome da refeição. Primeiro o nome (vazio volta ao padrão);
+ * depois, se mudou, a pergunta: a semana toda ou só este dia — com Cancelar,
+ * para um toque errado não renomear nada.
+ */
 function RenomearRefeicao({
   atual,
   padrao,
+  diaHoje,
   onSave,
 }: {
   atual: string;
   padrao: string;
-  onSave: (nome: string) => Promise<void>;
+  diaHoje: boolean;
+  onSave: (nome: string, escopo: "semana" | "dia") => Promise<void>;
 }) {
   const [aberto, setAberto] = useState(false);
   const [nome, setNome] = useState(atual);
-  const [salvando, setSalvando] = useState(false);
-  const salvar = async () => {
-    setSalvando(true);
+  const [etapa, setEtapa] = useState<"nome" | "escopo">("nome");
+  const [salvando, setSalvando] = useState<"semana" | "dia" | null>(null);
+  const novo = nome.trim() || padrao;
+
+  const salvar = async (escopo: "semana" | "dia") => {
+    setSalvando(escopo);
     try {
-      await onSave(nome === padrao ? "" : nome);
+      await onSave(novo === padrao ? "" : novo, escopo);
       setAberto(false);
     } finally {
-      setSalvando(false);
+      setSalvando(null);
     }
   };
+
   return (
     <Dialog
       open={aberto}
       onOpenChange={(o) => {
         setAberto(o);
-        if (o) setNome(atual);
+        if (o) {
+          setNome(atual);
+          setEtapa("nome");
+        }
       }}
     >
       <DialogTrigger asChild>
         <button
           type="button"
           aria-label={`Renomear ${atual}`}
+          data-tour="renomear-refeicao"
           className="grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-elevated hover:text-foreground"
         >
           <Pencil className="size-3.5" />
         </button>
       </DialogTrigger>
       <DialogContent className="rounded-[1.5rem]">
-        <DialogHeader>
-          <DialogTitle>Nome da refeição</DialogTitle>
-          <DialogDescription>Deixe em branco para voltar a “{padrao}”.</DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void salvar();
-          }}
-          className="space-y-4"
-        >
-          <Input
-            autoFocus
-            value={nome}
-            maxLength={40}
-            onChange={(e) => setNome(e.target.value)}
-            placeholder={padrao}
-            className="h-12 text-lg"
-            aria-label="Nome da refeição"
-          />
-          <Button type="submit" className="h-12 w-full" disabled={salvando}>
-            Salvar
-          </Button>
-        </form>
+        {etapa === "nome" ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Nome da refeição</DialogTitle>
+              <DialogDescription>Deixe em branco para voltar a “{padrao}”.</DialogDescription>
+            </DialogHeader>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (novo === atual) return setAberto(false);
+                setEtapa("escopo");
+              }}
+              className="space-y-4"
+            >
+              <Input
+                autoFocus
+                value={nome}
+                maxLength={40}
+                onChange={(e) => setNome(e.target.value)}
+                placeholder={padrao}
+                className="h-12 text-lg"
+                aria-label="Nome da refeição"
+              />
+              <Button type="submit" className="h-12 w-full">
+                Continuar
+              </Button>
+            </form>
+          </>
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle>Renomear para “{novo}”</DialogTitle>
+              <DialogDescription>
+                Deseja alterar o nome de todas as refeições correspondentes no cardápio da semana?
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-2">
+              <Button
+                className="h-12 rounded-xl"
+                disabled={salvando !== null}
+                onClick={() => void salvar("semana")}
+              >
+                {salvando === "semana" && <Loader2 className="mr-2 size-4 animate-spin" />}
+                Sim, alterar a semana toda
+              </Button>
+              <Button
+                variant="outline"
+                className="h-12 rounded-xl"
+                disabled={salvando !== null}
+                onClick={() => void salvar("dia")}
+              >
+                {salvando === "dia" && <Loader2 className="mr-2 size-4 animate-spin" />}
+                {diaHoje ? "Não, somente hoje" : "Não, somente neste dia"}
+              </Button>
+              <Button
+                variant="ghost"
+                className="h-11 rounded-xl"
+                disabled={salvando !== null}
+                onClick={() => setAberto(false)}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

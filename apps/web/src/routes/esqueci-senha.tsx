@@ -4,6 +4,7 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { ArrowLeft, Loader2, MailCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { errorMessage } from "@/data/supabase-helpers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,11 +44,7 @@ function ForgotPasswordPage() {
     setLoading(false);
 
     if (error) {
-      return toast.error(
-        /rate limit|security purposes/i.test(error.message)
-          ? "Muitas tentativas. Aguarde um pouco e tente de novo."
-          : error.message,
-      );
+      return toast.error(errorMessage(error));
     }
     // Mesma tela havendo conta ou não: não confirma a terceiros quem tem conta.
     setEnviadoPara(em.data);

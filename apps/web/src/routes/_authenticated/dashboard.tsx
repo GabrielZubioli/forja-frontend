@@ -109,14 +109,23 @@ function Home() {
 
       <div className="space-y-4">
         <SequenciaCard />
-        <SemanaCard />
-        <ReadinessCard />
-        <PesoCard />
-        <DietaCard
-          kcalTarget={num(profile.data?.daily_kcal_target)}
-          proteinTarget={num(profile.data?.protein_g_target)}
-          loadingProfile={profile.isPending}
-        />
+        {/* `data-tour`: âncoras do tutorial de boas-vindas. */}
+        <div data-tour="home-semana">
+          <SemanaCard />
+        </div>
+        <div data-tour="home-prontidao">
+          <ReadinessCard />
+        </div>
+        <div data-tour="home-peso">
+          <PesoCard />
+        </div>
+        <div data-tour="home-dieta">
+          <DietaCard
+            kcalTarget={num(profile.data?.daily_kcal_target)}
+            proteinTarget={num(profile.data?.protein_g_target)}
+            loadingProfile={profile.isPending}
+          />
+        </div>
         <WaterCard date={today} targetMl={num(profile.data?.water_ml_target, 2500)} />
         <Link
           to="/coach"

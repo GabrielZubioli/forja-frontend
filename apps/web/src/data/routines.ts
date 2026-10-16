@@ -663,6 +663,37 @@ export async function saveSuggestedRoutine(
 }
 
 /**
+ * "Começar sem um plano" na tela final do questionário: troca o plano sugerido
+ * que acabou de ser criado por um em branco. O sugerido é descartado (exclusão
+ * lógica, com as divisões) em vez de só arquivado — ninguém treinou com ele, e
+ * assim não sobra um plano a mais. Devolve o id do plano em branco.
+ */
+export async function startWithoutPlan(
+  userId: string,
+  suggestedRoutineId: string | null,
+): Promise<string> {
+  const vazio = await createEmptyRoutine(userId);
+  if (suggestedRoutineId && suggestedRoutineId !== vazio) {
+    const agora = new Date().toISOString();
+    assertOk(
+      "descartar as divisões do plano sugerido",
+      await supabase
+        .from("workout_templates")
+        .update({ deleted_at: agora })
+        .eq("routine_id", suggestedRoutineId),
+    );
+    assertOk(
+      "descartar o plano sugerido",
+      await supabase
+        .from("workout_routines")
+        .update({ deleted_at: agora, is_active: false })
+        .eq("id", suggestedRoutineId),
+    );
+  }
+  return vazio;
+}
+
+/**
  * Plano próprio, do zero: uma rotina ativa **sem** divisões, dias ou
  * exercícios — a pessoa monta tudo. A anterior é arquivada, não apagada.
  */

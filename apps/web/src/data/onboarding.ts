@@ -1,13 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { assertOk, unwrapMaybe } from "@/data/supabase-helpers";
-import {
-  buildRoutineDraft,
-  createEmptyRoutine,
-  saveSuggestedRoutine,
-  type RoutineDraft,
-} from "@/data/routines";
+import { saveSuggestedRoutine } from "@/data/routines";
 import { ensureActiveMealPlan } from "@/data/meal-plans";
-import { trainingPlanInput } from "@/data/planning-profile";
 import { todayISO } from "@/lib/date";
 import type { Answers } from "@/lib/onboarding/schema";
 import { derivedActivityLevel, derivedObjective } from "@/lib/onboarding/options";
@@ -18,8 +12,8 @@ import { DEFAULT_MEALS_PER_DAY, type SessionDuration } from "@forja/domain";
  *
  * ## O que monta
  *
- * O perfil e o treino — o sugerido ou um plano vazio, conforme a escolha — e a
- * estrutura da dieta: as refeições do dia, vazias. A dieta nunca é gerada: o
+ * O perfil, o treino sugerido e a estrutura da dieta: as refeições do dia,
+ * vazias. Na tela final a pessoa segue com o sugerido ou começa sem um plano. A dieta nunca é gerada: o
  * app não prescreve alimentos, quantidades nem metas nutricionais.
  *
  * ## A ordem importa
@@ -29,9 +23,6 @@ import { DEFAULT_MEALS_PER_DAY, type SessionDuration } from "@forja/domain";
  */
 
 export type GenerationStage = "profile" | "workout" | "diet" | "done";
-
-/** Seguir o plano de treino sugerido ou montar o próprio, do zero. */
-export type PlanChoice = "sugerido" | "manual";
 
 export interface GenerationProgress {
   stage: GenerationStage;
@@ -58,28 +49,9 @@ function birthDateFromAge(age: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-/**
- * O rascunho do treino mostrado na prévia do questionário. Guardado em memória
- * para o plano salvo ser exatamente o que a pessoa viu e aceitou; sem ele
- * (recarregou a página), é montado de novo a partir das mesmas respostas.
- */
-let rascunhoAceito: RoutineDraft | null = null;
-export function rememberAcceptedDraft(draft: RoutineDraft | null) {
-  rascunhoAceito = draft;
-}
-
-/** O treino sugerido para estas respostas, sem gravar nada. */
-export function buildSuggestedRoutine(answers: Answers): Promise<RoutineDraft> {
-  return buildRoutineDraft(trainingPlanInput(answers), {
-    injuries: answers.injuries,
-    equipmentAvailable: answers.equipment,
-  });
-}
-
 export async function generateEverything(
   userId: string,
   answers: Answers,
-  choice: PlanChoice,
   onProgress?: (p: GenerationProgress) => void,
 ): Promise<GenerationResult> {
   const report = (stage: GenerationStage) => onProgress?.({ stage, label: STAGE_LABELS[stage] });
@@ -199,11 +171,9 @@ export async function generateEverything(
 
   let routineId: string | null = null;
   try {
-    routineId =
-      choice === "sugerido"
-        ? await saveSuggestedRoutine(userId, rascunhoAceito)
-        : await createEmptyRoutine(userId);
-    rascunhoAceito = null;
+    // O sugerido é montado sempre; quem não o quiser escolhe "Começar sem um
+    // plano" na tela final, que o troca por um plano em branco.
+    routineId = await saveSuggestedRoutine(userId);
   } catch (error) {
     // O treino falhar não pode impedir o resto: a tela Plano oferece montar de novo.
     warnings.push(

@@ -63,7 +63,11 @@ function StatsPage() {
 
   const r = rotina.data;
   const diasDoPlano = new Set(
-    r ? (r.scheduleMode === "fixed" ? r.templates.flatMap((t) => t.weekdays) : r.trainingWeekdays) : [],
+    r
+      ? r.scheduleMode === "fixed"
+        ? r.templates.flatMap((t) => t.weekdays)
+        : r.trainingWeekdays
+      : [],
   );
   const sequencia = diasSeguidos(
     new Set((recentes.data ?? []).map((w) => w.date)),
@@ -111,6 +115,7 @@ function StatsPage() {
         <section
           className="animate-in fade-in duration-500"
           aria-label="Constância"
+          data-tour="stats-semana"
         >
           <div className="relative flex items-start justify-between gap-3">
             <div>
@@ -137,10 +142,7 @@ function StatsPage() {
                 sequencia > 0 ? "bg-[#FF7A1F]/15 text-[#FF7A1F]" : "bg-muted text-muted-foreground",
               )}
             >
-              <Flame
-                className={cn("size-4", sequencia > 0 && "fill-[#FFB01F]")}
-                aria-hidden
-              />
+              <Flame className={cn("size-4", sequencia > 0 && "fill-[#FFB01F]")} aria-hidden />
               {rotina.isPending ? "…" : sequencia} {sequencia === 1 ? "dia" : "dias"}
             </span>
           </div>
@@ -213,10 +215,7 @@ function StatsPage() {
 function Titulo({ children, id }: { children: ReactNode; id?: string }) {
   return (
     <h2 id={id} className="mb-3 mt-7 flex items-center gap-2 px-1 text-lg font-bold">
-      <span
-        className="h-5 w-1.5 rounded-full bg-primary"
-        aria-hidden
-      />
+      <span className="h-5 w-1.5 rounded-full bg-primary" aria-hidden />
       {children}
     </h2>
   );
@@ -253,7 +252,9 @@ function Numero({
           )}
         >
           {valor}
-          {unidade ? <span className="ml-0.5 text-sm font-bold text-muted-foreground">{unidade}</span> : null}
+          {unidade ? (
+            <span className="ml-0.5 text-sm font-bold text-muted-foreground">{unidade}</span>
+          ) : null}
         </p>
       )}
       <p className="mt-1.5 flex items-center justify-center gap-1 text-xs font-medium text-muted-foreground [&_svg]:size-3.5">
@@ -426,7 +427,7 @@ function Historico() {
   const maxVolume = Math.max(1, ...lista.map((s) => Number(s.total_volume_kg ?? 0)));
 
   return (
-    <section aria-labelledby="historico-titulo">
+    <section aria-labelledby="historico-titulo" data-tour="stats-treinos">
       <Titulo id="historico-titulo">Últimos treinos</Titulo>
       {historico.isPending ? (
         <Skeleton className="h-32 w-full rounded-[1.25rem]" />

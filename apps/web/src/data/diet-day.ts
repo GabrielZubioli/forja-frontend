@@ -116,16 +116,16 @@ export async function ensureDayMaterialized(
     (m.meal_plan_items ?? [])
       .filter((item) => item.weekday === null || item.weekday === diaDaSemana)
       .map((item) => ({
-      user_id: userId,
-      food_id: item.food_id,
-      log_date: date,
-      meal_slot: m.slot,
-      grams: num(item.grams),
-      servings: 1,
-      plan_item_id: item.id,
-      consumed: false,
-      source: "plan",
-    })),
+        user_id: userId,
+        food_id: item.food_id,
+        log_date: date,
+        meal_slot: m.slot,
+        grams: num(item.grams),
+        servings: 1,
+        plan_item_id: item.id,
+        consumed: false,
+        source: "plan",
+      })),
   );
 
   if (linhas.length > 0) {
@@ -353,4 +353,45 @@ export async function undoLastWater(date: string): Promise<void> {
     "desfazer registro de água",
     await supabase.from("water_intake").delete().eq("id", last.id),
   );
+}
+
+/**
+ * Nomes de refeição que valem **só neste dia** ("Não, somente hoje"), por
+ * slot. O nome da semana toda fica no plano (`meal_plan_meals.label`).
+ */
+export async function fetchDayMealLabels(date: string): Promise<Partial<Record<MealSlot, string>>> {
+  const dia = unwrapMaybe(
+    "carregar nomes das refeições do dia",
+    await supabase.from("diet_days").select("meal_labels").eq("log_date", date).maybeSingle(),
+  );
+  const v = dia?.meal_labels;
+  return v && typeof v === "object" && !Array.isArray(v)
+    ? (v as Partial<Record<MealSlot, string>>)
+    : {};
+}
+
+/**
+ * Grava (ou tira, com `null`) o nome de uma refeição só neste dia. Mexe apenas
+ * no nome: alimentos, quantidades e horários ficam como estão. O dia já foi
+ * materializado ao ser aberto — por isso é update, e não upsert, que criaria
+ * um dia vazio e travaria a materialização.
+ */
+export async function setDayMealLabel(
+  date: string,
+  slot: MealSlot,
+  nome: string | null,
+): Promise<void> {
+  const atuais = await fetchDayMealLabels(date);
+  const proximos = { ...atuais };
+  if (nome?.trim()) proximos[slot] = nome.trim();
+  else delete proximos[slot];
+  const linhas = unwrapList(
+    "renomear a refeição do dia",
+    await supabase
+      .from("diet_days")
+      .update({ meal_labels: proximos })
+      .eq("log_date", date)
+      .select("log_date"),
+  );
+  if (linhas.length === 0) throw new Error("Abra o dia no diário antes de renomear a refeição.");
 }

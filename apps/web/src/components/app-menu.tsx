@@ -80,6 +80,7 @@ export function AppMenu({
                 <Link
                   to={d.to}
                   onClick={fechar}
+                  data-tour={`menu-${d.to.slice(1)}`}
                   aria-current={isActive(d.to) ? "page" : undefined}
                   className="flex h-full flex-col gap-3 rounded-[1.25rem] border border-border bg-card p-4 transition-colors hover:border-primary/40 active:scale-[0.98]"
                 >
@@ -100,6 +101,7 @@ export function AppMenu({
               <li key={it.label} className="border-b border-border/60 last:border-b-0">
                 <Link
                   to={it.to}
+                  data-tour={`menu-${it.to.slice(1)}`}
                   search={it.secao ? { secao: it.secao } : undefined}
                   onClick={fechar}
                   className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-elevated"

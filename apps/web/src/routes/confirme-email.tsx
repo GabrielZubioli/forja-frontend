@@ -4,6 +4,7 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { Loader2, MailCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { errorMessage } from "@/data/supabase-helpers";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -42,7 +43,7 @@ function ConfirmEmailPage() {
     });
     setResending(false);
 
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(errorMessage(error));
     setSentAt(Date.now());
     toast.success("E-mail reenviado.");
   };

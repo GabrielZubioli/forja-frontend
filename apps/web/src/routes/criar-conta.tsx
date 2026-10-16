@@ -4,6 +4,7 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { ArrowLeft, Loader2, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { errorMessage } from "@/data/supabase-helpers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -115,7 +116,7 @@ function SignUpForm() {
     ) {
       return setContaExiste(em.data);
     }
-    if (error) return void toast.error(error.message);
+    if (error) return void toast.error(errorMessage(error));
 
     // Confirmação desligada no projeto: já veio sessão, segue para o questionário.
     if (data.session) return void navigate({ to: "/", replace: true });

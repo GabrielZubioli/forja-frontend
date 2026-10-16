@@ -141,7 +141,7 @@ export function NewProgressDialog({
           const { error } = await supabase.storage
             .from(PHOTOS_BUCKET)
             .upload(path, arquivo, { upsert: false, contentType: arquivo.type });
-          if (error) throw new Error(error.message);
+          if (error) throw new Error(errorMessage(error));
           enviados.push(path);
 
           const insert = await supabase.from("progress_photos").insert({

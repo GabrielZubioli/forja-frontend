@@ -14,9 +14,6 @@ import type { Answers } from "./schema";
  * Só uma pergunta de alimentação — quantas refeições —, que vira a estrutura
  * vazia da dieta. O app não prescreve dieta, então não pergunta o resto.
  *
- * O último passo mostra o plano de treino sugerido e a escolha entre segui-lo
- * ou montar o próprio.
- *
  * ## Por que declarativo
  *
  * A tela não sabe quantos passos existem nem quais foram pulados: ela lê desta
@@ -62,7 +59,6 @@ export const STEPS = [
   { id: "injuries" },
   { id: "mealsPerDay", autoAdvance: true },
   { id: "review" },
-  { id: "plan" },
 ] as const satisfies readonly StepDef[];
 
 export type StepId = (typeof STEPS)[number]["id"];

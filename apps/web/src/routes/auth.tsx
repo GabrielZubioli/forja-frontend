@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { errorMessage } from "@/data/supabase-helpers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -136,9 +137,7 @@ function SignInForm() {
     }
     // Mensagem genérica de propósito: distinguir "e-mail não existe" de "senha
     // errada" confirma a terceiros quem tem conta no app.
-    toast.error(
-      /invalid login/i.test(error.message) ? "E-mail ou senha incorretos." : error.message,
-    );
+    toast.error(errorMessage(error));
   };
 
   return (

@@ -1,13 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { z } from "zod";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   AlertTriangle,
   ArrowRight,
   Check,
   Dumbbell,
   Flag,
+  Loader2,
   Moon,
   User,
   Utensils,
@@ -24,13 +25,12 @@ import { errorMessage, num, unwrapMaybe } from "@/data/supabase-helpers";
 import { queryKeys } from "@/data/query-keys";
 import { fetchWorkoutWeek } from "@/data/workout-week";
 import { fetchActiveMealPlan } from "@/data/meal-plans";
-import { splitDisplayName } from "@/data/routines";
+import { splitDisplayName, startWithoutPlan } from "@/data/routines";
 import {
   GENERATION_STAGES,
   generateEverything,
   hasCompletedOnboarding,
   type GenerationStage,
-  type PlanChoice,
 } from "@/data/onboarding";
 import { clearDraft, clearStep, loadDraft } from "@/lib/onboarding/storage";
 import { isComplete, type Answers } from "@/lib/onboarding/schema";
@@ -48,15 +48,14 @@ import { MEAL_LABELS, label } from "@/lib/labels";
  * Pronto, a tela mostra **o que** foi preparado — a semana de treino (ou o
  * plano em branco) e as refeições vazias — antes de levar ao app.
  *
- * `plano` vem da escolha no fim do questionário: o treino sugerido ou um plano
- * próprio, do zero. Sem ela, volta ao questionário para a pessoa escolher.
+ * Ali a pessoa decide: segue com o plano sugerido ("Ir para o app") ou começa
+ * sem um plano — o sugerido é trocado por um em branco.
  */
 export const Route = createFileRoute("/preparando")({
   head: () => ({
     meta: [{ title: "Montando seu plano — Habitual Fit" }, { name: "robots", content: "noindex" }],
   }),
   ssr: false,
-  validateSearch: z.object({ plano: z.enum(["sugerido", "manual"]).optional() }),
   component: PreparingPage,
 });
 
@@ -89,12 +88,12 @@ type Status = "checking" | "generating" | "done" | "error";
 
 function PreparingPage() {
   const navigate = useNavigate();
-  const { plano } = Route.useSearch();
   const qc = useQueryClient();
 
   const [status, setStatus] = useState<Status>("checking");
   const [stage, setStage] = useState<GenerationStage>("profile");
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [routineId, setRoutineId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Answers | null>(null);
 
@@ -121,16 +120,16 @@ function PreparingPage() {
 
       // Sem respostas (primeiro login com Google, outro aparelho, dados
       // limpos): o questionário é o que falta, então vai direto para ele.
-      // Sem respostas ou sem a escolha do plano: o questionário é o que falta.
       const draft = loadDraft();
-      if (!isComplete(draft) || !plano) return void navigate({ to: "/", replace: true });
+      if (!isComplete(draft)) return void navigate({ to: "/", replace: true });
 
       setAnswers(draft);
       setStatus("generating");
       const inicio = Date.now();
       try {
-        const result = await generateEverything(user.id, draft, plano, (p) => setStage(p.stage));
+        const result = await generateEverything(user.id, draft, (p) => setStage(p.stage));
         setWarnings(result.warnings);
+        setRoutineId(result.routineId);
 
         // O rascunho cumpriu seu papel; mantê-lo faria o questionário reaparecer
         // preenchido se o usuário voltasse à raiz.
@@ -148,13 +147,13 @@ function PreparingPage() {
         setStatus("error");
       }
     })();
-  }, [navigate, qc, plano]);
+  }, [navigate, qc]);
 
   if (status === "done") {
     return (
       <PlanReady
         answers={answers}
-        choice={plano ?? "sugerido"}
+        routineId={routineId}
         warnings={warnings}
         onContinue={() => void navigate({ to: "/dashboard", replace: true })}
       />
@@ -308,12 +307,13 @@ const entra = (i: number): { className: string; style: CSSProperties } => ({
 
 function PlanReady({
   answers,
-  choice,
+  routineId,
   warnings,
   onContinue,
 }: {
   answers: Answers | null;
-  choice: PlanChoice;
+  /** O plano sugerido recém-criado — descartado em "Começar sem um plano". */
+  routineId: string | null;
   warnings: string[];
   onContinue: () => void;
 }) {
@@ -329,6 +329,22 @@ function PlanReady({
   const cardapio = useQuery({
     queryKey: queryKeys.diet.activePlan(),
     queryFn: fetchActiveMealPlan,
+  });
+
+  // Sem o sugerido: plano em branco e direto para a tela Plano montar o seu.
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const semPlano = useMutation({
+    mutationFn: async () => {
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) throw new Error("Sessão expirada. Entre de novo.");
+      await startWithoutPlan(data.user.id, routineId);
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries();
+      void navigate({ to: "/plan", replace: true });
+    },
+    onError: (e) => toast.error(errorMessage(e)),
   });
 
   const p = profile.data;
@@ -353,9 +369,7 @@ function PlanReady({
             {nome ? `${nome}, seu plano está pronto` : "Seu plano está pronto"}
           </h1>
           <p className="relative mt-3 text-muted-foreground">
-            {choice === "sugerido"
-              ? "Seu treino foi montado a partir das suas respostas."
-              : "Tudo pronto para você montar o seu do zero."}
+            Seu treino foi montado a partir das suas respostas.
           </p>
           <div className="relative mt-4 flex flex-wrap justify-center gap-2">
             {objetivo && (
@@ -405,13 +419,7 @@ function PlanReady({
           {semana.isPending ? (
             <Skeleton className="h-64 rounded-[1.5rem]" />
           ) : splits.length === 0 ? (
-            <Vazio
-              texto={
-                choice === "manual"
-                  ? "Seu plano está em branco. Na tela Plano, crie suas rotinas, escolha os exercícios e os dias da semana."
-                  : "Não conseguimos montar o treino agora. Na tela Plano você pode tentar de novo ou montar o seu."
-              }
-            />
+            <Vazio texto="Não conseguimos montar o treino agora. Na tela Plano você pode tentar de novo ou montar o seu." />
           ) : (
             <>
               <ol className="grid grid-cols-7 gap-1.5 rounded-[1.5rem] bg-card p-3">
@@ -512,10 +520,7 @@ function PlanReady({
           )}
         </Secao>
 
-        <AvisoProfissional
-          tipos={choice === "sugerido" ? ["treino", "dieta"] : ["dieta"]}
-          className={cn("mt-6", entra(5).className)}
-        />
+        <AvisoProfissional tipos={["treino", "dieta"]} className={cn("mt-6", entra(5).className)} />
 
         {warnings.length > 0 && (
           <div
@@ -552,9 +557,19 @@ function PlanReady({
             size="lg"
             className="h-14 w-full rounded-2xl text-lg font-bold shadow-lg shadow-primary/25 animate-in fade-in slide-in-from-bottom-4 fill-mode-backwards delay-700 duration-700"
             onClick={onContinue}
+            disabled={semPlano.isPending}
           >
             Ir para o app
             <ArrowRight className="ml-1 size-5" aria-hidden />
+          </Button>
+          <Button
+            variant="ghost"
+            className="mt-1 h-11 w-full rounded-2xl font-semibold text-muted-foreground animate-in fade-in fill-mode-backwards delay-700 duration-700"
+            onClick={() => semPlano.mutate()}
+            disabled={semPlano.isPending}
+          >
+            {semPlano.isPending && <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />}
+            Começar sem um plano
           </Button>
         </div>
       </div>

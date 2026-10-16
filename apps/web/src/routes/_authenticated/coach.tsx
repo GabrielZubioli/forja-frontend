@@ -146,10 +146,6 @@ function CoachPage() {
                   <ArrowUp className="size-5" aria-hidden />
                 </span>
               </div>
-              <p id="aviso-ia" className="mt-1.5 px-1 text-center text-[11px] leading-relaxed text-muted-foreground">
-                Perguntas personalizadas ainda não estão disponíveis: o treinador não usa IA. Use as
-                perguntas rápidas — elas respondem com os seus dados.
-              </p>
             </div>
           </div>
         </div>

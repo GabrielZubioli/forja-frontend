@@ -16,15 +16,11 @@ import { cn } from "@/lib/utils";
  *
  * ## Sobre o idioma das instruções
  *
- * A fonte dos 1.324 exercícios traz o passo a passo em dez idiomas, e nenhum
- * deles é português. As instruções em inglês ficam numa coluna separada
- * (`execution_en`) e são exibidas **rotuladas como inglês**.
- *
- * A alternativa seria traduzir automaticamente. Não foi feito de propósito:
- * texto de execução com carga é onde errar tem consequência física, e uma
- * tradução automática de "keep your back neutral and hinge at the hips" tem
- * chance real de sair como instrução perigosa. Rótulo honesto é melhor que
- * tradução plausível e errada.
+ * O passo a passo em português fica em `execution` — no catálogo, escrito a
+ * partir do texto original revisando cada passo, sem tradução automática
+ * (instrução de execução com carga é onde errar tem consequência física). O
+ * original em inglês continua em `instructions`/`execution_en` e só aparece,
+ * **rotulado como inglês**, se faltar a versão em português.
  */
 export type ExerciseHowToData = {
   name: string;
@@ -34,7 +30,7 @@ export type ExerciseHowToData = {
   level: string | null;
   mechanic: string | null;
   execution: string[] | null;
-  /** Texto corrido em português, do catálogo curado. */
+  /** Texto original da fonte importada, em inglês. */
   instructions: string | null;
   execution_en: string[] | null;
   cues: string[] | null;
@@ -50,31 +46,34 @@ export type ExerciseHowToData = {
 
 export function ExerciseHowTo({ exercise }: { exercise: ExerciseHowToData }) {
   /*
-   * Ordem de preferência das instruções:
-   *
-   * 1. `execution` — passo a passo estruturado em português (61 exercícios do
-   *    núcleo curado). É o melhor formato: numerado e escaneável.
-   * 2. `instructions` — texto corrido em português (868 exercícios). Menos
-   *    estruturado, mas é português escrito por gente.
-   * 3. `execution_en` — passo a passo em inglês, da fonte importada.
-   *
-   * O português vem antes do inglês mesmo quando o formato é pior: um texto
-   * corrido que a pessoa entende vale mais que uma lista numerada que ela não
-   * lê.
+   * Ordem de preferência: `execution` (passo a passo em português) e, só na
+   * falta dele, o original em inglês — em passos (`execution_en`) ou corrido
+   * (`instructions`), sempre com o rótulo "em inglês".
    */
   const passosPt = exercise.execution ?? [];
-  const textoPt = exercise.instructions?.trim() ?? "";
   const passosEn = exercise.execution_en ?? [];
+  const textoEn = exercise.instructions?.trim() ?? "";
 
-  const passos = passosPt.length > 0 ? passosPt : textoPt ? [] : passosEn;
-  const emIngles = passos === passosEn && passosEn.length > 0;
-  const mostrarTextoCorrido = passosPt.length === 0 && textoPt.length > 0;
+  const passos = passosPt.length > 0 ? passosPt : passosEn;
+  const emIngles = passosPt.length === 0 && (passosEn.length > 0 || textoEn.length > 0);
+  const mostrarTextoCorrido = passosPt.length === 0 && passosEn.length === 0 && textoEn.length > 0;
 
   return (
     <div className="space-y-3">
       {mostrarTextoCorrido && (
-        <Bloco titulo="Execução" icone={<ListOrdered className="size-4" aria-hidden />}>
-          <p className="whitespace-pre-line text-[15px] leading-relaxed">{textoPt}</p>
+        <Bloco
+          titulo="Execução"
+          icone={<ListOrdered className="size-4" aria-hidden />}
+          extra={
+            <Badge variant="warning" className="normal-case tracking-normal">
+              <Languages aria-hidden />
+              em inglês
+            </Badge>
+          }
+        >
+          <p className="whitespace-pre-line text-[15px] leading-relaxed" lang="en">
+            {textoEn}
+          </p>
         </Bloco>
       )}
 
@@ -207,7 +206,10 @@ function ListaComIcone({
       <ul className="space-y-1.5">
         {itens.map((item) => (
           <li key={item} className="flex gap-2.5 text-[15px] leading-relaxed">
-            <span className="mt-2.5 size-1.5 shrink-0 rounded-full bg-muted-foreground" aria-hidden />
+            <span
+              className="mt-2.5 size-1.5 shrink-0 rounded-full bg-muted-foreground"
+              aria-hidden
+            />
             {item}
           </li>
         ))}

@@ -344,7 +344,7 @@ function AuthLayout() {
 
       <CommandPalette />
       <TrainLaunchOverlay fase={fase} cor={cor} />
-      <Tutorial userId={userId} enabled={pathname === "/dashboard"} />
+      <Tutorial userId={userId} enabled={pathname === "/dashboard" && !sessao} />
     </div>
   );
 }

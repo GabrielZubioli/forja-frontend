@@ -264,6 +264,7 @@ export function WeeklyMenu() {
                       type="button"
                       className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/12 text-primary hover:bg-primary/20"
                       aria-label={`Adicionar em ${nome} de ${nomeDia.toLowerCase()}`}
+                      data-tour="cardapio-adicionar"
                     >
                       <Plus className="size-5" />
                     </button>
